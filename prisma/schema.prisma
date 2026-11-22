@@ -61,6 +61,8 @@ model Sucursal {
   comprobantes    ComprobanteElectronico[]
   mesas           Mesa[]
   compras         Compra[]
+  comandas        Comanda[]
+  secuencialComanda Int @default(0)           // Último número de comanda emitido
 
   @@unique([empresaId, codigo])
 }
@@ -254,6 +256,7 @@ model Producto {
   codigoIvaSRI     String   @default("2")
   tieneVencimiento Boolean  @default(false)
   requiereLote     Boolean  @default(false)
+  destinoPreparacion String @default("COCINA")        // Restaurante: COCINA | BARRA
   principioActivo  String?                            // Farmacia
   concentracion    String?                            // Farmacia
   formaFarmaceutica String?                           // Farmacia
@@ -428,6 +431,7 @@ model Venta {
   descuento       Float    @default(0)
   iva             Float    @default(0)
   total           Float    @default(0)
+  propina         Float    @default(0)            // Propina/servicio: no gravada, se suma al valor a pagar
   motivoAnulacion String?
   fechaAnulacion  DateTime?
   anuladaPorId    String?                        // Usuario que anuló
@@ -444,6 +448,7 @@ model Venta {
   pagos        PagoVenta[]
   comprobante  ComprobanteElectronico?
   cuentaPorCobrar CuentaPorCobrar?
+  cobroComanda CobroComanda?
 
   @@unique([puntoEmisionId, numero])
   @@index([sucursalId, createdAt])
@@ -551,7 +556,8 @@ model Mesa {
   nombre      String                             // "Mesa 1" | "Barra 2" | "Terraza A"
   capacidad   Int      @default(4)
   zona        String   @default("SALON")
-  estado      String   @default("LIBRE")        // LIBRE | OCUPADA | RESERVADA | CERRADA
+  estado      String   @default("LIBRE")        // LIBRE | OCUPADA | RESERVADA
+  status      String   @default("ACTIVO")       // ACTIVO | INACTIVO (la mesa existe en el plano)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -561,34 +567,69 @@ model Mesa {
   @@unique([sucursalId, numero])
 }
 
+/// Cuenta de una mesa. Solo puede haber UNA comanda ABIERTA por mesa (se valida en el servicio).
 model Comanda {
-  id           String   @id @default(uuid())
-  mesaId       String
-  meseroId     String?
-  estado       String   @default("ABIERTA")     // ABIERTA | EN_COCINA | LISTA | ENTREGADA | CERRADA
-  observaciones String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id             String    @id @default(uuid())
+  sucursalId     String
+  numero         Int                                   // Consecutivo por sucursal
+  mesaId         String
+  meseroId       String?
+  comensales     Int       @default(1)
+  estado         String    @default("ABIERTA")         // ABIERTA | CERRADA | ANULADA | UNIDA
+  observaciones  String?
+  divisionPartes Int?                                  // Si se cobra en partes iguales: nº total de partes
+  motivoAnulacion String?
+  fechaCierre    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  mesa  Mesa         @relation(fields: [mesaId], references: [id])
-  items ItemComanda[]
+  sucursal Sucursal       @relation(fields: [sucursalId], references: [id])
+  mesa     Mesa           @relation(fields: [mesaId], references: [id])
+  items    ItemComanda[]
+  cobros   CobroComanda[]
+
+  @@unique([sucursalId, numero])
+  @@index([mesaId, estado])
 }
 
 model ItemComanda {
-  id           String   @id @default(uuid())
-  comandaId    String
-  productoId   String
-  cantidad     Float
-  precioUnitario Float
-  descuento    Float    @default(0)
-  total        Float
-  estado       String   @default("PENDIENTE")   // PENDIENTE | EN_PREPARACION | LISTO | ENTREGADO | CANCELADO
-  observaciones String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id             String    @id @default(uuid())
+  comandaId      String
+  productoId     String
+  cantidad       Float
+  precioUnitario Float                                 // Precio pactado al pedir (sin IVA)
+  descuento      Float     @default(0)
+  total          Float                                 // cantidad × precio − descuento (sin IVA)
+  estado         String    @default("PENDIENTE")       // PENDIENTE | EN_PREPARACION | LISTO | ENTREGADO | CANCELADO
+  destino        String    @default("COCINA")          // COCINA | BARRA (copiado del producto al pedir)
+  envio          Int       @default(0)                 // Nº de envío a cocina (0 = aún no enviado)
+  enviadoAt      DateTime?
+  observaciones  String?
+  motivoCancelacion String?
+  cobrado        Boolean   @default(false)
+  ventaId        String?                               // Venta que cobró el ítem (modo por ítems)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   comanda  Comanda  @relation(fields: [comandaId],  references: [id], onDelete: Cascade)
   producto Producto @relation(fields: [productoId], references: [id])
+
+  @@index([estado, destino])
+}
+
+/// Cada cobro (venta) de una comanda: por ítems o una parte de la división en partes iguales.
+model CobroComanda {
+  id         String   @id @default(uuid())
+  comandaId  String
+  ventaId    String   @unique
+  modo       String                                    // ITEMS | PARTE_IGUAL
+  parte      Int?                                      // Nº de parte (solo PARTE_IGUAL)
+  createdAt  DateTime @default(now())
+
+  comanda Comanda @relation(fields: [comandaId], references: [id])
+  venta   Venta   @relation(fields: [ventaId], references: [id])
+
+  @@unique([comandaId, parte])
 }
 
 // ─────────────────────────────────────────────

@@ -7,6 +7,7 @@ import { crearClienteController } from "../controllers/cliente.controller";
 import { crearCuentaController } from "../controllers/cuenta.controller";
 import { crearHealthController } from "../controllers/health.controller";
 import { crearInventarioController } from "../controllers/inventario.controller";
+import { crearRestauranteController } from "../controllers/restaurante.controller";
 import { crearProductoController } from "../controllers/producto.controller";
 import { crearTurnoController } from "../controllers/turno.controller";
 import { crearVentaController } from "../controllers/venta.controller";
@@ -22,6 +23,7 @@ export function registrarRutas(server: FastifyInstance, servicios: Servicios): v
   const turnos = crearTurnoController(servicios);
   const cuentas = crearCuentaController(servicios);
   const inventario = crearInventarioController(servicios);
+  const restaurante = crearRestauranteController(servicios);
 
   // ── Públicas ──────────────────────────────────────────────
   server.get("/api/health", health.estado);
@@ -110,4 +112,32 @@ export function registrarRutas(server: FastifyInstance, servicios: Servicios): v
   server.get<{ Params: { id: string } }>("/api/inventario/productos/:id/kardex", leerInventario, inventario.kardex);
   server.get("/api/inventario/alertas-vencimiento", leerInventario, inventario.alertasVencimiento);
   server.get("/api/inventario/alertas-stock", leerInventario, inventario.alertasStock);
+
+  // ── Restaurante: mesas, comandas, cocina y cobro ──────────
+  // El plano de mesas es configuración (configuracion:actualizar); el servicio es operación (restaurante:*).
+  const planoMesas = permiso("configuracion", "actualizar");
+  const verRestaurante = permiso("restaurante", "leer");
+  const operarRestaurante = permiso("restaurante", "actualizar");
+  const abrirCuentas = permiso("restaurante", "crear");
+  const cobrarCuentas = permiso("ventas", "crear"); // además, el servicio exige restaurante:actualizar
+
+  server.get("/api/mesas", verRestaurante, restaurante.listarMesas);
+  server.post("/api/mesas", planoMesas, restaurante.crearMesa);
+  server.patch<{ Params: { id: string } }>("/api/mesas/:id", planoMesas, restaurante.actualizarMesa);
+  server.post<{ Params: { id: string } }>("/api/mesas/:id/estado", operarRestaurante, restaurante.estadoMesa);
+
+  server.post("/api/comandas", abrirCuentas, restaurante.abrirComanda);
+  server.get("/api/comandas", verRestaurante, restaurante.listarComandas);
+  server.get<{ Params: { id: string } }>("/api/comandas/:id", verRestaurante, restaurante.obtenerComanda);
+  server.post<{ Params: { id: string } }>("/api/comandas/:id/items", abrirCuentas, restaurante.agregarItems);
+  server.post<{ Params: { id: string; itemId: string } }>("/api/comandas/:id/items/:itemId/cancelar", operarRestaurante, restaurante.cancelarItem);
+  server.post<{ Params: { id: string; itemId: string } }>("/api/comandas/:id/items/:itemId/estado", operarRestaurante, restaurante.estadoItem);
+  server.post<{ Params: { id: string } }>("/api/comandas/:id/enviar", operarRestaurante, restaurante.enviar);
+  server.post<{ Params: { id: string } }>("/api/comandas/:id/mover", operarRestaurante, restaurante.mover);
+  server.post<{ Params: { id: string } }>("/api/comandas/:id/unir", operarRestaurante, restaurante.unir);
+  server.get<{ Params: { id: string } }>("/api/comandas/:id/pre-cuenta", verRestaurante, restaurante.preCuenta);
+  server.post<{ Params: { id: string } }>("/api/comandas/:id/cobrar", cobrarCuentas, restaurante.cobrar);
+  server.post<{ Params: { id: string } }>("/api/comandas/:id/anular", permiso("restaurante", "anular"), restaurante.anularComanda);
+
+  server.get("/api/cocina/pendientes", verRestaurante, restaurante.pendientesCocina);
 }

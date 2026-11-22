@@ -3,10 +3,10 @@
 ## Estado General
 - **Proyecto:** VENDEYA POS (Sistema Punto de Venta Multi-Giro & Facturación Electrónica SRI Ecuador)
 - **Horizonte:** 6 Meses (24 Semanas)
-- **Fase Actual:** MES 2 — Semana 8: módulo Restaurantes y suite de integración del núcleo POS
+- **Fase Actual:** MES 3 — Semana 9: Clave de Acceso y XML de comprobantes SRI (Facturas y Notas de Crédito)
 - **Estado de Compilación:** ✅ `tsc --noEmit` → 0 errores | ✅ `tsconfig.node.json` → 0 errores | ✅ `tsconfig.electron.json` → 0 errores
-- **Tests:** ✅ 339/339 passed (21 archivos de prueba)
-- **Último Commit:** `feat: Semana 7 - modulo retail/ferreteria y farmacia`
+- **Tests:** ✅ 434/434 passed (26 archivos de prueba)
+- **Último Commit:** `feat: Semana 8 - modulo restaurantes y suite de integracion del nucleo POS`
 
 ---
 
@@ -22,10 +22,10 @@
 - [x] **Semana 5 (COMPLETADA):** Motor transaccional ACID de ventas, múltiples formas de pago, descuentos, anulaciones y actualización automática de Kardex (costo promedio ponderado).
 - [x] **Semana 6 (COMPLETADA):** Gestión de Turnos y Arqueos de Caja (apertura, ingresos/egresos de efectivo, cierre ciego, cuadre y reportes de turno) + Cuentas por Cobrar y Cuentas por Pagar.
 - [x] **Semana 7 (COMPLETADA):** Módulo Retail/Ferretería (múltiples presentaciones, fraccionamiento, listas de precios, códigos de barras) y Módulo Farmacia (lotes, fechas de caducidad, alertas).
-- [ ] **Semana 8 (ACTUAL):** Módulo Restaurantes (mapa de mesas, cuentas abiertas, división de cuentas, envío de comandas) + Suite completa de pruebas de integración del núcleo POS.
+- [x] **Semana 8 (COMPLETADA):** Módulo Restaurantes (mapa de mesas, cuentas abiertas, división de cuentas, envío de comandas) + Suite completa de pruebas de integración del núcleo POS.
 
 ### MES 3: Motor Tributario SRI Ecuador (100% Offline-First)
-- [ ] **Semana 9:** Generador de Clave de Acceso (49 dígitos, Módulo 11) + Constructor de XML v2.10/v2.30 para Facturas y Notas de Crédito + validación contra esquemas XSD del SRI.
+- [ ] **Semana 9 (ACTUAL):** Generador de Clave de Acceso (49 dígitos, Módulo 11) + Constructor de XML v2.10/v2.30 para Facturas y Notas de Crédito + validación contra esquemas XSD del SRI.
 - [ ] **Semana 10:** Firmador digital XAdES-BES en Node.js compatible con certificados `.p12` de Ecuador + encriptación AES-256-GCM de credenciales del certificado.
 - [ ] **Semana 11:** Cliente SOAP para Web Services del SRI (`RecepcionComprobantesOffline` y `AutorizacionComprobantesOffline` en Pruebas y Producción) + Worker en segundo plano para cola offline (`cola_sri`).
 - [ ] **Semana 12:** Soporte para Retenciones, Guías de Remisión, Liquidaciones de Compra y generador automático de archivo XML del Anexo Transaccional Simplificado (ATS).
@@ -273,9 +273,54 @@ Filtros de listados: `estado`, `clienteId`/`proveedorId`, `vencidas=true|false`,
 
 ---
 
-## Próxima Tarea Exacta (Para ejecutar ahora — Semana 8)
-1. **Módulo Restaurantes** (usa los modelos existentes `Mesa`, `Comanda`, `ItemComanda`; agregar migración con lo que falte, p. ej. destino de preparación `COCINA|BARRA` por producto, número de comanda, `ItemComanda.estado`, división de cuenta): mapa de mesas por zona (`MesaService`: CRUD, estado LIBRE/OCUPADA/RESERVADA, unir/mover mesa), cuentas abiertas (una `Comanda` abierta por mesa con ítems agregables en cualquier momento, mesero asignado, notas por ítem) y envío de comandas a cocina/barra (marca los ítems pendientes como enviados y los agrupa por destino; estados `PENDIENTE → EN_PREPARACION → LISTO → ENTREGADO/CANCELADO`; cancelar un ítem ya enviado exige permiso/motivo). Requiere `moduloMesas` / `moduloComandasCocina` (nuevo flag check en `GiroService`).
-2. **División de cuentas** y cobro: dividir una cuenta abierta por ítems o en partes iguales y cobrar cada parte como una `Venta` independiente reutilizando `VentaService.crear` (stock/Kardex en la venta, no al pedir), con propina opcional (si se agrega, definir tratamiento tributario) y cierre de la mesa al cobrar todo; no permitir cobrar ítems ya cobrados ni cancelados.
-3. Endpoints `/api/mesas`, `/api/comandas` (+ `/enviar`, `/items`, `/dividir`, `/cobrar`) y vista de cocina (`GET /api/cocina/pendientes?destino=`) con permisos coherentes con el RBAC (cajero/mesero) y alcance por empresa/sucursal.
-4. **Suite completa de integración del núcleo POS** (cierre del Mes 2): escenarios extremo a extremo por giro (retail, farmacia, restaurante) que recorran apertura de turno → compras → ventas (efectivo, mixto, crédito) → anulaciones → abonos → cierre ciego y verifiquen invariantes (stock = suma de Kardex = suma de lotes, cuadre de caja, saldos de cartera, secuenciales sin huecos) incluyendo concurrencia; además, tests de regresión del RBAC por endpoint (tabla ruta × rol).
-5. Verificar con `npx tsc --noEmit` y `npm test`; actualizar este archivo y commit `feat: Semana 8 - modulo restaurantes y suite de integracion del nucleo POS`.
+### Semana 8 — 2026-11-24 ✅ COMPLETADA (cierra el MES 2)
+**Esquema (migración `20261124090000_restaurante`):** `Producto.destinoPreparacion` (COCINA|BARRA); `Sucursal.secuencialComanda`; `Mesa.status`; `Comanda` (reescrita: `sucursalId`, `numero` consecutivo por sucursal, `comensales`, `estado` ABIERTA|CERRADA|ANULADA|UNIDA, `divisionPartes`, `motivoAnulacion`, `fechaCierre`); `ItemComanda` (`destino`, `envio`, `enviadoAt`, `motivoCancelacion`, `cobrado`, `ventaId`); nuevo `CobroComanda` (cada venta de una cuenta: modo ITEMS | PARTE_IGUAL, nº de parte); `Venta.propina`. Reconstruye tablas con datos (aplicada sobre la BD de desarrollo y cubierta por la prueba de actualización con datos).
+
+**Archivos creados/modificados:**
+- `comanda.util.ts` (transiciones de ítems, división de cantidades y montos, líneas de cobro), `mesa.service.ts`, `comanda.service.ts` y repositorios `mesa`/`comanda`; `restaurante.controller.ts` + rutas; `restaurante.schema.ts`.
+- `venta.service.ts`: nuevo `crearEnTx(tx, …, { desdeComanda })` (el cobro de una cuenta se compone con el cierre de la mesa en **una** transacción; con el pool de una conexión no se pueden anidar), y `propina` en `crear`.
+- RBAC: nuevo módulo `restaurante` (6 acciones → 60 permisos en total) y roles **MESERO** y **COCINA**; CAJERO recibe `restaurante:leer|crear|actualizar`. `GiroService`: flags `moduloMesas` y `moduloComandasCocina`.
+- `vitest.config.ts`: `testTimeout` 30 s, `hookTimeout` 60 s y máx. 6 procesos (ver Decisiones).
+- Tests nuevos: `comanda.util` (11), `restaurante` (34), `restaurante-api` (14), **suite del núcleo** `nucleo-pos` (12) con `helpers/invariantes.helper.ts`, **matriz RBAC** `rbac-matriz` (23). `seed-services` ajustado a 60 permisos.
+
+**Endpoints nuevos:**
+| Ruta | Permiso |
+|---|---|
+| `POST /api/mesas`, `PATCH /api/mesas/:id` (plano de mesas) | `configuracion:actualizar` (solo ADMIN) |
+| `GET /api/mesas`, `GET /api/comandas[/:id]`, `GET /api/comandas/:id/pre-cuenta?partes=`, `GET /api/cocina/pendientes?destino=&estado=` | `restaurante:leer` |
+| `POST /api/comandas` (abrir), `POST /api/comandas/:id/items` | `restaurante:crear` |
+| `POST /api/mesas/:id/estado`, `…/items/:itemId/cancelar`, `…/items/:itemId/estado`, `…/enviar`, `…/mover`, `…/unir` | `restaurante:actualizar` |
+| `POST /api/comandas/:id/cobrar` | `ventas:crear` (+ `restaurante:actualizar` en el servicio) |
+| `POST /api/comandas/:id/anular` | `restaurante:anular` (supervisor) |
+
+**Reglas de negocio implementadas:**
+- **Cuentas:** una sola comanda ABIERTA por mesa (también bajo concurrencia); abrirla ocupa la mesa; numeración consecutiva por sucursal sin huecos. Los ítems fijan precio y destino al pedir; el IVA y el stock se resuelven al cobrar.
+- **Cocina/barra:** `enviar` pasa los pendientes a EN_PREPARACION y devuelve el ticket agrupado por destino y numerado por envío; `PENDIENTE → EN_PREPARACION → LISTO → ENTREGADO`, sin saltos ni retrocesos. Sin `moduloComandasCocina` no hay envío y un pendiente pasa directo a ENTREGADO.
+- **Cancelaciones:** un ítem pendiente se quita libremente; uno ya enviado exige `restaurante:anular` y motivo ≥5 caracteres. Anular una cuenta exige `restaurante:anular`, no puede tener cobros y deja la mesa libre.
+- **Mover / unir:** mover a una mesa libre de la misma sucursal; unir traslada los ítems a otra cuenta abierta (la origen queda UNIDA).
+- **Cobro por ítems:** cada cobro es una `Venta` independiente a los precios pactados (no necesita permiso de precio); tras un cobro parcial se puede seguir pidiendo; la cuenta se cierra y la mesa se libera al cobrar el último ítem.
+- **Partes iguales:** N ventas, cada una con la fracción de cada ítem (la última absorbe el resto: el stock total descontado es exacto); congela el contenido de la cuenta y no se mezcla con el cobro por ítems. La pre-cuenta simula las partes (los centavos pueden diferir por redondeo por línea).
+- **Propina:** `propina` ≥ 0 en ventas y cobros: **no lleva IVA**, se suma al valor a pagar (los pagos deben cubrir total + propina) y su efectivo entra al arqueo del turno. Se guarda en `Venta.propina`; en la Semana 9 se mapea al campo `propina` de la factura electrónica (verificar con la ficha técnica vigente del SRI).
+- Todo cobro falla sin dejar rastro (stock insuficiente, sin turno, punto de emisión de otra sucursal, sin permiso): la cuenta sigue abierta, sin ítems cobrados ni divisiones a medias, y el secuencial no se consume.
+
+**Suite de integración del núcleo POS (`nucleo-pos.test.ts`):** escenarios extremo a extremo por giro (Retail, Farmacia, Restaurante) + concurrencia mixta (~90 operaciones simultáneas: ventas con sobreventa imposible, anulaciones duplicadas, abonos, compras, ajustes, movimientos de caja) + una **meta-prueba** que corrompe datos a propósito y comprueba que el verificador lo detecta. `verificarInvariantes` comprueba: stock = cadena de Kardex; stock = suma de lotes; lotes 0 ≤ actual ≤ inicial; secuenciales de venta y de comanda sin huecos ni duplicados; cada venta cuadra (subtotal/IVA/total = líneas; pagos netos = total + propina; cambio solo en efectivo); Kardex coherente con cada venta y su anulación; cuadre de caja (esperado recalculado = sistema; arqueo guardado coherente); cartera (saldo = total − pagos, estados); mesas (OCUPADA ⇔ cuenta abierta; una cuenta abierta por mesa; cuentas cerradas sin ítems por cobrar).
+
+**Matriz RBAC (`rbac-matriz.test.ts`):** una tabla con las 69 rutas × 7 roles. Falla si se añade una ruta sin cubrir (compara contra las rutas realmente registradas mediante un hook `onRoute`), si cambia un permiso de rol (están fijados a mano) o si alguna ruta responde 401/403/5xx donde no corresponde. **Al añadir una ruta nueva hay que agregarla a `RUTAS` en ese archivo.**
+
+**Decisiones Técnicas / Limitaciones conocidas:**
+- **Suite intermitente por CPU:** la primera corrida tras compilar tardó 92 s y 5 pruebas superaron el límite de 5 s; la siguiente pasó completa. Causa: ~11 procesos simultáneos, cada uno con su motor de Prisma. Solución: `testTimeout` 30 s, `hookTimeout` 60 s y `maxForks` 6; 3 corridas consecutivas 434/434 (34–62 s según la carga de la máquina).
+- La unicidad "una cuenta ABIERTA por mesa" se garantiza en el servicio (válido con el pool de una conexión de SQLite). Para el modo Multicaja con PostgreSQL (Semana 14) hay que añadir un índice único parcial (`WHERE estado = 'ABIERTA'`); Prisma no lo expresa en el esquema, por lo que irá como SQL manual en la migración (y `migrate diff` deberá ignorarlo).
+- Un plato `BIEN` sin stock puede pedirse y falla al cobrarse (no se valida disponibilidad al pedir; no hay recetas/insumos).
+- El cobro en partes iguales usa cantidades fraccionarias aunque la unidad no lo permita (solo vía comanda, no por HTTP directo a `/api/ventas`).
+- Siguen vigentes las limitaciones de la Semana 6 (anular una venta de un turno ya cerrado no genera egreso en el turno actual; sin anulación de compras).
+
+**Verificación:** `tsc --noEmit` (3 tsconfig) ✅ 0 errores | `npx vitest run` ✅ 434/434 (26 archivos), 3 corridas consecutivas.
+
+---
+
+## Próxima Tarea Exacta (Para ejecutar ahora — Semana 9)
+1. **Clave de Acceso** (`src/server/services/sri/claveAcceso.util.ts`): 49 dígitos = fecha de emisión `ddMMyyyy` (8) + tipo de comprobante (2) + RUC (13) + ambiente (1) + serie (6: sucursal+punto) + secuencial (9) + código numérico (8) + tipo de emisión (1) + dígito verificador **Módulo 11** (1). Con validación de cada campo, función inversa (`parsearClaveAcceso`) y pruebas con vectores conocidos del Manual SRI (incluyendo los casos de resultado 10 → 1 y 11 → 0).
+2. **Constructor de XML** (`xmlbuilder2`) de **Factura** y **Nota de Crédito** v2.10 (y v2.30 si aplica según la ficha técnica vigente): `infoTributaria`, `infoFactura` (incluye `propina`, `totalConImpuestos`, `pagos` con los códigos de forma de pago del SRI), `detalles` (impuestos por línea, descuentos), `infoAdicional`; mapeo desde `Venta`/`LineaVenta`/`PagoVenta`/`Cliente`/`Empresa` (códigos de identificación del comprador, IVA 0/5/15 %, no objeto/exento, Consumidor Final). Redondeos exactos a 2 decimales y coherencia importeTotal = totalSinImpuestos + impuestos + propina.
+3. **Validación XSD** de los comprobantes generados contra los esquemas oficiales del SRI (guardarlos en `src/server/services/sri/xsd/`; son los publicados en la ficha técnica de comprobantes electrónicos — obtenerlos del SRI, no inventarlos); elegir un validador XSD para Node que no requiera compilación nativa (o aislar la validación) y reportar errores con la ruta del nodo.
+4. **Integración con ventas:** crear el `ComprobanteElectronico` (estado PENDIENTE) y su registro en `ColaSRI` de forma transaccional al emitir una venta con `emitirFactura` (hoy el campo se acepta y se ignora), con secuencial propio del comprobante por punto de emisión y tipo, `claveAcceso` única, ambiente de la empresa y sin bloquear nunca la venta si falla la generación. **Notas de crédito** para anular ventas con factura AUTORIZADA (resuelve la restricción actual de `VentaService.anular`).
+5. Pruebas unitarias (clave de acceso, redondeos, mapeos) e integración (venta → comprobante PENDIENTE → XML válido contra XSD; nota de crédito; reintento idempotente), actualizar la matriz RBAC si se agregan rutas, verificar con `npx tsc --noEmit` y `npm test`; actualizar este archivo y commit `feat: Semana 9 - clave de acceso, XML y validacion XSD de comprobantes SRI`.

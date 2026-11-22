@@ -64,6 +64,7 @@ describe("Prisma Client — Modelos generados", () => {
     "presentacionProducto",
     "listaPrecio",
     "precioProducto",
+    "cobroComanda",
   ] as const;
 
   it.each(modelosEsperados)(

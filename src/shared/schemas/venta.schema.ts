@@ -34,6 +34,8 @@ export const VentaInputSchema = z.object({
   clienteNombre:    z.string().max(300).optional().nullable(),
   lineas:           z.array(LineaVentaInputSchema).min(1, "La venta debe tener al menos una línea"),
   pagos:            z.array(PagoVentaInputSchema).min(1,  "La venta debe tener al menos un pago"),
+  /** Propina/servicio: no gravada con IVA; se suma al valor a pagar */
+  propina:          z.number().nonnegative().max(100_000).default(0),
   emitirFactura:    z.boolean().default(false),
   observaciones:    z.string().max(300).optional().nullable(),
 });

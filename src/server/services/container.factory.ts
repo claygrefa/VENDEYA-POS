@@ -11,12 +11,15 @@ import { EmpresaRepository } from "../repositories/empresa.repository";
 import { KardexRepository } from "../repositories/kardex.repository";
 import { ListaPrecioRepository } from "../repositories/listaPrecio.repository";
 import { LoteRepository } from "../repositories/lote.repository";
+import { MesaRepository } from "../repositories/mesa.repository";
+import { ComandaRepository } from "../repositories/comanda.repository";
 import { PresentacionRepository } from "../repositories/presentacion.repository";
 import { ProductoRepository } from "../repositories/producto.repository";
 import { TurnoRepository } from "../repositories/turno.repository";
 import { UsuarioRepository } from "../repositories/usuario.repository";
 import { VentaRepository } from "../repositories/venta.repository";
 import { ClienteService } from "./cliente.service";
+import { ComandaService } from "./comanda.service";
 import { CompraService } from "./compra.service";
 import { CuentaPorCobrarService } from "./cuentaPorCobrar.service";
 import { CuentaPorPagarService } from "./cuentaPorPagar.service";
@@ -26,6 +29,7 @@ import { InventarioService } from "./inventario.service";
 import { KardexService } from "./kardex.service";
 import { ListaPrecioService } from "./listaPrecio.service";
 import { LoteService } from "./lote.service";
+import { MesaService } from "./mesa.service";
 import { PresentacionService } from "./presentacion.service";
 import { ProductoService } from "./producto.service";
 import { SessionService } from "./session.service";
@@ -50,6 +54,8 @@ export interface Servicios {
   presentaciones: PresentacionService;
   listasPrecio: ListaPrecioService;
   inventario: InventarioService;
+  mesas: MesaService;
+  comandas: ComandaService;
   sesiones: SessionService;
 }
 
@@ -62,6 +68,7 @@ export function crearServicios(prisma: PrismaClient, sesiones: SessionService = 
   const productos = new ProductoService(new ProductoRepository(prisma));
   const turnoRepo = new TurnoRepository();
   const cuentasPorCobrar = new CuentaPorCobrarService(prisma, new CuentaPorCobrarRepository(), turnoRepo);
+  const ventas = new VentaService(prisma, new VentaRepository(), kardex, cuentasPorCobrar);
   const cuentasPorPagar = new CuentaPorPagarService(prisma, new CuentaPorPagarRepository(), turnoRepo);
 
   return {
@@ -71,7 +78,7 @@ export function crearServicios(prisma: PrismaClient, sesiones: SessionService = 
     productos,
     clientes: new ClienteService(new ClienteRepository(prisma)),
     kardex,
-    ventas: new VentaService(prisma, new VentaRepository(), kardex, cuentasPorCobrar),
+    ventas,
     turnos: new TurnoService(prisma, turnoRepo),
     compras: new CompraService(prisma, new CompraRepository(), kardex, cuentasPorPagar, lotes, giro),
     cuentasPorCobrar,
@@ -81,6 +88,8 @@ export function crearServicios(prisma: PrismaClient, sesiones: SessionService = 
     presentaciones: new PresentacionService(prisma, new PresentacionRepository()),
     listasPrecio: new ListaPrecioService(prisma, new ListaPrecioRepository(), giro),
     inventario: new InventarioService(prisma, productos, lotes, loteRepo, kardex, kardexRepo, giro),
+    mesas: new MesaService(prisma, new MesaRepository(), giro),
+    comandas: new ComandaService(prisma, new ComandaRepository(), giro, ventas),
     sesiones,
   };
 }

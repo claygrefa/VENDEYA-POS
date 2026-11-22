@@ -5,7 +5,7 @@ import { z } from "zod";
 
 export const UsuarioSchema = z.object({
   empresaId: z.string().uuid(),
-  rol:       z.enum(["ADMIN", "SUPERVISOR", "CAJERO", "BODEGUERO", "CONTADOR"]),
+  rol:       z.enum(["ADMIN", "SUPERVISOR", "CAJERO", "BODEGUERO", "CONTADOR", "MESERO", "COCINA"]),
   username:  z.string().trim().min(3).max(50).regex(/^[a-zA-Z0-9._-]+$/, "Solo letras, números, punto, guion y guion bajo"),
   password:  z.string().min(8, "La contraseña debe tener al menos 8 caracteres").max(100),
   nombre:    z.string().trim().min(1).max(100),

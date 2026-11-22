@@ -65,6 +65,8 @@ export interface OpcionesProducto {
   tieneVencimiento?: boolean;
   stockMinimo?: number;
   principioActivo?: string;
+  /** Restaurante: COCINA (default) o BARRA */
+  destino?: "COCINA" | "BARRA";
 }
 
 export async function crearProducto(env: Entorno, o: OpcionesProducto): Promise<Producto> {
@@ -84,6 +86,7 @@ export async function crearProducto(env: Entorno, o: OpcionesProducto): Promise<
     ...(o.tieneVencimiento !== undefined ? { tieneVencimiento: o.tieneVencimiento } : {}),
     ...(o.stockMinimo !== undefined ? { stockMinimo: o.stockMinimo } : {}),
     ...(o.principioActivo !== undefined ? { principioActivo: o.principioActivo } : {}),
+    ...(o.destino !== undefined ? { destinoPreparacion: o.destino } : {}),
   });
   // Los productos con lote reciben su stock a través de lotes (ver crearLote)
   if (o.stock !== undefined && o.stock > 0 && o.requiereLote !== true) {
@@ -147,7 +150,13 @@ const DIA_MS = 86_400_000;
 /** Activa/desactiva módulos del giro (feature flags) de la empresa del seed. */
 export function configurarGiro(
   env: Entorno,
-  flags: { moduloLotes?: boolean; moduloVencimientos?: boolean; moduloListasPrecios?: boolean }
+  flags: {
+    moduloLotes?: boolean;
+    moduloVencimientos?: boolean;
+    moduloListasPrecios?: boolean;
+    moduloMesas?: boolean;
+    moduloComandasCocina?: boolean;
+  }
 ) {
   return env.prisma.configuracionGiro.update({ where: { empresaId: env.seed.empresaId }, data: flags });
 }

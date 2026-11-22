@@ -7,12 +7,12 @@ import { hashPassword } from "../src/server/services/password.util";
 import { TARIFAS_IVA, CONSUMIDOR_FINAL } from "../src/shared/constants/sri.constants";
 import { FEATURE_FLAGS_POR_GIRO, type GiroNegocio } from "../src/shared/types/feature-flags.types";
 
-export const ROLES_BASE = ["ADMIN", "SUPERVISOR", "CAJERO", "BODEGUERO", "CONTADOR"] as const;
+export const ROLES_BASE = ["ADMIN", "SUPERVISOR", "CAJERO", "BODEGUERO", "CONTADOR", "MESERO", "COCINA"] as const;
 type RolBase = (typeof ROLES_BASE)[number];
 
 const MODULOS = [
   "ventas", "caja", "inventario", "clientes", "proveedores",
-  "reportes", "sri", "configuracion", "usuarios",
+  "reportes", "sri", "configuracion", "usuarios", "restaurante",
 ] as const;
 const ACCIONES = ["crear", "leer", "actualizar", "eliminar", "anular", "exportar"] as const;
 
@@ -22,11 +22,19 @@ const PERMISOS_POR_ROL: Record<RolBase, (clave: string) => boolean> = {
   SUPERVISOR: (p) =>
     !p.startsWith("usuarios:") && !p.startsWith("configuracion:") && !p.endsWith(":eliminar"),
   CAJERO: (p) =>
-    ["ventas:crear", "ventas:leer", "caja:crear", "caja:leer", "clientes:crear", "clientes:leer", "inventario:leer"].includes(p),
+    [
+      "ventas:crear", "ventas:leer", "caja:crear", "caja:leer", "clientes:crear", "clientes:leer", "inventario:leer",
+      "restaurante:leer", "restaurante:crear", "restaurante:actualizar",
+    ].includes(p),
   BODEGUERO: (p) =>
     p.startsWith("inventario:") || (p.startsWith("proveedores:") && !p.endsWith(":eliminar")),
   CONTADOR: (p) =>
     p.startsWith("reportes:") || ["sri:leer", "sri:exportar", "ventas:leer", "ventas:exportar"].includes(p),
+  // Mesero: toma pedidos, los envía y entrega; ve el menú y los clientes. No cobra ni anula.
+  MESERO: (p) =>
+    ["restaurante:leer", "restaurante:crear", "restaurante:actualizar", "inventario:leer", "clientes:leer"].includes(p),
+  // Cocina/barra: ve los pedidos pendientes y los marca como listos.
+  COCINA: (p) => ["restaurante:leer", "restaurante:actualizar"].includes(p),
 };
 
 const DESCRIPCION_ROL: Record<RolBase, string> = {
@@ -35,6 +43,8 @@ const DESCRIPCION_ROL: Record<RolBase, string> = {
   CAJERO: "Cajero: ventas y operación de caja",
   BODEGUERO: "Bodeguero: inventario y proveedores",
   CONTADOR: "Contador: reportes y comprobantes SRI",
+  MESERO: "Mesero: toma pedidos y atiende mesas",
+  COCINA: "Cocina/barra: prepara y marca pedidos como listos",
 };
 
 const UNIDADES = [

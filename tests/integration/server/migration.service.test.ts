@@ -152,13 +152,14 @@ describe("MigrationService", () => {
   });
 
   it("actualiza una BD existente con datos: conserva filas y hace el backfill de la migración retail/farmacia", async () => {
-    // 1) Estado anterior: todas las migraciones menos la última
+    // 1) Estado anterior: todas las migraciones anteriores a retail_farmacia (esta y las siguientes se aplican sobre datos)
     const todas = readdirSync(MIGRACIONES_REALES, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name).sort();
-    const ultima = todas[todas.length - 1] as string;
-    expect(ultima).toContain("retail_farmacia");
+    const desde = todas.findIndex((n) => n.includes("retail_farmacia"));
+    expect(desde).toBeGreaterThan(0);
+    const nuevas = todas.slice(desde);
     const previas = path.join(dir, "migraciones-previas");
     cpSync(MIGRACIONES_REALES, previas, { recursive: true });
-    rmSync(path.join(previas, ultima), { recursive: true });
+    for (const n of nuevas) rmSync(path.join(previas, n), { recursive: true });
     await servicio(previas).migrar();
 
     // 2) Datos de la versión anterior (sin FK: solo interesa el contenido de las tablas reconstruidas)
@@ -176,7 +177,7 @@ describe("MigrationService", () => {
 
     // 3) Se aplica la migración nueva sobre la BD con datos (hay respaldo previo)
     const r = await servicio().migrar();
-    expect(r.aplicadas).toEqual([ultima]);
+    expect(r.aplicadas).toEqual(nuevas);
     expect(r.respaldo).not.toBeNull();
 
     const lineas = await prisma.$queryRawUnsafe<Array<Record<string, number | string | null>>>(`SELECT * FROM "LineaVenta"`);

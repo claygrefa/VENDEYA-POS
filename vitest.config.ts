@@ -5,6 +5,13 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "node",
+    // Las pruebas de integración levantan un backend real con SQLite y su propio motor de Prisma.
+    // Con el límite por defecto (5 s) fallaban de forma intermitente por contención de CPU al correr
+    // decenas de archivos a la vez; estos valores siguen detectando bloqueos reales (el pool de BD es de 60 s).
+    testTimeout: 30_000,
+    hookTimeout: 60_000,
+    pool: "forks",
+    poolOptions: { forks: { maxForks: 6, minForks: 1 } },
     include: ["tests/**/*.{test,spec}.ts", "tests/**/*.{test,spec}.tsx"],
     exclude: ["node_modules", "dist", "dist-electron", "release"],
     coverage: {

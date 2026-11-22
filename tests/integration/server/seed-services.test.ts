@@ -64,9 +64,9 @@ afterAll(async () => {
 describe("runSeed", () => {
   it("crea roles, permisos y asignaciones RBAC", async () => {
     expect(await prisma.rol.count()).toBe(ROLES_BASE.length);
-    expect(await prisma.permiso.count()).toBe(54);
+    expect(await prisma.permiso.count()).toBe(60);
     const admin = await prisma.rol.findUniqueOrThrow({ where: { nombre: "ADMIN" }, include: { permisos: true } });
-    expect(admin.permisos).toHaveLength(54);
+    expect(admin.permisos).toHaveLength(60);
     const cajero = await prisma.rol.findUniqueOrThrow({ where: { nombre: "CAJERO" }, include: { permisos: true } });
     expect(cajero.permisos.length).toBeGreaterThan(0);
     expect(cajero.permisos.length).toBeLessThan(admin.permisos.length);
@@ -99,7 +99,7 @@ describe("runSeed", () => {
     expect(segundo).toEqual(seed);
     expect(await prisma.empresa.count()).toBe(1);
     expect(await prisma.usuario.count({ where: { username: "admin" } })).toBe(1);
-    expect(await prisma.permiso.count()).toBe(54);
+    expect(await prisma.permiso.count()).toBe(60);
     expect(await prisma.categoria.count({ where: { nombre: "General" } })).toBe(1);
   });
 });

@@ -28,6 +28,7 @@ export interface NuevaVenta {
   descuento: number;
   iva: number;
   total: number;
+  propina: number;
   observaciones: string | null;
   lineas: Array<Omit<Prisma.LineaVentaUncheckedCreateWithoutVentaInput, "id">>;
   pagos: Array<Omit<Prisma.PagoVentaUncheckedCreateWithoutVentaInput, "id" | "createdAt">>;
