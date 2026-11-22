@@ -1,15 +1,17 @@
 // ============================================================
 // src/server/services/venta.service.ts — Motor transaccional ACID de ventas
 // ============================================================
-import type { PrismaClient } from "@prisma/client";
+import type { Cliente, PrismaClient } from "@prisma/client";
 import { CONSUMIDOR_FINAL } from "../../shared/constants/sri.constants";
 import { AnularVentaSchema, VentaInputSchema } from "../../shared/schemas/venta.schema";
 import type { Db } from "../repositories/kardex.repository";
 import type { VentaCompleta, VentaRepository } from "../repositories/venta.repository";
 import { AppError } from "./appError.util";
+import type { CuentaPorCobrarService } from "./cuentaPorCobrar.service";
 import type { KardexService } from "./kardex.service";
+import { resolverPorcentajeIva } from "./impuesto.util";
 import { parsear } from "./validation.util";
-import { calcularLinea, calcularTotales, distribuirPagos, round4 } from "./ventaCalculo.util";
+import { calcularLinea, calcularTotales, distribuirPagos, round2, round4 } from "./ventaCalculo.util";
 
 /** Usuario que ejecuta la operación (proviene de la sesión). */
 export interface ActorVenta {
@@ -27,7 +29,8 @@ export class VentaService {
   constructor(
     private readonly prisma: PrismaClient,
     private readonly repo: VentaRepository,
-    private readonly kardex: KardexService
+    private readonly kardex: KardexService,
+    private readonly cuentasPorCobrar: CuentaPorCobrarService
   ) {}
 
   /**
@@ -60,12 +63,14 @@ export class VentaService {
       const productos = new Map((await this.repo.productosPorIds(tx, idsProducto)).map((p) => [p.id, p]));
       const tarifas = await this.repo.tarifasIva(tx, actor.empresaId);
 
+      let clienteRegistrado: Cliente | null = null;
       let clienteId: string | null = null;
       let clienteRuc: string = datos.clienteRuc ?? CONSUMIDOR_FINAL.identificacion;
       let clienteNombre: string = datos.clienteNombre ?? CONSUMIDOR_FINAL.razonSocial;
       if (datos.clienteId != null) {
         const cliente = await this.repo.cliente(tx, datos.clienteId);
         if (cliente === null || cliente.status !== "ACTIVO") throw new AppError("NO_ENCONTRADO", "Cliente no encontrado");
+        clienteRegistrado = cliente;
         clienteId = cliente.id;
         clienteRuc = cliente.identificacion;
         clienteNombre = cliente.razonSocial;
@@ -81,7 +86,7 @@ export class VentaService {
         if (producto.status !== "ACTIVO") {
           throw new AppError("VALIDACION", `El producto "${producto.nombre}" está inactivo`);
         }
-        const porcentajeIva = this.resolverIva(producto, tarifas);
+        const porcentajeIva = resolverPorcentajeIva(producto, tarifas);
         const calculo = calcularLinea({
           cantidad: l.cantidad,
           precioUnitario: l.precioUnitario,
@@ -131,6 +136,17 @@ export class VentaService {
         })),
       });
 
+      // 5b) Venta a crédito: genera la cuenta por cobrar (valida el límite de crédito)
+      const montoCredito = round2(datos.pagos.filter((p) => p.formaPago === "CREDITO").reduce((acc, p) => acc + p.monto, 0));
+      if (montoCredito > 0 && clienteRegistrado !== null) {
+        await this.cuentasPorCobrar.generarPorVenta(tx, {
+          ventaId: venta.id,
+          cliente: clienteRegistrado,
+          monto: montoCredito,
+          fecha: venta.createdAt,
+        });
+      }
+
       // 6) Inventario: lote (si aplica) y Kardex. Falla de stock → rollback total.
       for (const c of calculadas) {
         if (c.producto.tipo !== "BIEN") continue;
@@ -169,6 +185,9 @@ export class VentaService {
         );
       }
 
+      // Venta a crédito: anula su cuenta por cobrar (falla si ya tiene abonos)
+      await this.cuentasPorCobrar.anularPorVenta(tx, venta.id);
+
       const tipos = new Map((await this.repo.productosTipo(tx, venta.lineas.map((l) => l.productoId))).map((p) => [p.id, p.tipo]));
       for (const l of venta.lineas) {
         if (tipos.get(l.productoId) !== "BIEN") continue;
@@ -193,24 +212,6 @@ export class VentaService {
   }
 
   // ── Internos ───────────────────────────────────────────────
-
-  private resolverIva(
-    producto: { nombre: string; aplicaIva: boolean; codigoIvaSRI: string; tarifaImpuesto: { porcentaje: number; vigente: boolean } | null },
-    tarifas: Map<string, number>
-  ): number {
-    if (producto.tarifaImpuesto !== null) {
-      if (!producto.tarifaImpuesto.vigente) {
-        throw new AppError("VALIDACION", `La tarifa de impuesto de "${producto.nombre}" ya no está vigente`);
-      }
-      return producto.tarifaImpuesto.porcentaje;
-    }
-    if (!producto.aplicaIva) return 0;
-    const porcentaje = tarifas.get(producto.codigoIvaSRI);
-    if (porcentaje === undefined) {
-      throw new AppError("VALIDACION", `No hay tarifa de IVA vigente con código ${producto.codigoIvaSRI} para "${producto.nombre}"`);
-    }
-    return porcentaje;
-  }
 
   private async descontarLote(db: Db, loteId: string, productoId: string, cantidad: number): Promise<void> {
     const lote = await this.repo.lote(db, loteId);

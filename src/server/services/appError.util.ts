@@ -10,7 +10,9 @@ export type CodigoError =
   | "USUARIO_INACTIVO"
   | "STOCK_INSUFICIENTE"
   | "TURNO_REQUERIDO"
-  | "ESTADO_INVALIDO";
+  | "ESTADO_INVALIDO"
+  | "LIMITE_CREDITO_EXCEDIDO"
+  | "SIN_PERMISO";
 
 export class AppError extends Error {
   public readonly codigo: CodigoError;

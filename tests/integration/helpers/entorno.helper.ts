@@ -5,11 +5,12 @@
 import { mkdtempSync, rmSync } from "fs";
 import os from "os";
 import path from "path";
-import type { Producto, PrismaClient, TurnoCaja } from "@prisma/client";
+import type { Producto, PrismaClient, Proveedor, TurnoCaja } from "@prisma/client";
 import { runSeed, type SeedResult } from "../../../prisma/seed";
 import { iniciarBackend, type BackendHandle } from "../../../src/server";
 import type { Servicios } from "../../../src/server/services/container.factory";
 import { AppError } from "../../../src/server/services/appError.util";
+import type { ActorCaja } from "../../../src/server/services/turno.service";
 
 export interface Entorno {
   backend: BackendHandle;
@@ -97,4 +98,33 @@ export async function codigoError(promesa: Promise<unknown>): Promise<string> {
     throw e;
   }
   return "SIN_ERROR";
+}
+
+/** Crea un usuario con el rol indicado y devuelve su actor (con permisos reales del RBAC). */
+export async function crearActor(env: Entorno, rol: string, username: string): Promise<ActorCaja> {
+  const u = await env.servicios.usuarios.crear({
+    empresaId: env.seed.empresaId, rol, username, password: "Clave12345", nombre: username, apellido: "Test",
+  });
+  return { id: u.id, empresaId: env.seed.empresaId, permisos: u.permisos };
+}
+
+let contadorProveedor = 0;
+
+export function crearProveedor(env: Entorno, extra: { razonSocial?: string; diasPago?: number; status?: string } = {}): Promise<Proveedor> {
+  contadorProveedor += 1;
+  return env.prisma.proveedor.create({
+    data: {
+      ruc: `179${String(contadorProveedor).padStart(7, "0")}001`,
+      razonSocial: extra.razonSocial ?? `Proveedor ${contadorProveedor}`,
+      diasPago: extra.diasPago ?? 30,
+      ...(extra.status !== undefined ? { status: extra.status } : {}),
+    },
+  });
+}
+
+/** Cliente con crédito autorizado. */
+export function crearClienteConCredito(env: Entorno, identificacion: string, limiteCredito: number, diasCredito = 30) {
+  return env.servicios.clientes.crear({
+    tipoIdentificacion: "04", identificacion, razonSocial: `Cliente ${identificacion}`, limiteCredito, diasCredito,
+  });
 }

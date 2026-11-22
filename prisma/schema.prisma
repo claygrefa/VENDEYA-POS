@@ -59,6 +59,7 @@ model Sucursal {
   ventas          Venta[]
   comprobantes    ComprobanteElectronico[]
   mesas           Mesa[]
+  compras         Compra[]
 
   @@unique([empresaId, codigo])
 }
@@ -264,6 +265,7 @@ model Producto {
   lotes          Lote[]
   kardex         Kardex[]
   lineasVenta    LineaVenta[]
+  lineasCompra   LineaCompra[]
   itemsComanda   ItemComanda[]
 
   @@index([codigo])
@@ -334,6 +336,7 @@ model Cliente {
   updatedAt           DateTime @updatedAt
 
   ventas Venta[]
+  cuentasPorCobrar CuentaPorCobrar[]
 
   @@unique([tipoIdentificacion, identificacion])
   @@index([identificacion])
@@ -355,6 +358,8 @@ model Proveedor {
   updatedAt          DateTime @updatedAt
 
   lotes Lote[]
+  compras Compra[]
+  cuentasPorPagar CuentaPorPagar[]
 }
 
 // ─────────────────────────────────────────────
@@ -391,6 +396,8 @@ model MovimientoCaja {
   concepto    String
   monto       Float
   referencia  String?
+  categoria   String   @default("MANUAL")        // MANUAL | ABONO_CXC | PAGO_CXP
+  usuarioId   String?                            // Usuario que registró el movimiento
   createdAt   DateTime @default(now())
 
   turno TurnoCaja @relation(fields: [turnoId], references: [id])
@@ -430,6 +437,7 @@ model Venta {
   lineas       LineaVenta[]
   pagos        PagoVenta[]
   comprobante  ComprobanteElectronico?
+  cuentaPorCobrar CuentaPorCobrar?
 
   @@unique([puntoEmisionId, numero])
   @@index([sucursalId, createdAt])
@@ -572,4 +580,118 @@ model ItemComanda {
 
   comanda  Comanda  @relation(fields: [comandaId],  references: [id], onDelete: Cascade)
   producto Producto @relation(fields: [productoId], references: [id])
+}
+
+// ─────────────────────────────────────────────
+// COMPRAS, CUENTAS POR COBRAR Y POR PAGAR
+// ─────────────────────────────────────────────
+
+model Compra {
+  id             String   @id @default(uuid())
+  proveedorId    String
+  sucursalId     String
+  usuarioId      String
+  numeroFactura  String                            // Nº de la factura del proveedor
+  fecha          DateTime
+  formaPago      String   @default("CONTADO")      // CONTADO | CREDITO
+  subtotal       Float    @default(0)
+  iva            Float    @default(0)
+  total          Float    @default(0)
+  estado         String   @default("REGISTRADA")   // REGISTRADA | ANULADA
+  observaciones  String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  proveedor      Proveedor      @relation(fields: [proveedorId], references: [id])
+  sucursal       Sucursal       @relation(fields: [sucursalId], references: [id])
+  lineas         LineaCompra[]
+  cuentaPorPagar CuentaPorPagar?
+
+  @@unique([proveedorId, numeroFactura])
+  @@index([sucursalId, fecha])
+}
+
+model LineaCompra {
+  id             String  @id @default(uuid())
+  compraId       String
+  productoId     String
+  cantidad       Float
+  costoUnitario  Float
+  subtotal       Float
+  iva            Float   @default(0)
+  porcentajeIva  Float   @default(0)
+  total          Float
+
+  compra   Compra   @relation(fields: [compraId],  references: [id], onDelete: Cascade)
+  producto Producto @relation(fields: [productoId], references: [id])
+}
+
+model CuentaPorCobrar {
+  id               String   @id @default(uuid())
+  ventaId          String   @unique
+  clienteId        String
+  montoTotal       Float
+  saldo            Float
+  fechaEmision     DateTime
+  fechaVencimiento DateTime
+  estado           String   @default("PENDIENTE")  // PENDIENTE | PARCIAL | PAGADA | ANULADA
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  venta   Venta                  @relation(fields: [ventaId],   references: [id])
+  cliente Cliente                @relation(fields: [clienteId], references: [id])
+  pagos   PagoCuentaPorCobrar[]
+
+  @@index([clienteId, estado])
+  @@index([estado, fechaVencimiento])
+}
+
+model PagoCuentaPorCobrar {
+  id         String   @id @default(uuid())
+  cuentaId   String
+  monto      Float
+  formaPago  String
+  referencia String?
+  usuarioId  String
+  turnoId    String?                                // Turno donde se cobró en efectivo
+  fecha      DateTime @default(now())
+
+  cuenta CuentaPorCobrar @relation(fields: [cuentaId], references: [id])
+
+  @@index([cuentaId])
+}
+
+model CuentaPorPagar {
+  id               String   @id @default(uuid())
+  compraId         String   @unique
+  proveedorId      String
+  montoTotal       Float
+  saldo            Float
+  fechaEmision     DateTime
+  fechaVencimiento DateTime
+  estado           String   @default("PENDIENTE")  // PENDIENTE | PARCIAL | PAGADA | ANULADA
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  compra    Compra                @relation(fields: [compraId],    references: [id])
+  proveedor Proveedor             @relation(fields: [proveedorId], references: [id])
+  pagos     PagoCuentaPorPagar[]
+
+  @@index([proveedorId, estado])
+  @@index([estado, fechaVencimiento])
+}
+
+model PagoCuentaPorPagar {
+  id         String   @id @default(uuid())
+  cuentaId   String
+  monto      Float
+  formaPago  String
+  referencia String?
+  usuarioId  String
+  turnoId    String?
+  fecha      DateTime @default(now())
+
+  cuenta CuentaPorPagar @relation(fields: [cuentaId], references: [id])
+
+  @@index([cuentaId])
 }

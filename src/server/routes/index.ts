@@ -4,8 +4,10 @@
 import type { FastifyInstance } from "fastify";
 import { crearAuthController } from "../controllers/auth.controller";
 import { crearClienteController } from "../controllers/cliente.controller";
+import { crearCuentaController } from "../controllers/cuenta.controller";
 import { crearHealthController } from "../controllers/health.controller";
 import { crearProductoController } from "../controllers/producto.controller";
+import { crearTurnoController } from "../controllers/turno.controller";
 import { crearVentaController } from "../controllers/venta.controller";
 import type { Servicios } from "../services/container.factory";
 import { requerirSesion } from "./auth.guard";
@@ -16,6 +18,8 @@ export function registrarRutas(server: FastifyInstance, servicios: Servicios): v
   const productos = crearProductoController(servicios);
   const clientes = crearClienteController(servicios);
   const ventas = crearVentaController(servicios);
+  const turnos = crearTurnoController(servicios);
+  const cuentas = crearCuentaController(servicios);
 
   // ── Públicas ──────────────────────────────────────────────
   server.get("/api/health", health.estado);
@@ -45,4 +49,32 @@ export function registrarRutas(server: FastifyInstance, servicios: Servicios): v
   server.post("/api/ventas", crearVenta, ventas.crear);
   server.post<{ Params: { id: string } }>("/api/ventas/:id/anular", anularVenta, ventas.anular);
   server.get<{ Params: { id: string } }>("/api/ventas/:id", leerVentas, ventas.obtener);
+
+  // ── Turnos de caja ────────────────────────────────────────
+  // caja:crear = operar caja (abrir, movimientos, cierre); caja:leer = consultar.
+  // Operar/ver turnos ajenos exige además caja:actualizar (supervisor), validado en el servicio.
+  const operarCaja = { preHandler: requerirSesion(servicios, { modulo: "caja", accion: "crear" }) };
+  const leerCaja = { preHandler: requerirSesion(servicios, { modulo: "caja", accion: "leer" }) };
+  server.post("/api/turnos/abrir", operarCaja, turnos.abrir);
+  server.get("/api/turnos/actual", leerCaja, turnos.actual);
+  server.post<{ Params: { id: string } }>("/api/turnos/:id/movimientos", operarCaja, turnos.movimiento);
+  server.post<{ Params: { id: string } }>("/api/turnos/:id/cerrar", operarCaja, turnos.cerrar);
+  server.get<{ Params: { id: string } }>("/api/turnos/:id/reporte", leerCaja, turnos.reporte);
+
+  // ── Compras (inventario) ──────────────────────────────────
+  const crearCompra = { preHandler: requerirSesion(servicios, { modulo: "inventario", accion: "crear" }) };
+  server.post("/api/compras", crearCompra, cuentas.crearCompra);
+  server.get<{ Params: { id: string } }>("/api/compras/:id", leerInventario, cuentas.obtenerCompra);
+
+  // ── Cuentas por cobrar (clientes) ─────────────────────────
+  server.get("/api/cuentas-por-cobrar", leerClientes, cuentas.listarCxC);
+  server.get<{ Params: { id: string } }>("/api/cuentas-por-cobrar/:id", leerClientes, cuentas.obtenerCxC);
+  server.post<{ Params: { id: string } }>("/api/cuentas-por-cobrar/:id/abonos", operarCaja, cuentas.abonarCxC);
+
+  // ── Cuentas por pagar (proveedores) ───────────────────────
+  const leerProveedores = { preHandler: requerirSesion(servicios, { modulo: "proveedores", accion: "leer" }) };
+  const pagarProveedores = { preHandler: requerirSesion(servicios, { modulo: "proveedores", accion: "actualizar" }) };
+  server.get("/api/cuentas-por-pagar", leerProveedores, cuentas.listarCxP);
+  server.get<{ Params: { id: string } }>("/api/cuentas-por-pagar/:id", leerProveedores, cuentas.obtenerCxP);
+  server.post<{ Params: { id: string } }>("/api/cuentas-por-pagar/:id/pagos", pagarProveedores, cuentas.pagarCxP);
 }

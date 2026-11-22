@@ -128,7 +128,7 @@ describe("VentaService.crear — cálculo y persistencia", () => {
     const p = await crearProducto(env, { codigo: "V8", precioVenta: 1, stock: 5 });
     const pago = [{ formaPago: "CREDITO", monto: 1.15 }];
     expect(await codigoError(env.servicios.ventas.crear(venta([linea(p, 1)], pago), actor))).toBe("VALIDACION");
-    const c = await env.servicios.clientes.crear({ tipoIdentificacion: "04", identificacion: "0926687856001", razonSocial: "Empresa X" });
+    const c = await env.servicios.clientes.crear({ tipoIdentificacion: "04", identificacion: "0926687856001", razonSocial: "Empresa X", limiteCredito: 100, diasCredito: 30 });
     const v = await env.servicios.ventas.crear(venta([linea(p, 1)], pago, { clienteId: c.id }), actor);
     expect(v.pagos[0]?.formaPago).toBe("CREDITO");
   });

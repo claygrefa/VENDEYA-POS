@@ -8,3 +8,6 @@ export * from "./venta.schema";
 export * from "./cliente.schema";
 export * from "./usuario.schema";
 export * from "./paginacion.schema";
+export * from "./turno.schema";
+export * from "./compra.schema";
+export * from "./cuenta.schema";

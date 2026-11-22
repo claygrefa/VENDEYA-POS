@@ -21,6 +21,8 @@ const HTTP_POR_CODIGO: Record<CodigoError, number> = {
   STOCK_INSUFICIENTE: 409,
   TURNO_REQUERIDO: 409,
   ESTADO_INVALIDO: 409,
+  LIMITE_CREDITO_EXCEDIDO: 409,
+  SIN_PERMISO: 403,
 };
 
 /** Construye la instancia Fastify con CORS, manejo de errores y rutas. No abre el puerto. */

@@ -3,13 +3,7 @@
 // ============================================================
 import type { FastifyReply, FastifyRequest } from "fastify";
 import type { Servicios } from "../services/container.factory";
-import { AppError } from "../services/appError.util";
-import type { ActorVenta } from "../services/venta.service";
-
-function actorDe(req: FastifyRequest): ActorVenta {
-  if (req.usuario === null) throw new AppError("CREDENCIALES_INVALIDAS", "Sesión requerida");
-  return { id: req.usuario.id, empresaId: req.usuario.empresaId };
-}
+import { actorDe } from "./actor.util";
 
 export function crearVentaController(servicios: Servicios) {
   return {

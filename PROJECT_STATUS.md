@@ -3,10 +3,10 @@
 ## Estado General
 - **Proyecto:** VENDEYA POS (Sistema Punto de Venta Multi-Giro & Facturación Electrónica SRI Ecuador)
 - **Horizonte:** 6 Meses (24 Semanas)
-- **Fase Actual:** MES 2 — Semana 6: turnos y arqueos de caja, cuentas por cobrar y por pagar
+- **Fase Actual:** MES 2 — Semana 7: módulo Retail/Ferretería y módulo Farmacia
 - **Estado de Compilación:** ✅ `tsc --noEmit` → 0 errores | ✅ `tsconfig.node.json` → 0 errores | ✅ `tsconfig.electron.json` → 0 errores
-- **Tests:** ✅ 185/185 passed (13 archivos de prueba)
-- **Último Commit:** `feat: Semana 5 - motor transaccional de ventas y kardex`
+- **Tests:** ✅ 250/250 passed (17 archivos de prueba)
+- **Último Commit:** `feat: Semana 6 - turnos de caja, arqueos, cuentas por cobrar y pagar`
 
 ---
 
@@ -20,8 +20,8 @@
 
 ### MES 2: Núcleo POS, Inventario y Módulos Multi-Giro
 - [x] **Semana 5 (COMPLETADA):** Motor transaccional ACID de ventas, múltiples formas de pago, descuentos, anulaciones y actualización automática de Kardex (costo promedio ponderado).
-- [ ] **Semana 6 (ACTUAL):** Gestión de Turnos y Arqueos de Caja (apertura, ingresos/egresos de efectivo, cierre ciego, cuadre y reportes de turno) + Cuentas por Cobrar y Cuentas por Pagar.
-- [ ] **Semana 7:** Módulo Retail/Ferretería (múltiples presentaciones, fraccionamiento, listas de precios, códigos de barras) y Módulo Farmacia (lotes, fechas de caducidad, alertas).
+- [x] **Semana 6 (COMPLETADA):** Gestión de Turnos y Arqueos de Caja (apertura, ingresos/egresos de efectivo, cierre ciego, cuadre y reportes de turno) + Cuentas por Cobrar y Cuentas por Pagar.
+- [ ] **Semana 7 (ACTUAL):** Módulo Retail/Ferretería (múltiples presentaciones, fraccionamiento, listas de precios, códigos de barras) y Módulo Farmacia (lotes, fechas de caducidad, alertas).
 - [ ] **Semana 8:** Módulo Restaurantes (mapa de mesas, cuentas abiertas, división de cuentas, envío de comandas) + Suite completa de pruebas de integración del núcleo POS.
 
 ### MES 3: Motor Tributario SRI Ecuador (100% Offline-First)
@@ -188,9 +188,52 @@
 
 ---
 
-## Próxima Tarea Exacta (Para ejecutar ahora — Semana 6)
-1. Crear `turno.service.ts`/`turno.repository.ts`: apertura (un solo turno ABIERTO por cajero y sucursal, monto inicial), ingresos/egresos de efectivo (`MovimientoCaja` con concepto obligatorio), cierre ciego (el cajero declara el efectivo contado sin ver el esperado), cuadre (esperado = apertura + ventas en efectivo − cambio + ingresos − egresos, excluyendo ventas ANULADAS) y diferencia; reporte de turno con totales por forma de pago, ventas, anulaciones y descuentos.
-2. Endpoints `POST /api/turnos/abrir`, `GET /api/turnos/actual`, `POST /api/turnos/:id/movimientos`, `POST /api/turnos/:id/cerrar`, `GET /api/turnos/:id/reporte` con permisos `caja:*` (el cierre ciego no debe exponer el esperado hasta cerrar; el supervisor puede ver el reporte de cualquier turno).
-3. Cuentas por Cobrar y por Pagar: agregar modelos Prisma (`CuentaPorCobrar`, `PagoCuentaPorCobrar`, `CuentaPorPagar`, `PagoCuentaPorPagar`, y `Compra` mínima si hace falta) con migración; generar la CxC automáticamente al vender con pago `CREDITO` (vencimiento = `Cliente.diasCredito`, validar `limiteCredito` contra el saldo pendiente) y registrar abonos; CxP desde compras a proveedor con abonos y estado. Exponer compras con entrada a Kardex (`COMPRA`) para poder cargar inventario.
-4. Pruebas unitarias (cuadre de caja) e integración (ciclo completo apertura → ventas → movimientos → cierre ciego; anulación excluida del cuadre; CxC por venta a crédito y abonos parciales/total; límite de crédito excedido).
-5. Verificar con `npx tsc --noEmit` y `npm test`; actualizar este archivo y commit `feat: Semana 6 - turnos de caja, arqueos, cuentas por cobrar y pagar`.
+### Semana 6 — 2026-11-22 ✅ COMPLETADA
+**Archivos creados/modificados:**
+- `prisma/schema.prisma` + migración `20261122180000_caja_compras_cartera`: modelos `Compra`, `LineaCompra`, `CuentaPorCobrar`, `PagoCuentaPorCobrar`, `CuentaPorPagar`, `PagoCuentaPorPagar`; `MovimientoCaja.categoria` (`MANUAL` | `ABONO_CXC` | `PAGO_CXP`) y `usuarioId`. (Incluye otro `RedefineTables`, aplicado por `MigrationService`.)
+- Turnos: `turno.repository.ts`, `turno.service.ts`, `cuadreCaja.util.ts`, `turno.controller.ts`, `src/shared/schemas/turno.schema.ts`.
+- Cartera: `cuentaPorCobrar.{repository,service}.ts`, `cuentaPorPagar.{repository,service}.ts`, `cuenta.controller.ts`, `src/shared/schemas/cuenta.schema.ts`.
+- Compras: `compra.{repository,service}.ts`, `src/shared/schemas/compra.schema.ts`.
+- `impuesto.util.ts` (resolución de IVA extraída de `venta.service.ts`, reutilizada por compras), `controllers/actor.util.ts` (actor de la sesión con permisos), `container.factory.ts` (turnos, compras, cuentas), `venta.service.ts` (genera/anula CxC), `appError.util.ts` + `index.ts` (códigos `LIMITE_CREDITO_EXCEDIDO` 409 y `SIN_PERMISO` 403).
+- `producto.service.buscar`, `cliente.service.buscar` y `cuenta*.listar` ahora son `async` (antes lanzaban de forma síncrona si la validación fallaba).
+- Tests nuevos: `cuadreCaja.util` (11), `turno.service` (14), `cartera-compras` (25), `caja-cartera-api` (9); `prisma-schema.test.ts` incluye los 6 modelos nuevos; `venta.service.test.ts` ajustado (el cliente a crédito ahora necesita `limiteCredito`).
+
+**Endpoints nuevos** (todos requieren sesión Bearer):
+| Ruta | Permiso |
+|---|---|
+| `POST /api/turnos/abrir`, `POST /api/turnos/:id/movimientos`, `POST /api/turnos/:id/cerrar` | `caja:crear` |
+| `GET /api/turnos/actual`, `GET /api/turnos/:id/reporte` | `caja:leer` |
+| `POST /api/compras`, `GET /api/compras/:id` | `inventario:crear` / `inventario:leer` |
+| `GET /api/cuentas-por-cobrar[/:id]` | `clientes:leer` |
+| `POST /api/cuentas-por-cobrar/:id/abonos` | `caja:crear` |
+| `GET /api/cuentas-por-pagar[/:id]` | `proveedores:leer` |
+| `POST /api/cuentas-por-pagar/:id/pagos` | `proveedores:actualizar` |
+
+Filtros de listados: `estado`, `clienteId`/`proveedorId`, `vencidas=true|false`, `page`, `pageSize`.
+
+**Reglas de negocio implementadas:**
+- **Turno:** un solo turno ABIERTO por cajero y sucursal. Movimientos manuales con concepto obligatorio (≥3 caracteres); un EGRESO no puede superar el efectivo disponible.
+- **Cuadre:** `esperado = apertura + efectivo recibido en ventas − cambio entregado + ingresos − egresos`; las ventas ANULADAS no cuentan. `diferencia = contado − esperado` (negativo = faltante).
+- **Cierre ciego:** el cajero declara `efectivoContado` sin ver el esperado. Mientras el turno está abierto y quien consulta no es supervisor, el reporte devuelve `efectivo: null` y oculta la forma de pago EFECTIVO. Al cerrar, el reporte revela esperado, contado y diferencia. Cierres simultáneos: solo uno prospera.
+- **Supervisor** = permiso `caja:actualizar` (constante `PERMISO_SUPERVISION`): ve el esperado en vivo y opera/cierra/ve turnos de otros cajeros; un cajero sobre un turno ajeno recibe `SIN_PERMISO` (403).
+- **Crédito:** una venta con pago `CREDITO` crea una `CuentaPorCobrar` por el monto a crédito (vencimiento = fecha + `Cliente.diasCredito`). `limiteCredito` = 0 significa sin crédito autorizado; se valida `saldo pendiente + venta ≤ límite` (si falla, se revierte toda la venta). Un abono en EFECTIVO exige turno abierto en la sucursal de la venta y registra un INGRESO `ABONO_CXC` en esa caja; otras formas de pago no tocan la caja. Abonos protegidos contra concurrencia (compare-and-swap del saldo). Una venta a crédito con abonos no puede anularse; sin abonos su cuenta pasa a ANULADA.
+- **Compras:** solo bienes; IVA según catálogo; factura única por proveedor; cada línea entra al Kardex como `COMPRA` (costo promedio ponderado, costo sin IVA). Compra a crédito → `CuentaPorPagar` (vencimiento = fecha + `diasCredito` o `Proveedor.diasPago`). Pago a proveedor en EFECTIVO sale de la caja (EGRESO `PAGO_CXP`) con validación de fondos.
+- Todo está acotado por empresa (`sucursal.empresaId`).
+
+**Decisiones Técnicas / Limitaciones conocidas:**
+- Anular una venta cuyo turno ya está CERRADO no genera un egreso en el turno actual (el efectivo ya se cerró en el turno original): definir la política de devolución de efectivo en una próxima semana.
+- Una compra de contado no genera egreso de caja automático (se asume pago fuera de caja); solo los pagos de CxP en efectivo lo hacen. No hay anulación de compras todavía.
+- Las notas de crédito a clientes llegan con el motor SRI (Semanas 9–12).
+- Los `Float` de saldos se redondean a 2 decimales en cada operación (`round2`) y se comparan por igualdad exacta en el compare-and-swap.
+- Los servicios usan el patrón de la Semana 5: dentro de `$transaction` solo se usa el cliente `tx` (pool de una conexión).
+
+**Verificación:** `tsc --noEmit` (3 tsconfig) ✅ 0 errores | `npx vitest run` ✅ 250/250 (17 archivos).
+
+---
+
+## Próxima Tarea Exacta (Para ejecutar ahora — Semana 7)
+1. **Módulo Retail/Ferretería:** presentaciones múltiples por producto (unidad, paquete, caja con factor de conversión a la unidad base; nuevo modelo `PresentacionProducto` con código de barras propio y precio), venta fraccionada (cantidades decimales según `UnidadMedida`, p. ej. KG/M) y listas de precios (`ListaPrecio` + `PrecioProducto`, asignable a `Cliente`). La venta debe resolver el precio por lista/presentación y descontar el stock en unidades base; el Kardex siempre en unidad base. Búsqueda por cualquier código de barras (producto o presentación).
+2. **Módulo Farmacia:** lotes con CRUD (`LoteService`), ingreso de lotes en compras (la compra de productos con `requiereLote` exige lote y fecha de vencimiento), selección automática de lote FEFO (primero en vencer) en la venta cuando el producto requiere lote, bloqueo de lotes vencidos, alertas de vencimiento (`GET /api/inventario/alertas-vencimiento?dias=` con lotes vencidos y por vencer) y alertas de stock mínimo; búsqueda por principio activo (ya existe en `ProductoService.buscar`).
+3. Endpoints de inventario: crear/actualizar producto y presentaciones, ajustes de inventario (`AJUSTE_ENTRADA`/`AJUSTE_SALIDA` con motivo) y consulta de Kardex por producto, con permisos `inventario:*` y respetando los feature flags de `ConfiguracionGiro` (`moduloLotes`, `moduloVencimientos`, `moduloListasPrecios`).
+4. Pruebas unitarias (conversión de unidades, FEFO) e integración (venta por presentación y fraccionada, lista de precios por cliente, FEFO con varios lotes y lote vencido, alerta de vencimientos, compra con lote).
+5. Verificar con `npx tsc --noEmit` y `npm test`; actualizar este archivo y commit `feat: Semana 7 - modulo retail/ferreteria y farmacia`.

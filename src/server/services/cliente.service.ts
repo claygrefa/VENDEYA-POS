@@ -51,7 +51,7 @@ export class ClienteService {
     return this.repo.update(id, omitUndefined(datos));
   }
 
-  buscar(entrada: unknown): Promise<ResultadoPaginado<Cliente>> {
+  async buscar(entrada: unknown): Promise<ResultadoPaginado<Cliente>> {
     const p = parsear(PaginacionSchema, entrada ?? {});
     return this.repo.buscar({ page: p.page, pageSize: p.pageSize, ...(p.search !== undefined ? { search: p.search } : {}) });
   }

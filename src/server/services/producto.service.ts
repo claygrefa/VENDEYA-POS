@@ -41,7 +41,7 @@ export class ProductoService {
   }
 
   /** Búsqueda paginada por nombre, código, código de barras o principio activo. */
-  buscar(entrada: unknown): Promise<ResultadoPaginado<Producto>> {
+  async buscar(entrada: unknown): Promise<ResultadoPaginado<Producto>> {
     const p = parsear(PaginacionSchema, entrada ?? {});
     return this.repo.buscar({ page: p.page, pageSize: p.pageSize, ...(p.search !== undefined ? { search: p.search } : {}) });
   }
