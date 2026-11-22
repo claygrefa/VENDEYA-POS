@@ -68,6 +68,7 @@ model PuntoEmision {
   sucursalId  String
   codigo      String                      // "001"
   descripcion String
+  secuencialVenta Int  @default(0)            // Último secuencial de venta emitido (se incrementa atómicamente)
   status      String   @default("ACTIVO")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -401,7 +402,7 @@ model MovimientoCaja {
 
 model Venta {
   id              String   @id @default(uuid())
-  numero          String   @unique               // "001-001-000000001"
+  numero          String                         // "001-001-000000001" (único por punto de emisión)
   sucursalId      String
   puntoEmisionId  String
   turnoId         String
@@ -415,6 +416,8 @@ model Venta {
   iva             Float    @default(0)
   total           Float    @default(0)
   motivoAnulacion String?
+  fechaAnulacion  DateTime?
+  anuladaPorId    String?                        // Usuario que anuló
   observaciones   String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -428,6 +431,7 @@ model Venta {
   pagos        PagoVenta[]
   comprobante  ComprobanteElectronico?
 
+  @@unique([puntoEmisionId, numero])
   @@index([sucursalId, createdAt])
   @@index([clienteId])
   @@index([numero])

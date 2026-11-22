@@ -3,10 +3,10 @@
 ## Estado General
 - **Proyecto:** VENDEYA POS (Sistema Punto de Venta Multi-Giro & Facturación Electrónica SRI Ecuador)
 - **Horizonte:** 6 Meses (24 Semanas)
-- **Fase Actual:** MES 2 — Semana 5: motor transaccional de ventas y Kardex
+- **Fase Actual:** MES 2 — Semana 6: turnos y arqueos de caja, cuentas por cobrar y por pagar
 - **Estado de Compilación:** ✅ `tsc --noEmit` → 0 errores | ✅ `tsconfig.node.json` → 0 errores | ✅ `tsconfig.electron.json` → 0 errores
-- **Tests:** ✅ 121/121 passed (9 archivos de prueba)
-- **Último Commit:** `feat: Semana 4 - nucleo Electron, Fastify embebido y migraciones`
+- **Tests:** ✅ 185/185 passed (13 archivos de prueba)
+- **Último Commit:** `feat: Semana 5 - motor transaccional de ventas y kardex`
 
 ---
 
@@ -19,8 +19,8 @@
 - [x] **Semana 4 (COMPLETADA):** Implementación del núcleo de Electron (`electron/main.ts`, `electron/preload.ts`), arranque automático del servidor Fastify embebido, ejecución automática de migraciones SQLite al iniciar y pruebas unitarias de arranque.
 
 ### MES 2: Núcleo POS, Inventario y Módulos Multi-Giro
-- [ ] **Semana 5 (ACTUAL):** Motor transaccional ACID de ventas, múltiples formas de pago, descuentos, anulaciones y actualización automática de Kardex (costo promedio ponderado).
-- [ ] **Semana 6:** Gestión de Turnos y Arqueos de Caja (apertura, ingresos/egresos de efectivo, cierre ciego, cuadre y reportes de turno) + Cuentas por Cobrar y Cuentas por Pagar.
+- [x] **Semana 5 (COMPLETADA):** Motor transaccional ACID de ventas, múltiples formas de pago, descuentos, anulaciones y actualización automática de Kardex (costo promedio ponderado).
+- [ ] **Semana 6 (ACTUAL):** Gestión de Turnos y Arqueos de Caja (apertura, ingresos/egresos de efectivo, cierre ciego, cuadre y reportes de turno) + Cuentas por Cobrar y Cuentas por Pagar.
 - [ ] **Semana 7:** Módulo Retail/Ferretería (múltiples presentaciones, fraccionamiento, listas de precios, códigos de barras) y Módulo Farmacia (lotes, fechas de caducidad, alertas).
 - [ ] **Semana 8:** Módulo Restaurantes (mapa de mesas, cuentas abiertas, división de cuentas, envío de comandas) + Suite completa de pruebas de integración del núcleo POS.
 
@@ -157,9 +157,40 @@
 
 ---
 
-## Próxima Tarea Exacta (Para ejecutar ahora — Semana 5)
-1. Crear `src/server/services/venta.service.ts` y `src/server/repositories/venta.repository.ts`: motor transaccional ACID (`prisma.$transaction`) que valide stock, calcule subtotal/descuento/IVA por línea con las `TarifaImpuesto`, genere el número `001-001-000000001` por punto de emisión con secuencial atómico y persista `Venta`, `LineaVenta` y `PagoVenta` (múltiples formas de pago, validación suma pagos ≥ total, cálculo de cambio).
-2. Crear `kardex.service.ts` (costo promedio ponderado): cada venta/compra/ajuste/devolución registra `Kardex` y actualiza `Producto.stockActual` y `costoPromedio` dentro de la misma transacción; las anulaciones de venta revierten stock y generan movimiento `DEVOLUCION`.
-3. Agregar esquemas Zod de venta/pago/anulación en `src/shared/schemas/`, y endpoints `POST /api/ventas`, `POST /api/ventas/:id/anular`, `GET /api/ventas/:id` con permisos `ventas:crear|anular|leer` (requiere turno de caja abierto: definir regla mínima y dejar el flujo completo de turnos para Semana 6).
-4. Pruebas unitarias (cálculo de IVA/costo promedio) e integración (venta completa, stock insuficiente con rollback total, anulación, concurrencia de secuenciales).
-5. Verificar con `npx tsc --noEmit` y `npm test`; actualizar este archivo y commit `feat: Semana 5 - motor transaccional de ventas y kardex`.
+### Semana 5 — 2026-11-22 ✅ COMPLETADA
+**Archivos creados/modificados:**
+- `prisma/schema.prisma` + migración `20261122120000_ventas_secuencial_anulacion`: `PuntoEmision.secuencialVenta` (contador atómico), `Venta.numero` pasa de único global a único por punto de emisión (`@@unique([puntoEmisionId, numero])`), `Venta.fechaAnulacion` y `anuladaPorId`. La migración incluye un `RedefineTables` (valida el camino sin transacción de `MigrationService`).
+- `src/server/services/ventaCalculo.util.ts` — funciones puras: `round2/round4`, `calcularLinea` (descuento por valor o %, IVA), `calcularTotales`, `distribuirPagos` (cambio solo desde efectivo), `calcularCostoPromedio`.
+- `src/server/services/kardex.service.ts` + `repositories/kardex.repository.ts` — `registrarEntrada` (costo promedio ponderado, compare-and-swap con reintentos), `registrarSalida` (descuento atómico `stock >= cantidad`, al costo promedio vigente), `historial`. Operan sobre el cliente transaccional del llamador.
+- `src/server/services/venta.service.ts` + `repositories/venta.repository.ts` — `crear` (una transacción: secuencial → turno abierto → productos/tarifas/cliente → cálculo → persistencia → lote + Kardex), `anular` (cambio de estado atómico + reversión con movimientos `DEVOLUCION` al costo original + reposición de lote), `obtener`. Todo acotado a la empresa del usuario.
+- `src/server/controllers/venta.controller.ts`, rutas: `POST /api/ventas` (201), `POST /api/ventas/:id/anular`, `GET /api/ventas/:id` con permisos `ventas:crear|anular|leer`.
+- `src/server/services/appError.util.ts` + `index.ts`: nuevos códigos `STOCK_INSUFICIENTE`, `TURNO_REQUERIDO`, `ESTADO_INVALIDO` (HTTP 409). `container.factory.ts`: servicios `kardex` y `ventas`.
+- `src/shared/schemas/venta.schema.ts`: `puntoEmisionId` obligatorio en `VentaInputSchema` y nuevo `AnularVentaSchema` (motivo 5–300 caracteres).
+- `src/server/config/database.config.ts`: `crearPrismaPara` usa una sola conexión (`connection_limit=1`, `pool_timeout=60`).
+- Tests: `tests/unit/server/ventaCalculo.util.test.ts` (20), `tests/integration/server/{kardex.service (8), venta.service (29), ventas-api (7)}.test.ts`, helper `tests/integration/helpers/entorno.helper.ts`. `prisma-schema.test.ts` ahora migra su propia BD con `MigrationService` (ya no depende de `migrate deploy` manual).
+
+**Reglas de negocio implementadas:**
+- Número de venta `SSS-PPP-000000001` por punto de emisión; sin huecos: si la venta falla, el secuencial se revierte.
+- IVA por línea: `tarifaImpuestoId` del producto si existe; si no, `aplicaIva` + `codigoIvaSRI` contra las tarifas vigentes de la empresa. Base = bruto − descuento.
+- Pagos: suma ≥ total; el excedente es cambio y solo puede salir de pagos en efectivo (`PagoVenta.monto` = lo recibido, `cambio` en el pago en efectivo). Pago `CREDITO` exige cliente registrado.
+- Regla mínima de caja: el cajero debe tener un `TurnoCaja` ABIERTO en la sucursal del punto de emisión (si no, `TURNO_REQUERIDO`). Apertura/cierre/arqueo → Semana 6.
+- Productos `SERVICIO` no mueven stock ni Kardex. Lotes: se valida vigencia y cantidad y se descuenta del lote.
+- No se anula una venta con factura `AUTORIZADA` (requerirá nota de crédito, Semana 9). `emitirFactura` del input se acepta pero aún no se procesa.
+
+**Decisiones Técnicas:**
+- Concurrencia SQLite: las pruebas de 20 ventas simultáneas y de sobreventa fallaron con varias conexiones (timeouts de bloqueo, una venta perdida). Solución: pool de UNA conexión; las transacciones se encolan. **Regla: dentro de `prisma.$transaction(async (tx) => …)` usar siempre `tx`; usar el cliente base ahí produce bloqueo.** La primera escritura de cada transacción es el incremento del secuencial.
+- Stock decimal (granel) en `Float`; entradas se redondean a 4 decimales.
+- `migrate dev` no es usable sin terminal interactiva cuando hay avisos; la migración se generó con `prisma migrate diff` y se aplicó con `migrate deploy`.
+- Sin endpoints de compras/ajustes de inventario todavía: el stock se carga vía `KardexService.registrarEntrada` (Semana 7 lo expondrá en el módulo de inventario).
+- El precio de venta de cada línea lo envía el cliente (sin validación contra el precio de catálogo); definir política/permiso de modificación de precio en la UI (Semana 15).
+
+**Verificación:** `tsc --noEmit` (3 tsconfig) ✅ 0 errores | `npx vitest run` ✅ 185/185 (13 archivos).
+
+---
+
+## Próxima Tarea Exacta (Para ejecutar ahora — Semana 6)
+1. Crear `turno.service.ts`/`turno.repository.ts`: apertura (un solo turno ABIERTO por cajero y sucursal, monto inicial), ingresos/egresos de efectivo (`MovimientoCaja` con concepto obligatorio), cierre ciego (el cajero declara el efectivo contado sin ver el esperado), cuadre (esperado = apertura + ventas en efectivo − cambio + ingresos − egresos, excluyendo ventas ANULADAS) y diferencia; reporte de turno con totales por forma de pago, ventas, anulaciones y descuentos.
+2. Endpoints `POST /api/turnos/abrir`, `GET /api/turnos/actual`, `POST /api/turnos/:id/movimientos`, `POST /api/turnos/:id/cerrar`, `GET /api/turnos/:id/reporte` con permisos `caja:*` (el cierre ciego no debe exponer el esperado hasta cerrar; el supervisor puede ver el reporte de cualquier turno).
+3. Cuentas por Cobrar y por Pagar: agregar modelos Prisma (`CuentaPorCobrar`, `PagoCuentaPorCobrar`, `CuentaPorPagar`, `PagoCuentaPorPagar`, y `Compra` mínima si hace falta) con migración; generar la CxC automáticamente al vender con pago `CREDITO` (vencimiento = `Cliente.diasCredito`, validar `limiteCredito` contra el saldo pendiente) y registrar abonos; CxP desde compras a proveedor con abonos y estado. Exponer compras con entrada a Kardex (`COMPRA`) para poder cargar inventario.
+4. Pruebas unitarias (cuadre de caja) e integración (ciclo completo apertura → ventas → movimientos → cierre ciego; anulación excluida del cuadre; CxC por venta a crédito y abonos parciales/total; límite de crédito excedido).
+5. Verificar con `npx tsc --noEmit` y `npm test`; actualizar este archivo y commit `feat: Semana 6 - turnos de caja, arqueos, cuentas por cobrar y pagar`.

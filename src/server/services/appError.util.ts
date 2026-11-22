@@ -7,7 +7,10 @@ export type CodigoError =
   | "NO_ENCONTRADO"
   | "DUPLICADO"
   | "CREDENCIALES_INVALIDAS"
-  | "USUARIO_INACTIVO";
+  | "USUARIO_INACTIVO"
+  | "STOCK_INSUFICIENTE"
+  | "TURNO_REQUERIDO"
+  | "ESTADO_INVALIDO";
 
 export class AppError extends Error {
   public readonly codigo: CodigoError;

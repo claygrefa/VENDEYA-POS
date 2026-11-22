@@ -8,6 +8,7 @@ export const LineaVentaInputSchema = z.object({
   loteId:         z.string().uuid().optional().nullable(),
   cantidad:       z.number().positive(),
   precioUnitario: z.number().positive(),
+  // VALOR: monto total descontado de la línea; PORCENTAJE: 0–100
   descuento:      z.number().nonnegative().default(0),
   tipoDescuento:  z.enum(["PORCENTAJE", "VALOR"]).default("VALOR"),
 });
@@ -19,6 +20,7 @@ export const PagoVentaInputSchema = z.object({
 });
 
 export const VentaInputSchema = z.object({
+  puntoEmisionId:   z.string().uuid(),
   clienteId:        z.string().uuid().optional().nullable(),
   clienteRuc:       z.string().max(13).optional().nullable(),
   clienteNombre:    z.string().max(300).optional().nullable(),
@@ -28,6 +30,11 @@ export const VentaInputSchema = z.object({
   observaciones:    z.string().max(300).optional().nullable(),
 });
 
+export const AnularVentaSchema = z.object({
+  motivo: z.string().trim().min(5, "El motivo debe tener al menos 5 caracteres").max(300),
+});
+
+export type AnularVentaInput = z.infer<typeof AnularVentaSchema>;
 export type LineaVentaInput = z.infer<typeof LineaVentaInputSchema>;
 export type PagoVentaInput  = z.infer<typeof PagoVentaInputSchema>;
 export type VentaInput      = z.infer<typeof VentaInputSchema>;

@@ -5,16 +5,22 @@
 // ============================================================
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { PrismaClient } from "@prisma/client";
+import path from "path";
+import { crearPrismaPara } from "../../src/server/config/database.config";
+import { MigrationService } from "../../src/server/services/migration.service";
 
-// Usamos la BD de test (vendeya-test.db) vía variable de entorno
-const prisma = new PrismaClient({
-  datasources: { db: { url: "file:./vendeya-test.db" } },
-});
+// BD de test propia: se migra automáticamente con las migraciones reales (autosuficiente)
+const RAIZ = path.resolve(__dirname, "../..");
+const DB_PATH = path.join(RAIZ, "prisma", "vendeya-test.db");
+const prisma = crearPrismaPara(DB_PATH);
 
 beforeAll(async () => {
-  await prisma.$connect();
-});
+  await new MigrationService(prisma, {
+    migrationsDir: path.join(RAIZ, "prisma", "migrations"),
+    backupsDir: path.join(RAIZ, "prisma", "test-backups"),
+    dbPath: DB_PATH,
+  }).migrar();
+}, 60_000);
 
 afterAll(async () => {
   await prisma.$disconnect();

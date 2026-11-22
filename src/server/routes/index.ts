@@ -6,6 +6,7 @@ import { crearAuthController } from "../controllers/auth.controller";
 import { crearClienteController } from "../controllers/cliente.controller";
 import { crearHealthController } from "../controllers/health.controller";
 import { crearProductoController } from "../controllers/producto.controller";
+import { crearVentaController } from "../controllers/venta.controller";
 import type { Servicios } from "../services/container.factory";
 import { requerirSesion } from "./auth.guard";
 
@@ -14,6 +15,7 @@ export function registrarRutas(server: FastifyInstance, servicios: Servicios): v
   const auth = crearAuthController(servicios);
   const productos = crearProductoController(servicios);
   const clientes = crearClienteController(servicios);
+  const ventas = crearVentaController(servicios);
 
   // ── Públicas ──────────────────────────────────────────────
   server.get("/api/health", health.estado);
@@ -35,4 +37,12 @@ export function registrarRutas(server: FastifyInstance, servicios: Servicios): v
   server.get("/api/clientes", leerClientes, clientes.buscar);
   server.get("/api/clientes/consumidor-final", leerClientes, clientes.consumidorFinal);
   server.get<{ Params: { id: string } }>("/api/clientes/:id", leerClientes, clientes.obtener);
+
+  // ── Ventas ────────────────────────────────────────────────
+  const crearVenta = { preHandler: requerirSesion(servicios, { modulo: "ventas", accion: "crear" }) };
+  const anularVenta = { preHandler: requerirSesion(servicios, { modulo: "ventas", accion: "anular" }) };
+  const leerVentas = { preHandler: requerirSesion(servicios, { modulo: "ventas", accion: "leer" }) };
+  server.post("/api/ventas", crearVenta, ventas.crear);
+  server.post<{ Params: { id: string } }>("/api/ventas/:id/anular", anularVenta, ventas.anular);
+  server.get<{ Params: { id: string } }>("/api/ventas/:id", leerVentas, ventas.obtener);
 }

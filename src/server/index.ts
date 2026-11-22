@@ -18,6 +18,9 @@ const HTTP_POR_CODIGO: Record<CodigoError, number> = {
   USUARIO_INACTIVO: 403,
   NO_ENCONTRADO: 404,
   DUPLICADO: 409,
+  STOCK_INSUFICIENTE: 409,
+  TURNO_REQUERIDO: 409,
+  ESTADO_INVALIDO: 409,
 };
 
 /** Construye la instancia Fastify con CORS, manejo de errores y rutas. No abre el puerto. */

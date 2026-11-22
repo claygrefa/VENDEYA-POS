@@ -8,9 +8,17 @@ export function sqliteUrl(rutaArchivo: string): string {
   return `file:${rutaArchivo.replace(/\\/g, "/")}`;
 }
 
-/** Cliente Prisma apuntando a un archivo SQLite concreto (no usa el singleton). */
+/**
+ * Cliente Prisma apuntando a un archivo SQLite concreto (no usa el singleton).
+ *
+ * Usa UNA sola conexión: SQLite admite un único escritor, y con varias conexiones las
+ * transacciones concurrentes compiten por el bloqueo y fallan por timeout. Con una conexión
+ * se encolan en orden (hasta `pool_timeout` s). Consecuencia: dentro de un callback de
+ * `$transaction` hay que usar siempre el cliente `tx`, nunca el cliente base (se bloquearía).
+ */
 export function crearPrismaPara(rutaArchivo: string): PrismaClient {
-  return new PrismaClient({ datasources: { db: { url: sqliteUrl(rutaArchivo) } } });
+  const url = `${sqliteUrl(rutaArchivo)}?connection_limit=1&pool_timeout=60&socket_timeout=60`;
+  return new PrismaClient({ datasources: { db: { url } } });
 }
 
 let instancia: PrismaClient | null = null;
