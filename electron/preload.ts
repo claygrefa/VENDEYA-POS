@@ -1,7 +1,7 @@
 // ============================================================
 // electron/preload.ts — Bridge seguro entre Renderer y Main
-// Semana 1: Define el API mínimo que el renderer puede invocar.
-// Se ampliará con IPC handlers en Semana 4.
+// Define el API mínimo que el renderer puede invocar.
+// Handlers implementados en electron/ipc/ (Semana 4): app:*, db:health-check, backend:get-info.
 // ============================================================
 
 import { contextBridge, ipcRenderer } from "electron";
@@ -32,6 +32,7 @@ export interface VendeyaAPI {
 const allowedInvokeChannels = [
   "app:get-version",
   "app:get-paths",
+  "backend:get-info",
   "db:health-check",
   "sri:check-connectivity",
   "printer:list",

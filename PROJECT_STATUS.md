@@ -3,10 +3,10 @@
 ## Estado General
 - **Proyecto:** VENDEYA POS (Sistema Punto de Venta Multi-Giro & Facturación Electrónica SRI Ecuador)
 - **Horizonte:** 6 Meses (24 Semanas)
-- **Fase Actual:** MES 1 — Semana 4: núcleo de Electron, servidor Fastify embebido y migraciones al iniciar
-- **Estado de Compilación:** ✅ `tsc --noEmit` → 0 errores | ✅ `tsconfig.node.json` → 0 errores
-- **Tests:** ✅ 90/90 passed (6 archivos de prueba)
-- **Último Commit:** `feat: Semana 3 - seed y capa base de repositorios y servicios`
+- **Fase Actual:** MES 2 — Semana 5: motor transaccional de ventas y Kardex
+- **Estado de Compilación:** ✅ `tsc --noEmit` → 0 errores | ✅ `tsconfig.node.json` → 0 errores | ✅ `tsconfig.electron.json` → 0 errores
+- **Tests:** ✅ 121/121 passed (9 archivos de prueba)
+- **Último Commit:** `feat: Semana 4 - nucleo Electron, Fastify embebido y migraciones`
 
 ---
 
@@ -16,10 +16,10 @@
 - [x] **Semana 1 (COMPLETADA):** Inicializar Git, estructura de carpetas (`electron/`, `src/server/`, `src/renderer/`, `src/shared/`, `prisma/`, `tests/`), `package.json`, `tsconfig.json`, `vite.config.ts`, `vitest.config.ts` e instalación de dependencias base.
 - [x] **Semana 2 (COMPLETADA):** Diseño e implementación de `prisma/schema.prisma` completo (multi-empresa, sucursales, puntos de emisión, impuestos dinámicos SRI, productos, lotes, kardex, turnos de caja, ventas, comprobantes SRI, roles RBAC y feature flags) + migración inicial.
 - [x] **Semana 3 (COMPLETADA):** Creación de `prisma/seed.ts` (impuestos SRI vigentes, Consumidor Final, usuario admin, configuraciones base) y capa de repositorios/servicios base en `src/server/`.
-- [ ] **Semana 4 (ACTUAL):** Implementación del núcleo de Electron (`electron/main.ts`, `electron/preload.ts`), arranque automático del servidor Fastify embebido, ejecución automática de migraciones SQLite al iniciar y pruebas unitarias de arranque.
+- [x] **Semana 4 (COMPLETADA):** Implementación del núcleo de Electron (`electron/main.ts`, `electron/preload.ts`), arranque automático del servidor Fastify embebido, ejecución automática de migraciones SQLite al iniciar y pruebas unitarias de arranque.
 
 ### MES 2: Núcleo POS, Inventario y Módulos Multi-Giro
-- [ ] **Semana 5:** Motor transaccional ACID de ventas, múltiples formas de pago, descuentos, anulaciones y actualización automática de Kardex (costo promedio ponderado).
+- [ ] **Semana 5 (ACTUAL):** Motor transaccional ACID de ventas, múltiples formas de pago, descuentos, anulaciones y actualización automática de Kardex (costo promedio ponderado).
 - [ ] **Semana 6:** Gestión de Turnos y Arqueos de Caja (apertura, ingresos/egresos de efectivo, cierre ciego, cuadre y reportes de turno) + Cuentas por Cobrar y Cuentas por Pagar.
 - [ ] **Semana 7:** Módulo Retail/Ferretería (múltiples presentaciones, fraccionamiento, listas de precios, códigos de barras) y Módulo Farmacia (lotes, fechas de caducidad, alertas).
 - [ ] **Semana 8:** Módulo Restaurantes (mapa de mesas, cuentas abiertas, división de cuentas, envío de comandas) + Suite completa de pruebas de integración del núcleo POS.
@@ -131,9 +131,35 @@
 
 ---
 
-## Próxima Tarea Exacta (Para ejecutar ahora — Semana 4)
-1. Implementar `electron/main.ts` y `electron/preload.ts` (ya existen como base de Semana 1): arrancar el servidor Fastify embebido desde el proceso principal antes de abrir la ventana, con puerto configurable y apagado limpio.
-2. Convertir `src/server/index.ts` en un servidor Fastify real: registrar rutas (`routes/`) y controladores (`controllers/`) de salud, autenticación y búsqueda de productos/clientes reutilizando los servicios de Semana 3, y mapear `AppError` a códigos HTTP.
-3. Ejecutar las migraciones automáticamente al iniciar (`prisma migrate deploy` / equivalente empaquetable) con respaldo previo del archivo SQLite; usar `@electron/rebuild` para `better-sqlite3` si se requiere.
-4. Pruebas unitarias e de integración de arranque (servidor `inject`, migraciones sobre BD temporal).
-5. Verificar con `npx tsc --noEmit` y `npm test`; actualizar este archivo y commit `feat: Semana 4 - nucleo Electron, Fastify embebido y migraciones`.
+### Semana 4 — 2026-11-22 ✅ COMPLETADA
+**Archivos creados/modificados:**
+- `electron/main.ts` — instancia única; orden de arranque backend → IPC → ventana; `userData/data/vendeya.db` (o `DB_PATH`); migraciones en `process.resourcesPath` si está empaquetado; diálogo de error si el arranque falla; apagado limpio (`before-quit` cierra Fastify y Prisma).
+- `electron/preload.ts` — agrega canal `backend:get-info` a la allowlist.
+- `electron/ipc/app.ipc.ts` — handlers `app:get-version`, `app:get-paths`, `db:health-check`, `backend:get-info`.
+- `src/server/index.ts` — `buildServer(servicios)` (CORS, mapeo `AppError`→HTTP, 404/500 propios) e `iniciarBackend(opciones)` (BD → migraciones+respaldo → WAL → HTTP con fallback a puerto libre si está ocupado; limpia recursos si falla).
+- `src/server/services/migration.service.ts` — migraciones sin CLI de Prisma, compatibles con `_prisma_migrations` (checksum SHA-256); respaldo previo con `VACUUM INTO` (retención de 5); detecta migraciones aplicadas que fueron modificadas; atómicas salvo las que redefinen tablas (PRAGMA foreign_keys).
+- `src/server/services/session.service.ts` (sesiones Bearer en memoria, TTL 12 h) y `container.factory.ts` (composición de servicios).
+- `src/server/routes/` (`index.ts`, `auth.guard.ts` con RBAC) y `src/server/controllers/` (health, auth, producto, cliente). Endpoints: `GET /api/health`, `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`, `GET /api/productos[?search&page&pageSize]`, `/api/productos/barcode/:codigo`, `/api/productos/:id`, `GET /api/clientes`, `/api/clientes/consumidor-final`, `/api/clientes/:id`.
+- `src/server/config/database.config.ts` — `sqliteUrl`, `crearPrismaPara`.
+- `src/renderer/index.html` — CSP `connect-src` admite cualquier puerto de `127.0.0.1` (el backend puede usar puerto alterno).
+- `tsconfig.electron.json` (salida a `dist-electron/`), `package.json`: `main` → `dist-electron/electron/main.js`, script `build:main`, `dev:electron` y `build` compilan el proceso principal.
+- Tests: `tests/unit/server/session-migration-utils.test.ts` (7), `tests/integration/server/migration.service.test.ts` (9), `tests/integration/server/backend-api.test.ts` (15).
+
+**Decisiones Técnicas:**
+- No se usa `prisma migrate deploy` en runtime (el CLI no viaja en el instalador); `MigrationService` replica su contrato y se verificó con `prisma migrate status`.
+- `better-sqlite3` sigue sin usarse: el acceso a SQLite es vía Prisma. `@electron/rebuild` solo será necesario si se adopta `better-sqlite3` directo.
+- Backend en `127.0.0.1` únicamente. El acceso LAN multicaja (Semana 14) requerirá host configurable + TLS/autenticación reforzada.
+- Las sesiones viven en memoria: se pierden al reiniciar la app (diseño local).
+- El seed NO se ejecuta automáticamente en el primer arranque: una instalación nueva tiene BD vacía (sin roles ni admin) hasta que el SetupWizard (Semana 17) la inicialice. Hasta entonces, usar `npm run prisma:seed` en desarrollo.
+- Entorno VS Code define `ELECTRON_RUN_AS_NODE=1`: para lanzar Electron desde su terminal hay que quitarla (`env -u ELECTRON_RUN_AS_NODE`), de lo contrario `electron.app` queda `undefined`.
+
+**Verificación:** `tsc --noEmit` (3 tsconfig) ✅ 0 errores | `npx vitest run` ✅ 121/121 | Prueba manual: Electron real arrancó, migró una BD nueva, `GET /api/health` → `db: ok` y el cierre por ventana liberó puerto y archivos WAL (`[backend] cerrado`).
+
+---
+
+## Próxima Tarea Exacta (Para ejecutar ahora — Semana 5)
+1. Crear `src/server/services/venta.service.ts` y `src/server/repositories/venta.repository.ts`: motor transaccional ACID (`prisma.$transaction`) que valide stock, calcule subtotal/descuento/IVA por línea con las `TarifaImpuesto`, genere el número `001-001-000000001` por punto de emisión con secuencial atómico y persista `Venta`, `LineaVenta` y `PagoVenta` (múltiples formas de pago, validación suma pagos ≥ total, cálculo de cambio).
+2. Crear `kardex.service.ts` (costo promedio ponderado): cada venta/compra/ajuste/devolución registra `Kardex` y actualiza `Producto.stockActual` y `costoPromedio` dentro de la misma transacción; las anulaciones de venta revierten stock y generan movimiento `DEVOLUCION`.
+3. Agregar esquemas Zod de venta/pago/anulación en `src/shared/schemas/`, y endpoints `POST /api/ventas`, `POST /api/ventas/:id/anular`, `GET /api/ventas/:id` con permisos `ventas:crear|anular|leer` (requiere turno de caja abierto: definir regla mínima y dejar el flujo completo de turnos para Semana 6).
+4. Pruebas unitarias (cálculo de IVA/costo promedio) e integración (venta completa, stock insuficiente con rollback total, anulación, concurrencia de secuenciales).
+5. Verificar con `npx tsc --noEmit` y `npm test`; actualizar este archivo y commit `feat: Semana 5 - motor transaccional de ventas y kardex`.
