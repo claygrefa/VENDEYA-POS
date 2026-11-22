@@ -1,0 +1,18 @@
+# Normalizar line endings en el repositorio
+* text=auto eol=lf
+
+# Binarios (nunca convertir)
+*.exe     binary
+*.dmg     binary
+*.png     binary
+*.ico     binary
+*.icns    binary
+*.jpg     binary
+*.jpeg    binary
+*.gif     binary
+*.pdf     binary
+*.p12     binary
+*.pfx     binary
+*.db      binary
+*.db-wal  binary
+*.db-shm  binary
