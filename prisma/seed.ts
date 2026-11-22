@@ -38,14 +38,14 @@ const DESCRIPCION_ROL: Record<RolBase, string> = {
 };
 
 const UNIDADES = [
-  { codigo: "UN", nombre: "Unidad" },
-  { codigo: "KG", nombre: "Kilogramo" },
-  { codigo: "LB", nombre: "Libra" },
-  { codigo: "L", nombre: "Litro" },
-  { codigo: "M", nombre: "Metro" },
-  { codigo: "PAQ", nombre: "Paquete" },
-  { codigo: "CJ", nombre: "Caja" },
-  { codigo: "SRV", nombre: "Servicio" },
+  { codigo: "UN", nombre: "Unidad", permiteDecimales: false },
+  { codigo: "KG", nombre: "Kilogramo", permiteDecimales: true },
+  { codigo: "LB", nombre: "Libra", permiteDecimales: true },
+  { codigo: "L", nombre: "Litro", permiteDecimales: true },
+  { codigo: "M", nombre: "Metro", permiteDecimales: true },
+  { codigo: "PAQ", nombre: "Paquete", permiteDecimales: false },
+  { codigo: "CJ", nombre: "Caja", permiteDecimales: false },
+  { codigo: "SRV", nombre: "Servicio", permiteDecimales: false },
 ] as const;
 
 export interface SeedOptions {
@@ -100,7 +100,11 @@ export async function runSeed(prisma: PrismaClient, opciones: SeedOptions = {}):
 
   // ── Unidades de medida y categoría por defecto ─────────────
   for (const u of UNIDADES) {
-    await prisma.unidadMedida.upsert({ where: { codigo: u.codigo }, update: {}, create: u });
+    await prisma.unidadMedida.upsert({
+      where: { codigo: u.codigo },
+      update: { permiteDecimales: u.permiteDecimales },
+      create: u,
+    });
   }
   const catExistente = await prisma.categoria.findFirst({ where: { nombre: "General" } });
   if (catExistente === null) {

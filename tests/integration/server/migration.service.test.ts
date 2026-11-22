@@ -151,6 +151,46 @@ describe("MigrationService", () => {
     expect(reg).toHaveLength(0);
   });
 
+  it("actualiza una BD existente con datos: conserva filas y hace el backfill de la migración retail/farmacia", async () => {
+    // 1) Estado anterior: todas las migraciones menos la última
+    const todas = readdirSync(MIGRACIONES_REALES, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name).sort();
+    const ultima = todas[todas.length - 1] as string;
+    expect(ultima).toContain("retail_farmacia");
+    const previas = path.join(dir, "migraciones-previas");
+    cpSync(MIGRACIONES_REALES, previas, { recursive: true });
+    rmSync(path.join(previas, ultima), { recursive: true });
+    await servicio(previas).migrar();
+
+    // 2) Datos de la versión anterior (sin FK: solo interesa el contenido de las tablas reconstruidas)
+    await prisma.$queryRawUnsafe("PRAGMA foreign_keys=OFF");
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO "UnidadMedida" ("id","codigo","nombre","updatedAt") VALUES ('u1','KG','Kilogramo',CURRENT_TIMESTAMP),('u2','UN','Unidad',CURRENT_TIMESTAMP)`
+    );
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO "LineaVenta" ("id","ventaId","productoId","descripcion","cantidad","precioUnitario","subtotal","total","costoUnitario") VALUES ('l1','v1','p1','Arroz',3.5,2,7,7,1.2)`
+    );
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO "Cliente" ("id","identificacion","razonSocial","limiteCredito","updatedAt") VALUES ('c1','0926687856001','Cliente previo',250,CURRENT_TIMESTAMP)`
+    );
+    await prisma.$queryRawUnsafe("PRAGMA foreign_keys=ON");
+
+    // 3) Se aplica la migración nueva sobre la BD con datos (hay respaldo previo)
+    const r = await servicio().migrar();
+    expect(r.aplicadas).toEqual([ultima]);
+    expect(r.respaldo).not.toBeNull();
+
+    const lineas = await prisma.$queryRawUnsafe<Array<Record<string, number | string | null>>>(`SELECT * FROM "LineaVenta"`);
+    expect(lineas).toHaveLength(1);
+    expect(lineas[0]).toMatchObject({ id: "l1", cantidad: 3.5, costoUnitario: 1.2, cantidadBase: 3.5, factorConversion: 1, presentacionId: null });
+
+    const unidades = await prisma.$queryRawUnsafe<Array<{ codigo: string; permiteDecimales: boolean }>>(`SELECT codigo, permiteDecimales FROM "UnidadMedida" ORDER BY codigo`);
+    expect(unidades).toEqual([{ codigo: "KG", permiteDecimales: true }, { codigo: "UN", permiteDecimales: false }]);
+
+    const clientes = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(`SELECT * FROM "Cliente"`);
+    expect(clientes).toHaveLength(1);
+    expect(clientes[0]).toMatchObject({ id: "c1", razonSocial: "Cliente previo", limiteCredito: 250, listaPrecioId: null });
+  });
+
   it("lanza un error claro si la carpeta de migraciones no existe", async () => {
     await expect(servicio(path.join(dir, "no-existe")).migrar()).rejects.toThrow(/carpeta de migraciones/);
   });

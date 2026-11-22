@@ -59,21 +59,34 @@ export interface OpcionesProducto {
   tipo?: "BIEN" | "SERVICIO";
   aplicaIva?: boolean;
   codigoBarras?: string;
+  /** Código de UnidadMedida (default UN) */
+  unidad?: string;
+  requiereLote?: boolean;
+  tieneVencimiento?: boolean;
+  stockMinimo?: number;
+  principioActivo?: string;
 }
 
 export async function crearProducto(env: Entorno, o: OpcionesProducto): Promise<Producto> {
+  const unidadMedidaId =
+    o.unidad === undefined ? env.unidadMedidaId : (await env.prisma.unidadMedida.findUniqueOrThrow({ where: { codigo: o.unidad } })).id;
   const p = await env.servicios.productos.crear({
     codigo: o.codigo,
     ...(o.codigoBarras !== undefined ? { codigoBarras: o.codigoBarras } : {}),
     nombre: `Producto ${o.codigo}`,
     tipo: o.tipo ?? "BIEN",
     categoriaId: env.categoriaId,
-    unidadMedidaId: env.unidadMedidaId,
+    unidadMedidaId,
     precioCompra: o.costo ?? 1,
     precioVenta: o.precioVenta ?? 10,
     aplicaIva: o.aplicaIva ?? true,
+    ...(o.requiereLote !== undefined ? { requiereLote: o.requiereLote } : {}),
+    ...(o.tieneVencimiento !== undefined ? { tieneVencimiento: o.tieneVencimiento } : {}),
+    ...(o.stockMinimo !== undefined ? { stockMinimo: o.stockMinimo } : {}),
+    ...(o.principioActivo !== undefined ? { principioActivo: o.principioActivo } : {}),
   });
-  if (o.stock !== undefined && o.stock > 0) {
+  // Los productos con lote reciben su stock a través de lotes (ver crearLote)
+  if (o.stock !== undefined && o.stock > 0 && o.requiereLote !== true) {
     await env.servicios.kardex.registrarEntrada(env.prisma, {
       productoId: p.id,
       cantidad: o.stock,
@@ -127,4 +140,32 @@ export function crearClienteConCredito(env: Entorno, identificacion: string, lim
   return env.servicios.clientes.crear({
     tipoIdentificacion: "04", identificacion, razonSocial: `Cliente ${identificacion}`, limiteCredito, diasCredito,
   });
+}
+
+const DIA_MS = 86_400_000;
+
+/** Activa/desactiva módulos del giro (feature flags) de la empresa del seed. */
+export function configurarGiro(
+  env: Entorno,
+  flags: { moduloLotes?: boolean; moduloVencimientos?: boolean; moduloListasPrecios?: boolean }
+) {
+  return env.prisma.configuracionGiro.update({ where: { empresaId: env.seed.empresaId }, data: flags });
+}
+
+/** Alta de un lote con existencias (entrada de inventario) vía LoteService; vence en `dias` días. */
+export async function crearLote(
+  env: Entorno,
+  actor: ActorCaja,
+  o: { productoId: string; numeroLote: string; dias: number; cantidad: number; costo?: number }
+) {
+  return env.servicios.lotes.crear(
+    {
+      productoId: o.productoId,
+      numeroLote: o.numeroLote,
+      fechaVencimiento: new Date(Date.now() + o.dias * DIA_MS),
+      cantidad: o.cantidad,
+      costoUnitario: o.costo ?? 1,
+    },
+    actor
+  );
 }

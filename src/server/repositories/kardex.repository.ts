@@ -40,6 +40,19 @@ export class KardexRepository {
     return db.kardex.create({ data: datos });
   }
 
+  async listarPaginado(db: Db, productoId: string, page: number, pageSize: number): Promise<{ items: Kardex[]; total: number }> {
+    const [items, total] = await Promise.all([
+      db.kardex.findMany({
+        where: { productoId },
+        orderBy: [{ fecha: "desc" }, { createdAt: "desc" }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      db.kardex.count({ where: { productoId } }),
+    ]);
+    return { items, total };
+  }
+
   listarPorProducto(db: Db, productoId: string): Promise<Kardex[]> {
     return db.kardex.findMany({ where: { productoId }, orderBy: [{ fecha: "asc" }, { createdAt: "asc" }] });
   }

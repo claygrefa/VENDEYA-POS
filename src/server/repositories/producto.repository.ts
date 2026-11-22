@@ -2,6 +2,7 @@
 // src/server/repositories/producto.repository.ts
 // ============================================================
 import type { Prisma, PrismaClient, Producto } from "@prisma/client";
+import { codigoBarrasEnUso, type PresentacionConProducto } from "./presentacion.repository";
 
 export interface ResultadoPaginado<T> {
   items: T[];
@@ -29,6 +30,27 @@ export class ProductoRepository {
 
   findByCodigoBarras(codigoBarras: string): Promise<Producto | null> {
     return this.prisma.producto.findFirst({ where: { codigoBarras, status: "ACTIVO" } });
+  }
+
+  /** Código de barras ya usado por otro producto u otra presentación. */
+  codigoBarrasEnUso(codigo: string, ignorarProductoId?: string): Promise<boolean> {
+    return codigoBarrasEnUso(this.prisma, codigo, ignorarProductoId !== undefined ? { productoId: ignorarProductoId } : {});
+  }
+
+  /** Presentación activa (de un producto activo) por su código de barras. */
+  findPresentacionPorCodigoBarras(codigoBarras: string): Promise<PresentacionConProducto | null> {
+    return this.prisma.presentacionProducto.findFirst({
+      where: { codigoBarras, status: "ACTIVO", producto: { status: "ACTIVO" } },
+      include: { producto: true },
+    });
+  }
+
+  async categoriaExiste(id: string): Promise<boolean> {
+    return (await this.prisma.categoria.findUnique({ where: { id }, select: { id: true } })) !== null;
+  }
+
+  async unidadExiste(id: string): Promise<boolean> {
+    return (await this.prisma.unidadMedida.findUnique({ where: { id }, select: { id: true } })) !== null;
   }
 
   async buscar(filtro: FiltroProductos): Promise<ResultadoPaginado<Producto>> {

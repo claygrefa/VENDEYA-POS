@@ -3,11 +3,19 @@
 // ============================================================
 import { z } from "zod";
 
+export const LoteInputSchema = z.object({
+  numeroLote:       z.string().trim().min(1).max(50),
+  fechaVencimiento: z.coerce.date(),
+  fechaFabricacion: z.coerce.date().optional(),
+});
+
 export const LineaCompraInputSchema = z.object({
   productoId:    z.string().uuid(),
   cantidad:      z.number().positive(),
   /** Costo unitario sin IVA */
   costoUnitario: z.number().positive(),
+  /** Obligatorio si el producto requiere lote */
+  lote:          LoteInputSchema.optional(),
 });
 
 export const CompraInputSchema = z.object({

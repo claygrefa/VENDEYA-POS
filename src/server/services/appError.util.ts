@@ -12,7 +12,8 @@ export type CodigoError =
   | "TURNO_REQUERIDO"
   | "ESTADO_INVALIDO"
   | "LIMITE_CREDITO_EXCEDIDO"
-  | "SIN_PERMISO";
+  | "SIN_PERMISO"
+  | "MODULO_DESHABILITADO";
 
 export class AppError extends Error {
   public readonly codigo: CodigoError;

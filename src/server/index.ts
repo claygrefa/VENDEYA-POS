@@ -23,6 +23,7 @@ const HTTP_POR_CODIGO: Record<CodigoError, number> = {
   ESTADO_INVALIDO: 409,
   LIMITE_CREDITO_EXCEDIDO: 409,
   SIN_PERMISO: 403,
+  MODULO_DESHABILITADO: 403,
 };
 
 /** Construye la instancia Fastify con CORS, manejo de errores y rutas. No abre el puerto. */

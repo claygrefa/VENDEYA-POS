@@ -3,10 +3,10 @@
 ## Estado General
 - **Proyecto:** VENDEYA POS (Sistema Punto de Venta Multi-Giro & Facturación Electrónica SRI Ecuador)
 - **Horizonte:** 6 Meses (24 Semanas)
-- **Fase Actual:** MES 2 — Semana 7: módulo Retail/Ferretería y módulo Farmacia
+- **Fase Actual:** MES 2 — Semana 8: módulo Restaurantes y suite de integración del núcleo POS
 - **Estado de Compilación:** ✅ `tsc --noEmit` → 0 errores | ✅ `tsconfig.node.json` → 0 errores | ✅ `tsconfig.electron.json` → 0 errores
-- **Tests:** ✅ 250/250 passed (17 archivos de prueba)
-- **Último Commit:** `feat: Semana 6 - turnos de caja, arqueos, cuentas por cobrar y pagar`
+- **Tests:** ✅ 339/339 passed (21 archivos de prueba)
+- **Último Commit:** `feat: Semana 7 - modulo retail/ferreteria y farmacia`
 
 ---
 
@@ -21,8 +21,8 @@
 ### MES 2: Núcleo POS, Inventario y Módulos Multi-Giro
 - [x] **Semana 5 (COMPLETADA):** Motor transaccional ACID de ventas, múltiples formas de pago, descuentos, anulaciones y actualización automática de Kardex (costo promedio ponderado).
 - [x] **Semana 6 (COMPLETADA):** Gestión de Turnos y Arqueos de Caja (apertura, ingresos/egresos de efectivo, cierre ciego, cuadre y reportes de turno) + Cuentas por Cobrar y Cuentas por Pagar.
-- [ ] **Semana 7 (ACTUAL):** Módulo Retail/Ferretería (múltiples presentaciones, fraccionamiento, listas de precios, códigos de barras) y Módulo Farmacia (lotes, fechas de caducidad, alertas).
-- [ ] **Semana 8:** Módulo Restaurantes (mapa de mesas, cuentas abiertas, división de cuentas, envío de comandas) + Suite completa de pruebas de integración del núcleo POS.
+- [x] **Semana 7 (COMPLETADA):** Módulo Retail/Ferretería (múltiples presentaciones, fraccionamiento, listas de precios, códigos de barras) y Módulo Farmacia (lotes, fechas de caducidad, alertas).
+- [ ] **Semana 8 (ACTUAL):** Módulo Restaurantes (mapa de mesas, cuentas abiertas, división de cuentas, envío de comandas) + Suite completa de pruebas de integración del núcleo POS.
 
 ### MES 3: Motor Tributario SRI Ecuador (100% Offline-First)
 - [ ] **Semana 9:** Generador de Clave de Acceso (49 dígitos, Módulo 11) + Constructor de XML v2.10/v2.30 para Facturas y Notas de Crédito + validación contra esquemas XSD del SRI.
@@ -231,9 +231,51 @@ Filtros de listados: `estado`, `clienteId`/`proveedorId`, `vencidas=true|false`,
 
 ---
 
-## Próxima Tarea Exacta (Para ejecutar ahora — Semana 7)
-1. **Módulo Retail/Ferretería:** presentaciones múltiples por producto (unidad, paquete, caja con factor de conversión a la unidad base; nuevo modelo `PresentacionProducto` con código de barras propio y precio), venta fraccionada (cantidades decimales según `UnidadMedida`, p. ej. KG/M) y listas de precios (`ListaPrecio` + `PrecioProducto`, asignable a `Cliente`). La venta debe resolver el precio por lista/presentación y descontar el stock en unidades base; el Kardex siempre en unidad base. Búsqueda por cualquier código de barras (producto o presentación).
-2. **Módulo Farmacia:** lotes con CRUD (`LoteService`), ingreso de lotes en compras (la compra de productos con `requiereLote` exige lote y fecha de vencimiento), selección automática de lote FEFO (primero en vencer) en la venta cuando el producto requiere lote, bloqueo de lotes vencidos, alertas de vencimiento (`GET /api/inventario/alertas-vencimiento?dias=` con lotes vencidos y por vencer) y alertas de stock mínimo; búsqueda por principio activo (ya existe en `ProductoService.buscar`).
-3. Endpoints de inventario: crear/actualizar producto y presentaciones, ajustes de inventario (`AJUSTE_ENTRADA`/`AJUSTE_SALIDA` con motivo) y consulta de Kardex por producto, con permisos `inventario:*` y respetando los feature flags de `ConfiguracionGiro` (`moduloLotes`, `moduloVencimientos`, `moduloListasPrecios`).
-4. Pruebas unitarias (conversión de unidades, FEFO) e integración (venta por presentación y fraccionada, lista de precios por cliente, FEFO con varios lotes y lote vencido, alerta de vencimientos, compra con lote).
-5. Verificar con `npx tsc --noEmit` y `npm test`; actualizar este archivo y commit `feat: Semana 7 - modulo retail/ferreteria y farmacia`.
+### Semana 7 — 2026-11-23 ✅ COMPLETADA
+**Esquema (migración `20261123090000_retail_farmacia`):** `UnidadMedida.permiteDecimales` (KG, LB, L, M = true); modelos `PresentacionProducto` (factor, código de barras propio y único, precio opcional), `ListaPrecio` y `PrecioProducto`; `Cliente.listaPrecioId`; `LineaVenta.presentacionId`, `factorConversion` y `cantidadBase`. La migración incluye backfills (`cantidadBase = cantidad` en líneas previas y unidades fraccionables) y reconstruye tres tablas; verificada con una prueba que actualiza una BD con datos reales.
+
+**Archivos creados/modificados:**
+- Utilidades puras: `inventario.util.ts` (conversión a unidades base, validación de cantidades, precio por lista/presentación, `asignarFefo`, `repartirProporcional`, vencimientos).
+- Servicios nuevos: `giro.service.ts` (feature flags), `presentacion.service.ts`, `listaPrecio.service.ts`, `lote.service.ts`, `inventario.service.ts` (catálogo con flags, ajustes, Kardex, alertas). Repositorios: `configuracion`, `presentacion` (incluye `codigoBarrasEnUso`), `listaPrecio`, `lote`.
+- `venta.service.ts` reescrito: resuelve presentación, cantidad en unidades base, precio y lotes FEFO; `compra.service.ts` (lotes en compras); `producto.service.ts` (código de barras único entre productos y presentaciones, categoría/unidad existentes, `porCodigoBarras` reconoce presentaciones); `container.factory.ts`.
+- API: `inventario.controller.ts` + rutas (ver tabla). Esquemas Zod: `inventario.schema.ts`; `venta.schema` (precio opcional, `presentacionId`), `compra.schema` (lote por línea), `producto.schema` (principio activo, concentración, forma farmacéutica).
+- Nuevo código de error `MODULO_DESHABILITADO` (HTTP 403).
+- Tests: `inventario.util` (23), `retail` (26), `farmacia` (24), `inventario-api` (12) + 1 de actualización de BD con datos en `migration.service.test.ts`; `prisma-schema.test.ts` incluye los 3 modelos nuevos; helper con unidades, flags y lotes.
+
+**Endpoints nuevos** (sesión Bearer):
+| Ruta | Permiso |
+|---|---|
+| `POST /api/productos`, `POST /api/productos/:id/presentaciones`, `POST /api/listas-precio`, `POST /api/inventario/lotes` | `inventario:crear` |
+| `PATCH /api/productos/:id`, `PATCH /api/presentaciones/:id`, `PATCH /api/listas-precio/:id`, `PUT /api/listas-precio/:id/precios`, `DELETE /api/listas-precio/:id/precios/:precioId`, `PATCH /api/inventario/lotes/:id`, `POST /api/inventario/ajustes` | `inventario:actualizar` |
+| `GET /api/productos/:id/presentaciones`, `GET /api/listas-precio[/:id/precios]`, `GET /api/inventario/lotes[/:id]`, `GET /api/inventario/productos/:id/kardex`, `GET /api/inventario/alertas-vencimiento?dias=`, `GET /api/inventario/alertas-stock` | `inventario:leer` |
+| `PUT /api/clientes/:id/lista-precio` (`{ listaPrecioId \| null }`) | `clientes:actualizar` |
+`GET /api/productos/barcode/:codigo` ahora también reconoce códigos de presentaciones (la respuesta agrega `presentacion`).
+
+**Reglas de negocio implementadas:**
+- **Presentaciones:** `factor` = unidades base que contiene. Se venden siempre completas (cantidad entera). Stock y Kardex siempre en unidad base; `LineaVenta.costoUnitario` es por unidad base y `cantidadBase` guarda lo descontado (la anulación lo revierte exactamente).
+- **Fraccionamiento:** solo unidades con `permiteDecimales` (hasta 4 decimales); las demás exigen enteros.
+- **Precio:** el servidor lo resuelve (cliente con lista activa: precio de presentación en lista → precio base de lista × factor; si no, presentación del catálogo → base × factor → catálogo). `precioUnitario` en la línea es opcional: **si difiere del resuelto exige el permiso `ventas:actualizar`** (supervisor/admin); un actor sin lista de permisos nunca puede modificarlo. Cierra el pendiente de política de precios de la Semana 5. Los descuentos siguen sin restricción por permiso.
+- **Listas de precios:** por empresa, nombre único; el precio por presentación es opcional; una lista inactiva no se aplica ni puede asignarse a clientes.
+- **Lotes / FEFO:** si el producto exige lote y la línea no indica uno, se reparte entre los lotes vigentes (ACTIVO, no vencidos, con existencia) por fecha de vencimiento (empate: el más antiguo), generando una línea por lote; el descuento por valor se prorratea exacto y el porcentual se mantiene. Un lote explícito se respeta. Vencidos y bloqueados nunca se usan. Con presentación, el reparto puede producir cantidades fraccionarias de la presentación (p. ej. 1,5 + 0,5 cajas).
+- **Lotes y compras:** un producto con `requiereLote` exige número y vencimiento en la compra (crea o repone el lote, ligado al proveedor); un lote ya vencido, bloqueado o con otra fecha se rechaza. El alta manual de un lote es una entrada de inventario `AJUSTE_ENTRADA`.
+- **Ajustes:** motivo obligatorio (≥5 caracteres); la ENTRADA exige costo (y lote si corresponde); la SALIDA de un producto con lote indica de cuál descontar.
+- **Alertas:** vencimiento (`dias` 0–365, por defecto 30) devuelve lotes vencidos y por vencer con `diasRestantes`; stock mínimo lista bienes activos con stock ≤ mínimo.
+- **Feature flags (`ConfiguracionGiro`):** `moduloListasPrecios` gobierna las listas (y su aplicación en ventas), `moduloLotes` los lotes/`requiereLote`, `moduloVencimientos` las alertas y `tieneVencimiento`. Sin configuración, todos están deshabilitados. El seed RETAIL_GENERAL activa solo listas de precios: para Farmacia hay que activar lotes y vencimientos.
+
+**Decisiones Técnicas / Limitaciones conocidas:**
+- Las compras se registran en unidades base (no por presentación).
+- `requiereLote` no puede cambiarse con existencias (hay que dejar el stock en cero y volver a ingresarlo con lotes).
+- Una venta con lotes explícitos y FEFO del mismo producto en una misma venta puede fallar por stock en el momento de descontar (se revierte completa).
+- El catálogo (`Producto`, `Categoria`, `UnidadMedida`) es global, no por empresa; los permisos de flags usan la empresa del usuario.
+- No hay aún endpoints de CRUD de categorías, unidades de medida ni proveedores.
+
+**Verificación:** `tsc --noEmit` (3 tsconfig) ✅ 0 errores | `npx vitest run` ✅ 339/339 (21 archivos) | `npm run prisma:seed` ✅.
+
+---
+
+## Próxima Tarea Exacta (Para ejecutar ahora — Semana 8)
+1. **Módulo Restaurantes** (usa los modelos existentes `Mesa`, `Comanda`, `ItemComanda`; agregar migración con lo que falte, p. ej. destino de preparación `COCINA|BARRA` por producto, número de comanda, `ItemComanda.estado`, división de cuenta): mapa de mesas por zona (`MesaService`: CRUD, estado LIBRE/OCUPADA/RESERVADA, unir/mover mesa), cuentas abiertas (una `Comanda` abierta por mesa con ítems agregables en cualquier momento, mesero asignado, notas por ítem) y envío de comandas a cocina/barra (marca los ítems pendientes como enviados y los agrupa por destino; estados `PENDIENTE → EN_PREPARACION → LISTO → ENTREGADO/CANCELADO`; cancelar un ítem ya enviado exige permiso/motivo). Requiere `moduloMesas` / `moduloComandasCocina` (nuevo flag check en `GiroService`).
+2. **División de cuentas** y cobro: dividir una cuenta abierta por ítems o en partes iguales y cobrar cada parte como una `Venta` independiente reutilizando `VentaService.crear` (stock/Kardex en la venta, no al pedir), con propina opcional (si se agrega, definir tratamiento tributario) y cierre de la mesa al cobrar todo; no permitir cobrar ítems ya cobrados ni cancelados.
+3. Endpoints `/api/mesas`, `/api/comandas` (+ `/enviar`, `/items`, `/dividir`, `/cobrar`) y vista de cocina (`GET /api/cocina/pendientes?destino=`) con permisos coherentes con el RBAC (cajero/mesero) y alcance por empresa/sucursal.
+4. **Suite completa de integración del núcleo POS** (cierre del Mes 2): escenarios extremo a extremo por giro (retail, farmacia, restaurante) que recorran apertura de turno → compras → ventas (efectivo, mixto, crédito) → anulaciones → abonos → cierre ciego y verifiquen invariantes (stock = suma de Kardex = suma de lotes, cuadre de caja, saldos de cartera, secuenciales sin huecos) incluyendo concurrencia; además, tests de regresión del RBAC por endpoint (tabla ruta × rol).
+5. Verificar con `npx tsc --noEmit` y `npm test`; actualizar este archivo y commit `feat: Semana 8 - modulo restaurantes y suite de integracion del nucleo POS`.

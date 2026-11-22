@@ -2,7 +2,7 @@
 // src/server/repositories/venta.repository.ts
 // Acceso a datos del motor de ventas. Los métodos reciben el cliente transaccional.
 // ============================================================
-import type { Cliente, Lote, Prisma, Producto, PuntoEmision, Sucursal, TarifaImpuesto, TurnoCaja } from "@prisma/client";
+import type { Cliente, Lote, Prisma, PresentacionProducto, Producto, PuntoEmision, Sucursal, TarifaImpuesto, TurnoCaja, UnidadMedida } from "@prisma/client";
 import type { Db } from "./kardex.repository";
 
 const incluirDetalle = {
@@ -12,7 +12,7 @@ const incluirDetalle = {
 } satisfies Prisma.VentaInclude;
 
 export type VentaCompleta = Prisma.VentaGetPayload<{ include: typeof incluirDetalle }>;
-export type ProductoConTarifa = Producto & { tarifaImpuesto: TarifaImpuesto | null };
+export type ProductoConTarifa = Producto & { tarifaImpuesto: TarifaImpuesto | null; unidadMedida: UnidadMedida };
 export type PuntoConSucursal = PuntoEmision & { sucursal: Sucursal };
 
 export interface NuevaVenta {
@@ -57,13 +57,38 @@ export class VentaRepository {
   }
 
   productosPorIds(db: Db, ids: string[]): Promise<ProductoConTarifa[]> {
-    return db.producto.findMany({ where: { id: { in: ids } }, include: { tarifaImpuesto: true } });
+    return db.producto.findMany({ where: { id: { in: ids } }, include: { tarifaImpuesto: true, unidadMedida: true } });
   }
 
   /** Mapa código SRI → porcentaje, de las tarifas de IVA vigentes de la empresa. */
   async tarifasIva(db: Db, empresaId: string): Promise<Map<string, number>> {
     const tarifas = await db.tarifaImpuesto.findMany({ where: { empresaId, tipoImpuesto: "IVA", vigente: true } });
     return new Map(tarifas.map((t) => [t.codigo, t.porcentaje]));
+  }
+
+  presentacionesPorIds(db: Db, ids: string[]): Promise<PresentacionProducto[]> {
+    return db.presentacionProducto.findMany({ where: { id: { in: ids } } });
+  }
+
+  /** Lotes vigentes con existencia (no bloqueados ni vencidos) de un producto. */
+  lotesDisponibles(db: Db, productoId: string): Promise<Lote[]> {
+    return db.lote.findMany({
+      where: { productoId, status: "ACTIVO", cantidadActual: { gt: 0 }, fechaVencimiento: { gte: new Date() } },
+      orderBy: [{ fechaVencimiento: "asc" }, { createdAt: "asc" }],
+    });
+  }
+
+  /** Precios de una lista para los productos dados (base y por presentación). */
+  preciosDeLista(db: Db, listaPrecioId: string, productoIds: string[]): Promise<Array<{ productoId: string; presentacionId: string | null; precio: number }>> {
+    return db.precioProducto.findMany({
+      where: { listaPrecioId, productoId: { in: productoIds }, lista: { status: "ACTIVO" } },
+      select: { productoId: true, presentacionId: true, precio: true },
+    });
+  }
+
+  async listasPreciosHabilitadas(db: Db, empresaId: string): Promise<boolean> {
+    const cfg = await db.configuracionGiro.findUnique({ where: { empresaId }, select: { moduloListasPrecios: true } });
+    return cfg?.moduloListasPrecios === true;
   }
 
   cliente(db: Db, id: string): Promise<Cliente | null> {

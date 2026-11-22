@@ -11,3 +11,4 @@ export * from "./paginacion.schema";
 export * from "./turno.schema";
 export * from "./compra.schema";
 export * from "./cuenta.schema";
+export * from "./inventario.schema";

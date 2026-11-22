@@ -8,8 +8,10 @@ import { CompraInputSchema } from "../../shared/schemas/compra.schema";
 import type { CompraCompleta, CompraRepository } from "../repositories/compra.repository";
 import { AppError } from "./appError.util";
 import type { CuentaPorPagarService } from "./cuentaPorPagar.service";
+import type { GiroService } from "./giro.service";
 import { resolverPorcentajeIva } from "./impuesto.util";
 import type { KardexService } from "./kardex.service";
+import type { LoteService } from "./lote.service";
 import type { ActorCaja } from "./turno.service";
 import { parsear } from "./validation.util";
 import { calcularLinea, calcularTotales } from "./ventaCalculo.util";
@@ -21,7 +23,9 @@ export class CompraService {
     private readonly prisma: PrismaClient,
     private readonly repo: CompraRepository,
     private readonly kardex: KardexService,
-    private readonly cuentasPorPagar: CuentaPorPagarService
+    private readonly cuentasPorPagar: CuentaPorPagarService,
+    private readonly lotes: LoteService,
+    private readonly giro: GiroService
   ) {}
 
   async crear(entrada: unknown, actor: ActorCaja): Promise<CompraCompleta> {
@@ -44,11 +48,21 @@ export class CompraService {
       const productos = new Map((await this.repo.productosPorIds(tx, ids)).map((p) => [p.id, p]));
       const tarifas = await this.repo.tarifasIva(tx, actor.empresaId);
 
-      const calculadas = datos.lineas.map((l) => {
+      const calculadas = [];
+      for (const l of datos.lineas) {
         const producto = productos.get(l.productoId);
         if (producto === undefined) throw new AppError("NO_ENCONTRADO", `Producto ${l.productoId} no encontrado`);
         if (producto.tipo !== "BIEN") {
           throw new AppError("VALIDACION", `"${producto.nombre}" es un servicio: solo se compran bienes con inventario`);
+        }
+        // Productos con lote: exigen lote y fecha de vencimiento en la compra
+        if (producto.requiereLote) {
+          if (l.lote === undefined) {
+            throw new AppError("VALIDACION", `"${producto.nombre}" requiere número de lote y fecha de vencimiento`);
+          }
+          await this.giro.exigir(tx, actor.empresaId, "moduloLotes");
+        } else if (l.lote !== undefined) {
+          throw new AppError("VALIDACION", `"${producto.nombre}" no maneja lotes`);
         }
         const porcentajeIva = resolverPorcentajeIva(producto, tarifas);
         const calculo = calcularLinea({
@@ -58,8 +72,8 @@ export class CompraService {
           tipoDescuento: "VALOR",
           porcentajeIva,
         });
-        return { entrada: l, producto, porcentajeIva, calculo };
-      });
+        calculadas.push({ entrada: l, producto, porcentajeIva, calculo });
+      }
       const totales = calcularTotales(calculadas.map((c) => c.calculo));
 
       const compra = await this.repo.crear(tx, {
@@ -86,6 +100,16 @@ export class CompraService {
 
       // Ingreso a inventario: el costo del Kardex es el costo sin IVA
       for (const c of calculadas) {
+        if (c.entrada.lote !== undefined) {
+          await this.lotes.ingresar(tx, {
+            productoId: c.producto.id,
+            numeroLote: c.entrada.lote.numeroLote,
+            fechaVencimiento: c.entrada.lote.fechaVencimiento,
+            fechaFabricacion: c.entrada.lote.fechaFabricacion,
+            cantidad: c.entrada.cantidad,
+            proveedorId: proveedor.id,
+          });
+        }
         await this.kardex.registrarEntrada(tx, {
           productoId: c.producto.id,
           cantidad: c.entrada.cantidad,

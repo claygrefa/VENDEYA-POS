@@ -18,6 +18,9 @@ export const ProductoSchema = z.object({
   codigoIvaSRI:    z.string().default("2"),
   tieneVencimiento: z.boolean().default(false),
   requiereLote:    z.boolean().default(false),
+  principioActivo:  z.string().trim().max(200).optional().nullable(),
+  concentracion:    z.string().trim().max(100).optional().nullable(),
+  formaFarmaceutica: z.string().trim().max(100).optional().nullable(),
 });
 
 export type ProductoInput = z.infer<typeof ProductoSchema>;

@@ -6,6 +6,7 @@ import { crearAuthController } from "../controllers/auth.controller";
 import { crearClienteController } from "../controllers/cliente.controller";
 import { crearCuentaController } from "../controllers/cuenta.controller";
 import { crearHealthController } from "../controllers/health.controller";
+import { crearInventarioController } from "../controllers/inventario.controller";
 import { crearProductoController } from "../controllers/producto.controller";
 import { crearTurnoController } from "../controllers/turno.controller";
 import { crearVentaController } from "../controllers/venta.controller";
@@ -20,6 +21,7 @@ export function registrarRutas(server: FastifyInstance, servicios: Servicios): v
   const ventas = crearVentaController(servicios);
   const turnos = crearTurnoController(servicios);
   const cuentas = crearCuentaController(servicios);
+  const inventario = crearInventarioController(servicios);
 
   // ── Públicas ──────────────────────────────────────────────
   server.get("/api/health", health.estado);
@@ -77,4 +79,35 @@ export function registrarRutas(server: FastifyInstance, servicios: Servicios): v
   server.get("/api/cuentas-por-pagar", leerProveedores, cuentas.listarCxP);
   server.get<{ Params: { id: string } }>("/api/cuentas-por-pagar/:id", leerProveedores, cuentas.obtenerCxP);
   server.post<{ Params: { id: string } }>("/api/cuentas-por-pagar/:id/pagos", pagarProveedores, cuentas.pagarCxP);
+
+  // ── Inventario: catálogo, presentaciones, listas de precios, lotes, ajustes y alertas ──
+  const permiso = (modulo: string, accion: string) => ({ preHandler: requerirSesion(servicios, { modulo, accion }) });
+  const invCrear = permiso("inventario", "crear");
+  const invActualizar = permiso("inventario", "actualizar");
+  const clientesActualizar = permiso("clientes", "actualizar");
+
+  server.post("/api/productos", invCrear, inventario.crearProducto);
+  server.patch<{ Params: { id: string } }>("/api/productos/:id", invActualizar, inventario.actualizarProducto);
+
+  server.get<{ Params: { id: string } }>("/api/productos/:id/presentaciones", leerInventario, inventario.listarPresentaciones);
+  server.post<{ Params: { id: string } }>("/api/productos/:id/presentaciones", invCrear, inventario.crearPresentacion);
+  server.patch<{ Params: { id: string } }>("/api/presentaciones/:id", invActualizar, inventario.actualizarPresentacion);
+
+  server.get("/api/listas-precio", leerInventario, inventario.listarListas);
+  server.post("/api/listas-precio", invCrear, inventario.crearLista);
+  server.patch<{ Params: { id: string } }>("/api/listas-precio/:id", invActualizar, inventario.actualizarLista);
+  server.get<{ Params: { id: string } }>("/api/listas-precio/:id/precios", leerInventario, inventario.listarPrecios);
+  server.put<{ Params: { id: string } }>("/api/listas-precio/:id/precios", invActualizar, inventario.fijarPrecio);
+  server.delete<{ Params: { id: string; precioId: string } }>("/api/listas-precio/:id/precios/:precioId", invActualizar, inventario.quitarPrecio);
+  server.put<{ Params: { id: string } }>("/api/clientes/:id/lista-precio", clientesActualizar, inventario.asignarListaACliente);
+
+  server.get("/api/inventario/lotes", leerInventario, inventario.listarLotes);
+  server.post("/api/inventario/lotes", invCrear, inventario.crearLote);
+  server.get<{ Params: { id: string } }>("/api/inventario/lotes/:id", leerInventario, inventario.obtenerLote);
+  server.patch<{ Params: { id: string } }>("/api/inventario/lotes/:id", invActualizar, inventario.actualizarLote);
+
+  server.post("/api/inventario/ajustes", invActualizar, inventario.ajustar);
+  server.get<{ Params: { id: string } }>("/api/inventario/productos/:id/kardex", leerInventario, inventario.kardex);
+  server.get("/api/inventario/alertas-vencimiento", leerInventario, inventario.alertasVencimiento);
+  server.get("/api/inventario/alertas-stock", leerInventario, inventario.alertasStock);
 }

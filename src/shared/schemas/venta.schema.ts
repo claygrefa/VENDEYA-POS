@@ -5,9 +5,17 @@ import { z } from "zod";
 
 export const LineaVentaInputSchema = z.object({
   productoId:     z.string().uuid(),
+  /** Presentación vendida (caja, paquete…); null/omitido = unidad base */
+  presentacionId: z.string().uuid().optional().nullable(),
+  /** Lote explícito; si el producto exige lote y se omite, se asigna por FEFO */
   loteId:         z.string().uuid().optional().nullable(),
+  /** En unidades de venta (de la presentación si se indica) */
   cantidad:       z.number().positive(),
-  precioUnitario: z.number().positive(),
+  /**
+   * Opcional: si se omite, el servidor resuelve el precio (lista del cliente → presentación → producto).
+   * Un valor distinto del resuelto exige el permiso ventas:actualizar.
+   */
+  precioUnitario: z.number().positive().optional(),
   // VALOR: monto total descontado de la línea; PORCENTAJE: 0–100
   descuento:      z.number().nonnegative().default(0),
   tipoDescuento:  z.enum(["PORCENTAJE", "VALOR"]).default("VALOR"),
