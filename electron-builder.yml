@@ -1,0 +1,65 @@
+appId: com.vendeya.pos
+productName: VENDEYA POS
+copyright: Copyright © 2026 VENDEYA
+
+directories:
+  output: release
+  buildResources: build-resources
+
+files:
+  - dist/**/*
+  - dist-electron/**/*
+  - node_modules/**/*
+  - prisma/schema.prisma
+  - "!node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}"
+  - "!node_modules/*/{test,__tests__,tests,powered-test,example,examples}"
+  - "!node_modules/*.d.ts"
+  - "!node_modules/.bin"
+
+extraResources:
+  - from: prisma/migrations
+    to: prisma/migrations
+  - from: prisma/schema.prisma
+    to: prisma/schema.prisma
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: build-resources/icon.ico
+  verifyUpdateCodeSignature: false
+
+nsis:
+  oneClick: true
+  perMachine: false
+  allowElevation: true
+  allowToChangeInstallationDirectory: false
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: VENDEYA POS
+  installerLanguages:
+    - es_ES
+
+mac:
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+  icon: build-resources/icon.icns
+  category: public.app-category.business
+
+linux:
+  target:
+    - target: AppImage
+      arch:
+        - x64
+  icon: build-resources/icon.png
+  category: Office
+
+publish:
+  provider: github
+  owner: vendeya
+  repo: vendeya-pos
+  releaseType: release

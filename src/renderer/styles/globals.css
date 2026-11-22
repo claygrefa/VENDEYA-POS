@@ -1,0 +1,114 @@
+/* ============================================================
+   src/renderer/styles/globals.css — Estilos globales VENDEYA POS
+   ============================================================ */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    /* Deshabilita selección de texto para look nativo en POS */
+    -webkit-user-select: none;
+    user-select: none;
+    /* Suaviza el renderizado de fuentes */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* Deshabilita el scroll horizontal */
+    overflow-x: hidden;
+  }
+
+  body {
+    @apply bg-surface-900 text-white;
+    margin: 0;
+    padding: 0;
+    font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+  }
+
+  /* Permitir selección de texto solo en inputs */
+  input,
+  textarea,
+  [contenteditable="true"] {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
+  /* Scroll personalizado */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-surface-800;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-surface-600 rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-surface-500;
+  }
+}
+
+@layer components {
+  /* Botón primario */
+  .btn-primary {
+    @apply bg-brand-600 hover:bg-brand-700 active:bg-brand-800
+           text-white font-semibold rounded-lg px-4 py-2
+           transition-colors duration-150 cursor-pointer
+           focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-400
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  /* Botón secundario */
+  .btn-secondary {
+    @apply bg-surface-700 hover:bg-surface-600 active:bg-surface-500
+           text-surface-200 font-medium rounded-lg px-4 py-2
+           transition-colors duration-150 cursor-pointer
+           focus-visible:outline focus-visible:outline-2 focus-visible:outline-surface-400
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  /* Botón de peligro */
+  .btn-danger {
+    @apply bg-danger-600 hover:bg-danger-700 active:bg-danger-700
+           text-white font-semibold rounded-lg px-4 py-2
+           transition-colors duration-150 cursor-pointer
+           focus-visible:outline focus-visible:outline-2 focus-visible:outline-danger-400
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  /* Tarjeta de panel */
+  .card {
+    @apply bg-surface-800 border border-surface-700 rounded-xl p-4 shadow-sm;
+  }
+
+  /* Input estándar */
+  .input {
+    @apply w-full bg-surface-800 border border-surface-600 rounded-lg px-3 py-2
+           text-white placeholder-surface-500
+           focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500
+           transition-colors duration-150;
+  }
+
+  /* Badge de estado */
+  .badge-ok      { @apply inline-flex items-center gap-1 text-xs font-medium text-success-500 bg-success-50/10 rounded-full px-2 py-0.5; }
+  .badge-warning { @apply inline-flex items-center gap-1 text-xs font-medium text-warning-500 bg-warning-50/10 rounded-full px-2 py-0.5; }
+  .badge-danger  { @apply inline-flex items-center gap-1 text-xs font-medium text-danger-500  bg-danger-50/10  rounded-full px-2 py-0.5; }
+}
+
+@layer utilities {
+  /* Texto que parpadea para indicar foco en modo POS */
+  .caret-brand { caret-color: theme("colors.brand.400"); }
+
+  /* Layout helpers para POS */
+  .pos-grid { @apply grid grid-cols-[1fr_380px] gap-0 h-screen; }
+  .pos-sidebar { @apply flex flex-col bg-surface-900 border-l border-surface-700 overflow-hidden; }
+}
