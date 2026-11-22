@@ -3,10 +3,10 @@
 ## Estado General
 - **Proyecto:** VENDEYA POS (Sistema Punto de Venta Multi-Giro & Facturación Electrónica SRI Ecuador)
 - **Horizonte:** 6 Meses (24 Semanas)
-- **Fase Actual:** MES 1 — Semana 3: `prisma/seed.ts` y capa de repositorios/servicios base
+- **Fase Actual:** MES 1 — Semana 4: núcleo de Electron, servidor Fastify embebido y migraciones al iniciar
 - **Estado de Compilación:** ✅ `tsc --noEmit` → 0 errores | ✅ `tsconfig.node.json` → 0 errores
-- **Tests:** ✅ 60/60 passed (4 archivos de prueba)
-- **Último Commit:** `feat: Semana 2 — schema.prisma completo con migración inicial`
+- **Tests:** ✅ 90/90 passed (6 archivos de prueba)
+- **Último Commit:** `feat: Semana 3 - seed y capa base de repositorios y servicios`
 
 ---
 
@@ -15,8 +15,8 @@
 ### MES 1: Cimientos, Arquitectura y Base de Datos
 - [x] **Semana 1 (COMPLETADA):** Inicializar Git, estructura de carpetas (`electron/`, `src/server/`, `src/renderer/`, `src/shared/`, `prisma/`, `tests/`), `package.json`, `tsconfig.json`, `vite.config.ts`, `vitest.config.ts` e instalación de dependencias base.
 - [x] **Semana 2 (COMPLETADA):** Diseño e implementación de `prisma/schema.prisma` completo (multi-empresa, sucursales, puntos de emisión, impuestos dinámicos SRI, productos, lotes, kardex, turnos de caja, ventas, comprobantes SRI, roles RBAC y feature flags) + migración inicial.
-- [ ] **Semana 3 (ACTUAL):** Creación de `prisma/seed.ts` (impuestos SRI vigentes, Consumidor Final, usuario admin, configuraciones base) y capa de repositorios/servicios base en `src/server/`.
-- [ ] **Semana 4:** Implementación del núcleo de Electron (`electron/main.ts`, `electron/preload.ts`), arranque automático del servidor Fastify embebido, ejecución automática de migraciones SQLite al iniciar y pruebas unitarias de arranque.
+- [x] **Semana 3 (COMPLETADA):** Creación de `prisma/seed.ts` (impuestos SRI vigentes, Consumidor Final, usuario admin, configuraciones base) y capa de repositorios/servicios base en `src/server/`.
+- [ ] **Semana 4 (ACTUAL):** Implementación del núcleo de Electron (`electron/main.ts`, `electron/preload.ts`), arranque automático del servidor Fastify embebido, ejecución automática de migraciones SQLite al iniciar y pruebas unitarias de arranque.
 
 ### MES 2: Núcleo POS, Inventario y Módulos Multi-Giro
 - [ ] **Semana 5:** Motor transaccional ACID de ventas, múltiples formas de pago, descuentos, anulaciones y actualización automática de Kardex (costo promedio ponderado).
@@ -110,7 +110,30 @@
 
 ---
 
-## Próxima Tarea Exacta (Para ejecutar ahora — Semana 3)
-1. Crear `prisma/seed.ts`: impuestos SRI vigentes (IVA 0%, 5%, 15%, No objeto, Exento), unidades de medida, roles y permisos RBAC, Consumidor Final (`9999999999999`), empresa/sucursal/punto de emisión base, usuario admin (hash de contraseña) y `ConfiguracionGiro` por defecto.
-2. Crear capa base en `src/server/`: cliente Prisma singleton (`config/`), repositorios (`repositories/`) y servicios (`services/`) para Empresa, Usuario, Producto y Cliente, con pruebas en `tests/unit` e `integration`.
-3. Verificar con `npx tsc --noEmit` y `npm test`; actualizar este archivo y commit `feat: Semana 3 — seed y capa base de repositorios`.
+### Semana 3 — 2026-11-22 ✅ COMPLETADA
+**Archivos creados/modificados:**
+- `prisma/seed.ts` — `runSeed(prisma, opciones)` idempotente (upserts): 54 permisos (9 módulos × 6 acciones), 5 roles RBAC (ADMIN, SUPERVISOR, CAJERO, BODEGUERO, CONTADOR), 8 unidades de medida, categoría "General", empresa demo (RUC marcador `9999999999001`), sucursal 001, punto de emisión 001, tarifas IVA SRI, usuario `admin`, Consumidor Final y `ConfiguracionGiro` RETAIL_GENERAL. Ejecutable con `npm run prisma:seed`.
+- `src/server/config/database.config.ts` — Prisma singleton (`getPrisma`, `disconnectPrisma`)
+- `src/server/repositories/` — `empresa`, `usuario` (con rol y permisos), `producto` (búsqueda paginada, código de barras), `cliente`
+- `src/server/services/` — `empresa.service`, `usuario.service` (alta, autenticación, `tienePermiso`), `producto.service` (margen automático), `cliente.service`, más utilidades `appError.util`, `object.util` (`omitUndefined`), `password.util` (scrypt), `validation.util` (Zod → `AppError`)
+- `src/shared/schemas/cliente.schema.ts` (validación RUC / cédula Módulo 10 / pasaporte / Consumidor Final) y `usuario.schema.ts`; exportados en `index.ts`
+- `tests/unit/server/utils.test.ts` (11) y `tests/integration/server/seed-services.test.ts` (19, BD SQLite aislada por proceso que se elimina al terminar)
+- `package.json` — `prisma:seed` ahora usa `ts-node --project tsconfig.node.json` (con `tsconfig.json` fallaba por módulos ESM)
+- Eliminados `.gitkeep.ts` de `repositories/` y `services/`
+
+**Decisiones Técnicas:**
+- Contraseñas con `crypto.scrypt` nativo (formato `scrypt$salt$hash`) en vez de `bcrypt`: evita compilación nativa (no hay C++ Build Tools).
+- Contraseña inicial del admin: `SEED_ADMIN_PASSWORD` o, por defecto, `Admin123!` — **cambiarla en el SetupWizard (Semana 17)**; el RUC/empresa demo también se reemplazan ahí.
+- Servicios y repositorios reciben dependencias por constructor (testeables sin singleton).
+- Errores de dominio vía `AppError` con códigos (`VALIDACION`, `NO_ENCONTRADO`, `DUPLICADO`, `CREDENCIALES_INVALIDAS`, `USUARIO_INACTIVO`) para mapear a HTTP en Semana 4+.
+
+**Verificación:** `tsc --noEmit` (ambos tsconfig) ✅ 0 errores | `npx vitest run` ✅ 90/90 | `npm run prisma:seed` ✅ ejecutado dos veces sin duplicar.
+
+---
+
+## Próxima Tarea Exacta (Para ejecutar ahora — Semana 4)
+1. Implementar `electron/main.ts` y `electron/preload.ts` (ya existen como base de Semana 1): arrancar el servidor Fastify embebido desde el proceso principal antes de abrir la ventana, con puerto configurable y apagado limpio.
+2. Convertir `src/server/index.ts` en un servidor Fastify real: registrar rutas (`routes/`) y controladores (`controllers/`) de salud, autenticación y búsqueda de productos/clientes reutilizando los servicios de Semana 3, y mapear `AppError` a códigos HTTP.
+3. Ejecutar las migraciones automáticamente al iniciar (`prisma migrate deploy` / equivalente empaquetable) con respaldo previo del archivo SQLite; usar `@electron/rebuild` para `better-sqlite3` si se requiere.
+4. Pruebas unitarias e de integración de arranque (servidor `inject`, migraciones sobre BD temporal).
+5. Verificar con `npx tsc --noEmit` y `npm test`; actualizar este archivo y commit `feat: Semana 4 - nucleo Electron, Fastify embebido y migraciones`.
