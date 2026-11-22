@@ -3,10 +3,10 @@
 ## Estado General
 - **Proyecto:** VENDEYA POS (Sistema Punto de Venta Multi-Giro & Facturación Electrónica SRI Ecuador)
 - **Horizonte:** 6 Meses (24 Semanas)
-- **Fase Actual:** MES 1 — Semana 2: Diseño e implementación de `prisma/schema.prisma`
+- **Fase Actual:** MES 1 — Semana 3: `prisma/seed.ts` y capa de repositorios/servicios base
 - **Estado de Compilación:** ✅ `tsc --noEmit` → 0 errores | ✅ `tsconfig.node.json` → 0 errores
-- **Tests:** ✅ 28/28 passed (3 archivos de prueba)
-- **Último Commit:** `chore: Semana 1 — Inicialización de arquitectura, entorno y dependencias`
+- **Tests:** ✅ 60/60 passed (4 archivos de prueba)
+- **Último Commit:** `feat: Semana 2 — schema.prisma completo con migración inicial`
 
 ---
 
@@ -14,8 +14,8 @@
 
 ### MES 1: Cimientos, Arquitectura y Base de Datos
 - [x] **Semana 1 (COMPLETADA):** Inicializar Git, estructura de carpetas (`electron/`, `src/server/`, `src/renderer/`, `src/shared/`, `prisma/`, `tests/`), `package.json`, `tsconfig.json`, `vite.config.ts`, `vitest.config.ts` e instalación de dependencias base.
-- [ ] **Semana 2 (ACTUAL):** Diseño e implementación de `prisma/schema.prisma` completo (multi-empresa, sucursales, puntos de emisión, impuestos dinámicos SRI, productos, lotes, kardex, turnos de caja, ventas, comprobantes SRI, roles RBAC y feature flags) + migración inicial.
-- [ ] **Semana 3:** Creación de `prisma/seed.ts` (impuestos SRI vigentes, Consumidor Final, usuario admin, configuraciones base) y capa de repositorios/servicios base en `src/server/`.
+- [x] **Semana 2 (COMPLETADA):** Diseño e implementación de `prisma/schema.prisma` completo (multi-empresa, sucursales, puntos de emisión, impuestos dinámicos SRI, productos, lotes, kardex, turnos de caja, ventas, comprobantes SRI, roles RBAC y feature flags) + migración inicial.
+- [ ] **Semana 3 (ACTUAL):** Creación de `prisma/seed.ts` (impuestos SRI vigentes, Consumidor Final, usuario admin, configuraciones base) y capa de repositorios/servicios base en `src/server/`.
 - [ ] **Semana 4:** Implementación del núcleo de Electron (`electron/main.ts`, `electron/preload.ts`), arranque automático del servidor Fastify embebido, ejecución automática de migraciones SQLite al iniciar y pruebas unitarias de arranque.
 
 ### MES 2: Núcleo POS, Inventario y Módulos Multi-Giro
@@ -94,9 +94,23 @@
 
 ---
 
-## Próxima Tarea Exacta (Para ejecutar ahora — Semana 2)
-1. Crear `prisma/schema.prisma` completo con todos los modelos: `Empresa`, `Sucursal`, `PuntoEmision`, `Usuario`, `Rol`, `Permiso`, `ConfiguracionGiro`, `TarifaImpuesto`, `Categoria`, `UnidadMedida`, `Producto`, `Lote`, `Kardex`, `Cliente`, `Proveedor`, `TurnoCaja`, `MovimientoCaja`, `Venta`, `LineaVenta`, `PagoVenta`, `ComprobanteElectronico`, `ColaSRI`, `Mesa`, `Comanda`.
-2. Ejecutar `npx prisma migrate dev --name init` para generar la migración inicial SQLite.
-3. Ejecutar `npx prisma generate` para generar el cliente Prisma tipado.
-4. Escribir prueba de integración `tests/integration/prisma-schema.test.ts` que verifique que todos los modelos están presentes en el cliente generado.
-5. Actualizar `PROJECT_STATUS.md` y hacer commit `feat: Semana 2 — schema.prisma completo con migración inicial`.
+### Semana 2 — 2026-11-22 ✅ COMPLETADA
+**Archivos creados:**
+- `prisma/schema.prisma` — 26 modelos (24 solicitados + `RolPermiso` e `ItemComanda`): Empresa, Sucursal, PuntoEmision, Rol/Permiso/RolPermiso, Usuario, ConfiguracionGiro, TarifaImpuesto, Categoria, UnidadMedida, Producto, Lote, Kardex, Cliente, Proveedor, TurnoCaja, MovimientoCaja, Venta, LineaVenta, PagoVenta, ComprobanteElectronico, ColaSRI, Mesa, Comanda, ItemComanda
+- `prisma/migrations/20261122062347_init/migration.sql` — migración inicial SQLite
+- `tests/integration/prisma-schema.test.ts` — 32 pruebas (26 delegados + consultas básicas)
+- `.env.test` — entorno de pruebas (`vendeya-test.db`)
+
+**Decisiones Técnicas:**
+- Enums modelados como `String` (SQLite no soporta enums en Prisma 5); los valores válidos se documentan en comentarios y se validarán con Zod.
+- BD de test (`prisma/vendeya-test.db`) se prepara con `DATABASE_URL="file:./vendeya-test.db" npx prisma migrate deploy`; los `*.db` están en `.gitignore`.
+- `$queryRaw` en SQLite devuelve `BigInt` → el test convierte con `Number()`.
+
+**Verificación:** `tsc --noEmit` (ambos tsconfig) ✅ 0 errores | `npx vitest run` ✅ 60/60
+
+---
+
+## Próxima Tarea Exacta (Para ejecutar ahora — Semana 3)
+1. Crear `prisma/seed.ts`: impuestos SRI vigentes (IVA 0%, 5%, 15%, No objeto, Exento), unidades de medida, roles y permisos RBAC, Consumidor Final (`9999999999999`), empresa/sucursal/punto de emisión base, usuario admin (hash de contraseña) y `ConfiguracionGiro` por defecto.
+2. Crear capa base en `src/server/`: cliente Prisma singleton (`config/`), repositorios (`repositories/`) y servicios (`services/`) para Empresa, Usuario, Producto y Cliente, con pruebas en `tests/unit` e `integration`.
+3. Verificar con `npx tsc --noEmit` y `npm test`; actualizar este archivo y commit `feat: Semana 3 — seed y capa base de repositorios`.

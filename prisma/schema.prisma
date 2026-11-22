@@ -1,0 +1,571 @@
+// =============================================================
+// prisma/schema.prisma — Esquema completo VENDEYA POS
+// Semana 2: Multi-empresa, RBAC, SRI Ecuador, Multi-giro
+// =============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// EMPRESA, SUCURSAL Y PUNTO DE EMISIÓN
+// ─────────────────────────────────────────────
+
+model Empresa {
+  id                    String   @id @default(uuid())
+  ruc                   String   @unique
+  razonSocial           String
+  nombreComercial       String
+  direccionMatriz       String
+  telefono              String
+  email                 String
+  logo                  String?
+  tipoContribuyente     String   // PERSONA_NATURAL | SOCIEDAD | MICRO_EMPRESA | RIMPE_*
+  regimenTributario     String   // GENERAL | RIMPE_EMPRENDEDOR | RIMPE_NEGOCIO_POPULAR | MICROEMPRESA
+  obligadoContabilidad  Boolean  @default(false)
+  agenteRetencion       Boolean  @default(false)
+  resolucionAgente      String?
+  ambienteSRI           String   @default("PRUEBAS") // PRUEBAS | PRODUCCION
+  status                String   @default("ACTIVO")
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  sucursales            Sucursal[]
+  usuarios              Usuario[]
+  configuracionGiro     ConfiguracionGiro?
+  tarifasImpuesto       TarifaImpuesto[]
+  comprobantes          ComprobanteElectronico[]
+}
+
+model Sucursal {
+  id        String   @id @default(uuid())
+  empresaId String
+  codigo    String                        // "001"
+  nombre    String
+  direccion String
+  telefono  String
+  status    String   @default("ACTIVO")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  empresa         Empresa          @relation(fields: [empresaId], references: [id])
+  puntosEmision   PuntoEmision[]
+  turnos          TurnoCaja[]
+  ventas          Venta[]
+  comprobantes    ComprobanteElectronico[]
+  mesas           Mesa[]
+
+  @@unique([empresaId, codigo])
+}
+
+model PuntoEmision {
+  id          String   @id @default(uuid())
+  sucursalId  String
+  codigo      String                      // "001"
+  descripcion String
+  status      String   @default("ACTIVO")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  sucursal     Sucursal                 @relation(fields: [sucursalId], references: [id])
+  ventas       Venta[]
+  comprobantes ComprobanteElectronico[]
+
+  @@unique([sucursalId, codigo])
+}
+
+// ─────────────────────────────────────────────
+// USUARIOS Y RBAC
+// ─────────────────────────────────────────────
+
+model Rol {
+  id          String   @id @default(uuid())
+  nombre      String   @unique           // ADMIN | SUPERVISOR | CAJERO | BODEGUERO | CONTADOR
+  descripcion String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  permisos  RolPermiso[]
+  usuarios  Usuario[]
+}
+
+model Permiso {
+  id       String @id @default(uuid())
+  modulo   String                         // ventas | inventario | reportes | configuracion | ...
+  accion   String                         // crear | leer | actualizar | eliminar | anular | ...
+  recurso  String                         // * | venta | producto | usuario | ...
+
+  roles    RolPermiso[]
+
+  @@unique([modulo, accion, recurso])
+}
+
+model RolPermiso {
+  rolId     String
+  permisoId String
+
+  rol     Rol     @relation(fields: [rolId],     references: [id])
+  permiso Permiso @relation(fields: [permisoId], references: [id])
+
+  @@id([rolId, permisoId])
+}
+
+model Usuario {
+  id             String   @id @default(uuid())
+  empresaId      String
+  rolId          String
+  username       String   @unique
+  passwordHash   String
+  nombre         String
+  apellido       String
+  email          String?
+  cedula         String?
+  telefono       String?
+  pinCaja        String?                  // PIN numérico de 4–6 dígitos para caja rápida (hash)
+  status         String   @default("ACTIVO")
+  ultimoAcceso   DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  empresa  Empresa   @relation(fields: [empresaId], references: [id])
+  rol      Rol       @relation(fields: [rolId],      references: [id])
+  turnos   TurnoCaja[]
+  ventas   Venta[]
+}
+
+// ─────────────────────────────────────────────
+// CONFIGURACIÓN DE GIRO Y FEATURE FLAGS
+// ─────────────────────────────────────────────
+
+model ConfiguracionGiro {
+  id                      String   @id @default(uuid())
+  empresaId               String   @unique
+  giroNegocio             String                      // RETAIL_GENERAL | FERRETERIA | FARMACIA | RESTAURANTE | ...
+  // Módulos
+  moduloInventario        Boolean  @default(true)
+  moduloKardex            Boolean  @default(true)
+  moduloLotes             Boolean  @default(false)
+  moduloVencimientos      Boolean  @default(false)
+  moduloMesas             Boolean  @default(false)
+  moduloComandasCocina    Boolean  @default(false)
+  moduloBalanza           Boolean  @default(false)
+  moduloListasPrecios     Boolean  @default(false)
+  moduloCuentasPorCobrar  Boolean  @default(true)
+  moduloCuentasPorPagar   Boolean  @default(true)
+  // Facturación SRI
+  emitirFacturas          Boolean  @default(true)
+  emitirNotasCredito      Boolean  @default(true)
+  emitirRetenciones       Boolean  @default(false)
+  emitirGuiasRemision     Boolean  @default(false)
+  emitirLiquidaciones     Boolean  @default(false)
+  // Hardware
+  impresionTermica        Boolean  @default(true)
+  aperturaGaveta          Boolean  @default(true)
+  lecturaCodigoBarras     Boolean  @default(true)
+  sincronizacionLAN       Boolean  @default(false)
+  modoTactil              Boolean  @default(false)
+  // Certificado digital SRI
+  rutaCertificadoP12      String?
+  certPasswordEncriptado  String?                     // AES-256-GCM
+  certIv                  String?
+  certTag                 String?
+  certVencimiento         DateTime?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  empresa Empresa @relation(fields: [empresaId], references: [id])
+}
+
+// ─────────────────────────────────────────────
+// IMPUESTOS DINÁMICOS SRI
+// ─────────────────────────────────────────────
+
+model TarifaImpuesto {
+  id           String   @id @default(uuid())
+  empresaId    String
+  tipoImpuesto String                               // IVA | ICE | IRBPNR
+  codigo       String                               // "2" = 15%, "0" = 0%, etc.
+  porcentaje   Float
+  descripcion  String
+  vigente      Boolean  @default(true)
+  vigenciaDesde DateTime?
+  vigenciaHasta DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  empresa   Empresa       @relation(fields: [empresaId], references: [id])
+  productos Producto[]
+
+  @@unique([empresaId, tipoImpuesto, codigo])
+}
+
+// ─────────────────────────────────────────────
+// CATÁLOGO DE PRODUCTOS
+// ─────────────────────────────────────────────
+
+model Categoria {
+  id          String   @id @default(uuid())
+  nombre      String
+  descripcion String   @default("")
+  status      String   @default("ACTIVO")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  productos Producto[]
+}
+
+model UnidadMedida {
+  id       String   @id @default(uuid())
+  codigo   String   @unique            // UN | KG | L | M | CJ | PAQ
+  nombre   String
+  status   String   @default("ACTIVO")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  productos Producto[]
+}
+
+model Producto {
+  id               String   @id @default(uuid())
+  codigo           String   @unique
+  codigoBarras     String?
+  nombre           String
+  descripcion      String?
+  tipo             String   @default("BIEN")          // BIEN | SERVICIO
+  categoriaId      String
+  unidadMedidaId   String
+  tarifaImpuestoId String?
+  precioCompra     Float    @default(0)
+  precioVenta      Float
+  margen           Float    @default(0)
+  stockMinimo      Float    @default(0)
+  stockActual      Float    @default(0)
+  costoPromedio    Float    @default(0)               // Kardex costo promedio ponderado
+  aplicaIva        Boolean  @default(true)
+  codigoIvaSRI     String   @default("2")
+  tieneVencimiento Boolean  @default(false)
+  requiereLote     Boolean  @default(false)
+  principioActivo  String?                            // Farmacia
+  concentracion    String?                            // Farmacia
+  formaFarmaceutica String?                           // Farmacia
+  status           String   @default("ACTIVO")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  categoria      Categoria      @relation(fields: [categoriaId],     references: [id])
+  unidadMedida   UnidadMedida   @relation(fields: [unidadMedidaId],  references: [id])
+  tarifaImpuesto TarifaImpuesto? @relation(fields: [tarifaImpuestoId], references: [id])
+  lotes          Lote[]
+  kardex         Kardex[]
+  lineasVenta    LineaVenta[]
+  itemsComanda   ItemComanda[]
+
+  @@index([codigo])
+  @@index([codigoBarras])
+  @@index([nombre])
+}
+
+model Lote {
+  id               String   @id @default(uuid())
+  productoId       String
+  numeroLote       String
+  fechaFabricacion DateTime?
+  fechaVencimiento DateTime
+  cantidadInicial  Float
+  cantidadActual   Float
+  proveedorId      String?
+  status           String   @default("ACTIVO")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  producto    Producto     @relation(fields: [productoId], references: [id])
+  proveedor   Proveedor?   @relation(fields: [proveedorId], references: [id])
+  lineasVenta LineaVenta[]
+
+  @@unique([productoId, numeroLote])
+  @@index([fechaVencimiento])
+}
+
+model Kardex {
+  id              String   @id @default(uuid())
+  productoId      String
+  fecha           DateTime @default(now())
+  tipoMovimiento  String                            // COMPRA | VENTA | AJUSTE_ENTRADA | AJUSTE_SALIDA | DEVOLUCION
+  cantidad        Float
+  costoUnitario   Float
+  costoTotal      Float
+  stockAnterior   Float
+  stockResultante Float
+  costoPromAnterior Float
+  costoPromResultante Float
+  referencia      String?                           // ID de venta, compra, ajuste, etc.
+  observacion     String?
+  createdAt       DateTime @default(now())
+
+  producto Producto @relation(fields: [productoId], references: [id])
+
+  @@index([productoId, fecha])
+}
+
+// ─────────────────────────────────────────────
+// CLIENTES Y PROVEEDORES
+// ─────────────────────────────────────────────
+
+model Cliente {
+  id                  String   @id @default(uuid())
+  tipoIdentificacion  String   @default("05")       // 04=RUC, 05=Cédula, 06=Pasaporte, 07=Consumidor Final
+  identificacion      String
+  razonSocial         String
+  nombreComercial     String?
+  email               String?
+  telefono            String?
+  direccion           String?
+  limiteCredito       Float    @default(0)
+  diasCredito         Int      @default(0)
+  descuentoHabitual   Float    @default(0)
+  status              String   @default("ACTIVO")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  ventas Venta[]
+
+  @@unique([tipoIdentificacion, identificacion])
+  @@index([identificacion])
+  @@index([razonSocial])
+}
+
+model Proveedor {
+  id                 String   @id @default(uuid())
+  ruc                String   @unique
+  razonSocial        String
+  nombreComercial    String?
+  email              String?
+  telefono           String?
+  direccion          String?
+  contacto           String?
+  diasPago           Int      @default(30)
+  status             String   @default("ACTIVO")
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  lotes Lote[]
+}
+
+// ─────────────────────────────────────────────
+// TURNOS Y ARQUEOS DE CAJA
+// ─────────────────────────────────────────────
+
+model TurnoCaja {
+  id               String    @id @default(uuid())
+  sucursalId       String
+  cajeroId         String
+  fechaApertura    DateTime  @default(now())
+  fechaCierre      DateTime?
+  montoApertura    Float     @default(0)
+  montoCierreCiego Float?                           // Lo que el cajero dice que hay
+  montoCierreReal  Float?                           // Lo calculado por el sistema
+  diferencia       Float?
+  estado           String    @default("ABIERTO")   // ABIERTO | CERRADO
+  observaciones    String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  sucursal    Sucursal          @relation(fields: [sucursalId], references: [id])
+  cajero      Usuario           @relation(fields: [cajeroId],   references: [id])
+  ventas      Venta[]
+  movimientos MovimientoCaja[]
+
+  @@index([sucursalId, estado])
+}
+
+model MovimientoCaja {
+  id          String   @id @default(uuid())
+  turnoId     String
+  tipo        String                              // INGRESO | EGRESO
+  concepto    String
+  monto       Float
+  referencia  String?
+  createdAt   DateTime @default(now())
+
+  turno TurnoCaja @relation(fields: [turnoId], references: [id])
+}
+
+// ─────────────────────────────────────────────
+// VENTAS
+// ─────────────────────────────────────────────
+
+model Venta {
+  id              String   @id @default(uuid())
+  numero          String   @unique               // "001-001-000000001"
+  sucursalId      String
+  puntoEmisionId  String
+  turnoId         String
+  cajeroId        String
+  clienteId       String?
+  clienteRuc      String?
+  clienteNombre   String?
+  estado          String   @default("COMPLETADA") // BORRADOR | COMPLETADA | ANULADA
+  subtotal        Float    @default(0)
+  descuento       Float    @default(0)
+  iva             Float    @default(0)
+  total           Float    @default(0)
+  motivoAnulacion String?
+  observaciones   String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  sucursal     Sucursal    @relation(fields: [sucursalId],     references: [id])
+  puntoEmision PuntoEmision @relation(fields: [puntoEmisionId], references: [id])
+  turno        TurnoCaja   @relation(fields: [turnoId],        references: [id])
+  cajero       Usuario     @relation(fields: [cajeroId],       references: [id])
+  cliente      Cliente?    @relation(fields: [clienteId],      references: [id])
+  lineas       LineaVenta[]
+  pagos        PagoVenta[]
+  comprobante  ComprobanteElectronico?
+
+  @@index([sucursalId, createdAt])
+  @@index([clienteId])
+  @@index([numero])
+}
+
+model LineaVenta {
+  id             String  @id @default(uuid())
+  ventaId        String
+  productoId     String
+  loteId         String?
+  descripcion    String
+  cantidad       Float
+  precioUnitario Float
+  descuento      Float   @default(0)
+  tipoDescuento  String  @default("VALOR")       // PORCENTAJE | VALOR
+  subtotal       Float
+  iva            Float   @default(0)
+  porcentajeIva  Float   @default(0)
+  total          Float
+  costoUnitario  Float   @default(0)
+
+  venta    Venta    @relation(fields: [ventaId],    references: [id], onDelete: Cascade)
+  producto Producto @relation(fields: [productoId], references: [id])
+  lote     Lote?    @relation(fields: [loteId],     references: [id])
+}
+
+model PagoVenta {
+  id         String  @id @default(uuid())
+  ventaId    String
+  formaPago  String                              // EFECTIVO | TARJETA_CREDITO | ... | CREDITO
+  monto      Float
+  referencia String?
+  cambio     Float   @default(0)
+  createdAt  DateTime @default(now())
+
+  venta Venta @relation(fields: [ventaId], references: [id], onDelete: Cascade)
+}
+
+// ─────────────────────────────────────────────
+// FACTURACIÓN ELECTRÓNICA SRI
+// ─────────────────────────────────────────────
+
+model ComprobanteElectronico {
+  id                   String    @id @default(uuid())
+  ventaId              String?   @unique
+  empresaId            String
+  sucursalId           String
+  puntoEmisionId       String
+  claveAcceso          String    @unique         // 49 dígitos
+  tipoComprobante      String                    // 01=Factura, 04=N.Crédito, etc.
+  ambiente             String    @default("1")   // 1=Pruebas, 2=Producción
+  serie                String                    // "001-001"
+  secuencial           String                    // "000000001"
+  fechaEmision         DateTime
+  xmlFirmado           String?                   // XML con firma XAdES-BES
+  xmlAutorizado        String?                   // XML con nodo de autorización
+  estado               String    @default("PENDIENTE") // PENDIENTE|EN_PROCESO|AUTORIZADO|RECHAZADO|DEVUELTO|ANULADO
+  numeroAutorizacion   String?
+  fechaAutorizacion    DateTime?
+  mensajesRespuesta    String?                   // JSON con mensajes del SRI
+  intentosEnvio        Int       @default(0)
+  proximoIntento       DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  venta        Venta?       @relation(fields: [ventaId],        references: [id])
+  empresa      Empresa      @relation(fields: [empresaId],      references: [id])
+  sucursal     Sucursal     @relation(fields: [sucursalId],      references: [id])
+  puntoEmision PuntoEmision @relation(fields: [puntoEmisionId],  references: [id])
+  colaSRI      ColaSRI?
+
+  @@index([estado, proximoIntento])
+  @@index([claveAcceso])
+}
+
+model ColaSRI {
+  id               String    @id @default(uuid())
+  comprobanteId    String    @unique
+  prioridad        Int       @default(5)         // 1 = alta (retención), 10 = baja
+  intentos         Int       @default(0)
+  ultimoError      String?
+  ultimoIntentoAt  DateTime?
+  procesandoDesde  DateTime?                     // Para evitar doble procesamiento
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  comprobante ComprobanteElectronico @relation(fields: [comprobanteId], references: [id])
+
+  @@index([prioridad, intentos])
+}
+
+// ─────────────────────────────────────────────
+// MÓDULO RESTAURANTE: MESAS Y COMANDAS
+// ─────────────────────────────────────────────
+
+model Mesa {
+  id          String   @id @default(uuid())
+  sucursalId  String
+  numero      Int
+  nombre      String                             // "Mesa 1" | "Barra 2" | "Terraza A"
+  capacidad   Int      @default(4)
+  zona        String   @default("SALON")
+  estado      String   @default("LIBRE")        // LIBRE | OCUPADA | RESERVADA | CERRADA
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  sucursal Sucursal  @relation(fields: [sucursalId], references: [id])
+  comandas Comanda[]
+
+  @@unique([sucursalId, numero])
+}
+
+model Comanda {
+  id           String   @id @default(uuid())
+  mesaId       String
+  meseroId     String?
+  estado       String   @default("ABIERTA")     // ABIERTA | EN_COCINA | LISTA | ENTREGADA | CERRADA
+  observaciones String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  mesa  Mesa         @relation(fields: [mesaId], references: [id])
+  items ItemComanda[]
+}
+
+model ItemComanda {
+  id           String   @id @default(uuid())
+  comandaId    String
+  productoId   String
+  cantidad     Float
+  precioUnitario Float
+  descuento    Float    @default(0)
+  total        Float
+  estado       String   @default("PENDIENTE")   // PENDIENTE | EN_PREPARACION | LISTO | ENTREGADO | CANCELADO
+  observaciones String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  comanda  Comanda  @relation(fields: [comandaId],  references: [id], onDelete: Cascade)
+  producto Producto @relation(fields: [productoId], references: [id])
+}
