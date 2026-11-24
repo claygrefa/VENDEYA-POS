@@ -48,7 +48,7 @@ describe("ProductoSchema", () => {
     precioVenta:    2.0,
     stockMinimo:    5,
     aplicaIva:      true,
-    codigoIvaSRI:   "2",
+    codigoIvaSRI:   "4",
     tieneVencimiento: false,
     requiereLote:   false,
   };

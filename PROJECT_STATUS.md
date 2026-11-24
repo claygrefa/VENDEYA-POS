@@ -3,10 +3,10 @@
 ## Estado General
 - **Proyecto:** VENDEYA POS (Sistema Punto de Venta Multi-Giro & Facturación Electrónica SRI Ecuador)
 - **Horizonte:** 6 Meses (24 Semanas)
-- **Fase Actual:** MES 3 — Semana 9: Clave de Acceso y XML de comprobantes SRI (Facturas y Notas de Crédito)
+- **Fase Actual:** MES 3 — Semana 10: firmador digital XAdES-BES y cifrado AES-256-GCM del certificado
 - **Estado de Compilación:** ✅ `tsc --noEmit` → 0 errores | ✅ `tsconfig.node.json` → 0 errores | ✅ `tsconfig.electron.json` → 0 errores
-- **Tests:** ✅ 434/434 passed (26 archivos de prueba)
-- **Último Commit:** `feat: Semana 8 - modulo restaurantes y suite de integracion del nucleo POS`
+- **Tests:** ✅ 505/505 passed (30 archivos de prueba)
+- **Último Commit:** `feat: Semana 9 - clave de acceso, XML y validacion XSD de comprobantes SRI`
 
 ---
 
@@ -25,8 +25,8 @@
 - [x] **Semana 8 (COMPLETADA):** Módulo Restaurantes (mapa de mesas, cuentas abiertas, división de cuentas, envío de comandas) + Suite completa de pruebas de integración del núcleo POS.
 
 ### MES 3: Motor Tributario SRI Ecuador (100% Offline-First)
-- [ ] **Semana 9 (ACTUAL):** Generador de Clave de Acceso (49 dígitos, Módulo 11) + Constructor de XML v2.10/v2.30 para Facturas y Notas de Crédito + validación contra esquemas XSD del SRI.
-- [ ] **Semana 10:** Firmador digital XAdES-BES en Node.js compatible con certificados `.p12` de Ecuador + encriptación AES-256-GCM de credenciales del certificado.
+- [x] **Semana 9 (COMPLETADA):** Generador de Clave de Acceso (49 dígitos, Módulo 11) + Constructor de XML v2.10/v2.30 para Facturas y Notas de Crédito + validación contra esquemas XSD del SRI.
+- [ ] **Semana 10 (ACTUAL):** Firmador digital XAdES-BES en Node.js compatible con certificados `.p12` de Ecuador + encriptación AES-256-GCM de credenciales del certificado.
 - [ ] **Semana 11:** Cliente SOAP para Web Services del SRI (`RecepcionComprobantesOffline` y `AutorizacionComprobantesOffline` en Pruebas y Producción) + Worker en segundo plano para cola offline (`cola_sri`).
 - [ ] **Semana 12:** Soporte para Retenciones, Guías de Remisión, Liquidaciones de Compra y generador automático de archivo XML del Anexo Transaccional Simplificado (ATS).
 
@@ -318,9 +318,56 @@ Filtros de listados: `estado`, `clienteId`/`proveedorId`, `vencidas=true|false`,
 
 ---
 
-## Próxima Tarea Exacta (Para ejecutar ahora — Semana 9)
-1. **Clave de Acceso** (`src/server/services/sri/claveAcceso.util.ts`): 49 dígitos = fecha de emisión `ddMMyyyy` (8) + tipo de comprobante (2) + RUC (13) + ambiente (1) + serie (6: sucursal+punto) + secuencial (9) + código numérico (8) + tipo de emisión (1) + dígito verificador **Módulo 11** (1). Con validación de cada campo, función inversa (`parsearClaveAcceso`) y pruebas con vectores conocidos del Manual SRI (incluyendo los casos de resultado 10 → 1 y 11 → 0).
-2. **Constructor de XML** (`xmlbuilder2`) de **Factura** y **Nota de Crédito** v2.10 (y v2.30 si aplica según la ficha técnica vigente): `infoTributaria`, `infoFactura` (incluye `propina`, `totalConImpuestos`, `pagos` con los códigos de forma de pago del SRI), `detalles` (impuestos por línea, descuentos), `infoAdicional`; mapeo desde `Venta`/`LineaVenta`/`PagoVenta`/`Cliente`/`Empresa` (códigos de identificación del comprador, IVA 0/5/15 %, no objeto/exento, Consumidor Final). Redondeos exactos a 2 decimales y coherencia importeTotal = totalSinImpuestos + impuestos + propina.
-3. **Validación XSD** de los comprobantes generados contra los esquemas oficiales del SRI (guardarlos en `src/server/services/sri/xsd/`; son los publicados en la ficha técnica de comprobantes electrónicos — obtenerlos del SRI, no inventarlos); elegir un validador XSD para Node que no requiera compilación nativa (o aislar la validación) y reportar errores con la ruta del nodo.
-4. **Integración con ventas:** crear el `ComprobanteElectronico` (estado PENDIENTE) y su registro en `ColaSRI` de forma transaccional al emitir una venta con `emitirFactura` (hoy el campo se acepta y se ignora), con secuencial propio del comprobante por punto de emisión y tipo, `claveAcceso` única, ambiente de la empresa y sin bloquear nunca la venta si falla la generación. **Notas de crédito** para anular ventas con factura AUTORIZADA (resuelve la restricción actual de `VentaService.anular`).
-5. Pruebas unitarias (clave de acceso, redondeos, mapeos) e integración (venta → comprobante PENDIENTE → XML válido contra XSD; nota de crédito; reintento idempotente), actualizar la matriz RBAC si se agregan rutas, verificar con `npx tsc --noEmit` y `npm test`; actualizar este archivo y commit `feat: Semana 9 - clave de acceso, XML y validacion XSD de comprobantes SRI`.
+### Semana 9 — 2026-11-23 ✅ COMPLETADA
+**Fuentes oficiales usadas:** XSD de Factura (V2.1.0) y Nota de Crédito (V1.1.0) descargados del portal del SRI y la *Ficha Técnica de Comprobantes Electrónicos — Esquema Offline v2.34* (ver `src/server/services/sri/xsd/ORIGEN.md`). Los XSD **no se escribieron a mano**. Nota: en el SRI no existe un XML "v2.30"; las versiones vigentes de los esquemas son factura **2.1.0** y nota de crédito **1.1.0**.
+
+**⚠️ Corrección importante de la Semana 1 — códigos de IVA.** Las constantes del proyecto usaban `"2"` para 15 % y `"3"` para 5 %, pero la **Tabla 17 oficial** es: `0` = 0 %, `2` = 12 %, `3` = 14 %, `4` = **15 %**, `5` = **5 %**, `6` = no objeto, `7` = exento (`8` = IVA diferenciado por decreto, `10` = 13 %). Con los códigos anteriores las facturas habrían salido con `codigoPorcentaje` erróneo. Corregido en constantes, esquema Zod (`codigoIvaSRI` por defecto `"4"`), seed (12 % y 14 % quedan como históricas no vigentes) y pruebas. La migración renombra los datos existentes (`2→4`, `3→5`) y retira los códigos `8/9/10` que no existen en la tabla oficial (se desvinculan de los productos).
+
+**Esquema (migración `20261125090000_comprobantes_sri`):** `Empresa.contribuyenteEspecial`; `Producto.codigoIvaSRI` por defecto `"4"`; `LineaVenta.codigoIvaSRI` (código aplicado, necesario porque un 0 % puede ser código 0, 6 o 7); `ComprobanteElectronico.xmlGenerado` (XML sin firmar), `motivo` y `comprobanteOrigenId` (nota de crédito → factura que modifica); nuevo `SecuencialComprobante` (último secuencial por punto de emisión y tipo de comprobante). Incluye los `UPDATE` de datos del código de IVA.
+
+**Archivos creados/modificados** (todo en `src/server/services/sri/` salvo indicación):
+- `claveAcceso.util.ts` — Clave de Acceso de 49 dígitos (Tabla 1): `generarClaveAcceso`, `parsearClaveAcceso`, `validarClaveAcceso`, Módulo 11 (ponderadores 2–7 desde la derecha; 11 → 0 y 10 → 1), código numérico aleatorio.
+- `fechaEcuador.util.ts` — fechas civiles de Ecuador (UTC−5): una venta a las 21:30 locales no se fecha como "mañana".
+- `xmlTexto.util.ts` — saneamiento de texto (saltos de línea, caracteres de control, longitudes máximas del XSD) y formato numérico (2 decimales; 6 en cantidad y precio unitario).
+- `comprobante.types.ts`, `comprobanteXml.builder.ts` — constructores puros de **Factura 2.1.0** y **Nota de Crédito 1.1.0** (orden de nodos y formatos del XSD).
+- `xsdValidator.service.ts` — validación contra los XSD oficiales con `xmllint-wasm` (WebAssembly, sin compilación nativa); errores con el elemento afectado; filtra el ruido de libxml2 (el XSD de nota de crédito declara XML 1.1).
+- `comprobanteMapper.ts` — venta → datos del comprobante (comprador, emisor, líneas, pagos netos, información adicional) y reglas de la ficha.
+- `comprobante.service.ts` + `repositories/comprobante.repository.ts` + `controllers/comprobante.controller.ts` — emisión, consulta y rutas.
+- `impuesto.util.ts` (`resolverTarifaIva` devuelve código + porcentaje), `venta.service.ts` (emisión opcional y anulación según estado), `comanda.service.ts`/`restaurante.schema.ts` (`emitirFactura` al cobrar), `shared/schemas/comprobante.schema.ts`, `empresa.schema.ts` (contribuyente especial), `giro.service.ts` (flag `emitirFacturas`).
+- `package.json`: `build:main` ahora copia la carpeta `xsd/` a `dist-electron/` (verificado: el código compilado valida por sí solo). Dependencia nueva: `xmllint-wasm`.
+- Tests nuevos: `tests/unit/server/sri/` — `claveAcceso` (17), `comprobanteXml` (18), `mapeoSri` (9); `tests/integration/server/comprobantes.test.ts` (27). `invariantes.helper.ts` ahora verifica también los comprobantes; la matriz RBAC cubre las 3 rutas nuevas (72 rutas).
+
+**Endpoints nuevos:**
+| Ruta | Permiso |
+|---|---|
+| `GET /api/comprobantes` (filtros `estado`, `tipoComprobante`, paginación; sin XML) | `sri:leer` |
+| `GET /api/comprobantes/:id` (incluye `xmlGenerado`, cola y factura de origen) | `sri:leer` |
+| `POST /api/ventas/:id/comprobante` — genera o reintenta la factura (201 al crearla; 200 si ya existía); acepta `{ clienteId }` para asignar el comprador | `sri:crear` (ADMIN y SUPERVISOR) |
+`POST /api/ventas` y `POST /api/comandas/:id/cobrar` aceptan `emitirFactura: true` y devuelven `advertencias: string[]`.
+
+**Reglas implementadas:**
+- **Factura al vender:** con `emitirFactura` y el módulo `emitirFacturas` activo se genera la factura (PENDIENTE) con su registro en `ColaSRI`, dentro de la misma transacción de la venta. **Nunca bloquea la venta**: todo lo que puede fallar (reglas de la ficha, clave de acceso, XML y validación XSD) se resuelve antes de escribir, de modo que un error solo produce una advertencia y la venta queda registrada sin factura (sin consumir secuencial). Se puede reintentar con `POST /api/ventas/:id/comprobante`; la operación es idempotente.
+- **Reglas de la Ficha Técnica:** factura a Consumidor Final solo hasta **USD 50** (9.10); propina ≤ **10 %** del subtotal (9.16); la nota de crédito exige identificar al comprador (5.7).
+- **XML:** comprador por cédula (05), RUC (04), pasaporte (06), consumidor final (07) o exterior (08); líneas con su código de IVA y los totales agrupados por código; pagos **netos** (sin el cambio) unidos por forma de pago (Tabla 24: efectivo y crédito → 01 con plazo en días, tarjeta de crédito → 19, débito → 16, transferencia/cheque/otros → 20); propina fuera de la base del IVA e incluida en el importe total; RIMPE → leyenda `CONTRIBUYENTE RÉGIMEN RIMPE`; contribuyente especial y agente de retención cuando aplican; hasta 15 campos adicionales (venta, correo, teléfono, observaciones); fecha y hora civil de Ecuador.
+- **Secuenciales:** consecutivos por (punto de emisión, tipo), independientes entre facturas (01) y notas de crédito (04); solo los consume una emisión exitosa. Ambiente 1 (pruebas) / 2 (producción) según la empresa; la nota de crédito hereda el de la factura que modifica.
+- **Anulación de una venta facturada:** factura PENDIENTE, RECHAZADA o DEVUELTA → se anula localmente y sale de la cola; EN_PROCESO → se rechaza (hay que esperar la respuesta del SRI); AUTORIZADA → se emite una **nota de crédito por el total** (PENDIENTE, en cola) y la factura se conserva; si la factura fue a Consumidor Final no puede anularse automáticamente (la nota de crédito exige identificar al comprador) y no cambia nada. Resuelve la restricción de la Semana 5.
+
+**Limitaciones conocidas / decisiones:**
+- Falta la **firma digital** (Semana 10) y el **envío/autorización** (Semana 11): los comprobantes quedan PENDIENTE con `xmlGenerado`; `xmlFirmado` y `xmlAutorizado` aún son nulos.
+- Solo notas de crédito por el **total**; sin devoluciones parciales, sin notas de débito. Sin ICE, IRBPNR, reembolsos, exportaciones, subsidios ni IVA diferenciado (código 8).
+- La fecha de emisión es la del momento de generar el comprobante (la ficha exige emisión cronológica y secuencial, 9.18).
+- El monto máximo para Consumidor Final (USD 50) figura en el texto de la ficha v2.34, pero un historial de la misma ficha indica que el SRI lo actualizó en 2023: **verificar el valor vigente** antes de producción (constante `MONTO_MAXIMO_CONSUMIDOR_FINAL`).
+- La leyenda RIMPE se emite igual para Emprendedor y Negocio Popular: el XSD 2.1.0 solo admite ese texto.
+- **Auditoría independiente:** en la raíz hay `REVIEWER_AGENT.md` (protocolo del agente auditor, preexistente) y `AUDIT_REPORT.md` (su informe). El informe actual describe el estado **a medias** de esta semana (451 pruebas, sin la integración con ventas): sus tres defectos bloqueantes (`emitirFactura` ignorado, falta de prueba de integración y rutas sin cubrir en la matriz RBAC) quedaron resueltos en esta entrega, y se aplicaron sus recomendaciones 3.1 (`sri/index.ts`) y 3.2 (constantes `VERSION_XML_COMPROBANTE` y `VERSION_FICHA_TECNICA_SRI`). **Hace falta volver a ejecutar la auditoría** para que el informe refleje el estado actual. Ambos archivos quedan fuera de este commit (no son del agente constructor).
+- Intermitencia de la suite bajo carga: la máquina de desarrollo comparte CPU con otros proyectos (`tsc --watch`, `vite`, etc.). Una vez, la prueba de concurrencia mixta falló con errores que no eran de dominio y no se pudo reproducir (4 corridas completas posteriores, 3 seguidas con 505/505). Si reaparece, capturar el mensaje de `inesperados` en `nucleo-pos.test.ts`.
+
+**Verificación:** `tsc --noEmit` (3 tsconfig) ✅ 0 errores | `npx vitest run` ✅ 505/505 (30 archivos), 3 corridas consecutivas | `npm run build:main` ✅ (copia los XSD) | el código compilado valida contra los XSD.
+
+---
+
+## Próxima Tarea Exacta (Para ejecutar ahora — Semana 10)
+1. **Firma digital XAdES-BES** (`src/server/services/sri/firma/`): firmar el `xmlGenerado` con el certificado `.p12` de la empresa (`node-forge` ya es dependencia para leer PKCS#12; evaluar una librería de XML-DSig/XAdES sin compilación nativa o implementar la firma manualmente). Antes de codificar, leer la sección de **firma electrónica** de la Ficha Técnica v2.34 (ya descargada en el portal del SRI) y fijar de ahí los algoritmos de resumen y firma, la canonicalización, las referencias (`#comprobante` con transformación enveloped), `KeyInfo` y las `SignedProperties` de XAdES; no asumir valores.
+2. **Cifrado AES-256-GCM** de la clave del certificado: usar los campos que ya existen en `ConfiguracionGiro` (`rutaCertificadoP12`, `certPasswordEncriptado`, `certIv`, `certTag`, `certVencimiento`); definir de dónde sale la clave maestra (derivada por equipo/instalación, nunca en el repositorio ni en la BD junto al texto cifrado) y cómo rotarla. Servicio `CertificadoService`: cargar `.p12`, validar contraseña, extraer vencimiento, emisor y RUC/cédula del titular, y rechazar certificados vencidos o que no correspondan al RUC de la empresa.
+3. **Integración:** guardar el resultado en `ComprobanteElectronico.xmlFirmado` (el estado sigue PENDIENTE hasta la Semana 11); endpoint para cargar el certificado (`configuracion:actualizar`, multipart o ruta local) y para firmar/re-firmar un comprobante (`sri:crear`); el XML firmado debe seguir validando contra los XSD (el elemento `ds:Signature` está permitido por el esquema) y la firma debe poder verificarse localmente.
+4. **Pruebas** con un `.p12` de prueba generado en el propio test con `node-forge` (nunca un certificado real en el repositorio): firma y verificación de ida y vuelta; alteración de un byte del XML ⇒ la verificación falla; cifrado/descifrado AES-256-GCM (manipular el *tag* o el IV ⇒ error); contraseña incorrecta; certificado vencido; certificado de otro RUC; matriz RBAC actualizada con las rutas nuevas.
+5. Verificar con `npx tsc --noEmit` y `npm test`; actualizar este archivo y commit `feat: Semana 10 - firma XAdES-BES y cifrado AES-256-GCM del certificado`.

@@ -15,7 +15,7 @@ export const ProductoSchema = z.object({
   precioVenta:     z.number().positive(),
   stockMinimo:     z.number().nonnegative().default(0),
   aplicaIva:       z.boolean().default(true),
-  codigoIvaSRI:    z.string().default("2"),
+  codigoIvaSRI:    z.string().default("4"), // Tabla 17 SRI: "4" = 15 %
   tieneVencimiento: z.boolean().default(false),
   requiereLote:    z.boolean().default(false),
   /** Restaurante: a dónde se envía el pedido de este producto */

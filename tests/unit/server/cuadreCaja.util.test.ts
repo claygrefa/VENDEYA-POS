@@ -52,12 +52,12 @@ describe("sumarDias / estadoPorSaldo", () => {
 });
 
 describe("resolverPorcentajeIva", () => {
-  const tarifas = new Map([["2", 15], ["3", 5]]);
-  const base = { nombre: "P", aplicaIva: true, codigoIvaSRI: "2", tarifaImpuesto: null };
+  const tarifas = new Map([["4", 15], ["5", 5]]);
+  const base = { nombre: "P", aplicaIva: true, codigoIvaSRI: "4", tarifaImpuesto: null };
 
   it("usa la tarifa del catálogo por código SRI", () => {
     expect(resolverPorcentajeIva(base, tarifas)).toBe(15);
-    expect(resolverPorcentajeIva({ ...base, codigoIvaSRI: "3" }, tarifas)).toBe(5);
+    expect(resolverPorcentajeIva({ ...base, codigoIvaSRI: "5" }, tarifas)).toBe(5);
   });
 
   it("0 si el producto no aplica IVA", () => {

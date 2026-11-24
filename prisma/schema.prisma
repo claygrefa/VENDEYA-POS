@@ -30,6 +30,7 @@ model Empresa {
   obligadoContabilidad  Boolean  @default(false)
   agenteRetencion       Boolean  @default(false)
   resolucionAgente      String?
+  contribuyenteEspecial String?                      // Nº de resolución (3–13 alfanuméricos) si es contribuyente especial
   ambienteSRI           String   @default("PRUEBAS") // PRUEBAS | PRODUCCION
   status                String   @default("ACTIVO")
   createdAt             DateTime @default(now())
@@ -80,6 +81,7 @@ model PuntoEmision {
   sucursal     Sucursal                 @relation(fields: [sucursalId], references: [id])
   ventas       Venta[]
   comprobantes ComprobanteElectronico[]
+  secuenciales SecuencialComprobante[]
 
   @@unique([sucursalId, codigo])
 }
@@ -253,7 +255,7 @@ model Producto {
   stockActual      Float    @default(0)
   costoPromedio    Float    @default(0)               // Kardex costo promedio ponderado
   aplicaIva        Boolean  @default(true)
-  codigoIvaSRI     String   @default("2")
+  codigoIvaSRI     String   @default("4")               // Tabla 17 SRI: "4" = 15 %, "5" = 5 %, "0" = 0 %, "6" no objeto, "7" exento
   tieneVencimiento Boolean  @default(false)
   requiereLote     Boolean  @default(false)
   destinoPreparacion String @default("COCINA")        // Restaurante: COCINA | BARRA
@@ -471,6 +473,7 @@ model LineaVenta {
   porcentajeIva  Float   @default(0)
   total          Float
   costoUnitario  Float   @default(0)               // Costo por unidad BASE al momento de la venta
+  codigoIvaSRI   String   @default("")             // Código de tarifa IVA SRI aplicado (para el XML)
   presentacionId String?                           // Presentación vendida (null = unidad base)
   factorConversion Float  @default(1)              // Unidades base por unidad vendida
   cantidadBase   Float    @default(0)              // Cantidad en unidades base (descontada del stock)
@@ -508,12 +511,15 @@ model ComprobanteElectronico {
   serie                String                    // "001-001"
   secuencial           String                    // "000000001"
   fechaEmision         DateTime
+  xmlGenerado          String?                   // XML sin firmar (validado contra el XSD)
   xmlFirmado           String?                   // XML con firma XAdES-BES
   xmlAutorizado        String?                   // XML con nodo de autorización
   estado               String    @default("PENDIENTE") // PENDIENTE|EN_PROCESO|AUTORIZADO|RECHAZADO|DEVUELTO|ANULADO
   numeroAutorizacion   String?
   fechaAutorizacion    DateTime?
   mensajesRespuesta    String?                   // JSON con mensajes del SRI
+  motivo               String?                   // Motivo (notas de crédito)
+  comprobanteOrigenId  String?                   // Factura que modifica (notas de crédito)
   intentosEnvio        Int       @default(0)
   proximoIntento       DateTime?
   createdAt            DateTime  @default(now())
@@ -524,7 +530,10 @@ model ComprobanteElectronico {
   sucursal     Sucursal     @relation(fields: [sucursalId],      references: [id])
   puntoEmision PuntoEmision @relation(fields: [puntoEmisionId],  references: [id])
   colaSRI      ColaSRI?
+  origen       ComprobanteElectronico?  @relation("ModificaA", fields: [comprobanteOrigenId], references: [id])
+  modificadores ComprobanteElectronico[] @relation("ModificaA")
 
+  @@index([comprobanteOrigenId])
   @@index([estado, proximoIntento])
   @@index([claveAcceso])
 }
@@ -797,4 +806,18 @@ model PrecioProducto {
   presentacion PresentacionProducto? @relation(fields: [presentacionId], references: [id])
 
   @@index([listaPrecioId, productoId])
+}
+
+/// Último secuencial emitido por punto de emisión y tipo de comprobante (01 factura, 04 nota de crédito…).
+/// Los secuenciales SRI deben ser consecutivos por (establecimiento, punto, tipo).
+model SecuencialComprobante {
+  id             String   @id @default(uuid())
+  puntoEmisionId String
+  tipoComprobante String
+  ultimo         Int      @default(0)
+  updatedAt      DateTime @updatedAt
+
+  puntoEmision PuntoEmision @relation(fields: [puntoEmisionId], references: [id])
+
+  @@unique([puntoEmisionId, tipoComprobante])
 }

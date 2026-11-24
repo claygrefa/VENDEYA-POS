@@ -8,7 +8,8 @@ import type { Db } from "../repositories/kardex.repository";
 import type { ProductoConTarifa, VentaCompleta, VentaRepository } from "../repositories/venta.repository";
 import { AppError } from "./appError.util";
 import type { CuentaPorCobrarService } from "./cuentaPorCobrar.service";
-import { resolverPorcentajeIva } from "./impuesto.util";
+import type { ComprobanteService } from "./sri/comprobante.service";
+import { resolverTarifaIva } from "./impuesto.util";
 import {
   aUnidadesBase,
   asignarFefo,
@@ -30,6 +31,9 @@ export interface ActorVenta {
 
 /** Permiso necesario para vender a un precio distinto del resuelto por el sistema. */
 export const PERMISO_MODIFICAR_PRECIO = "ventas:actualizar";
+
+/** Venta registrada; `advertencias` informa lo que no pudo completarse sin afectar la venta (p. ej. la factura electrónica). */
+export type VentaEmitida = VentaCompleta & { advertencias: string[] };
 
 /** Opciones internas (no expuestas por HTTP) para ventas originadas por otros módulos. */
 export interface OpcionesVenta {
@@ -67,7 +71,8 @@ export class VentaService {
     private readonly prisma: PrismaClient,
     private readonly repo: VentaRepository,
     private readonly kardex: KardexService,
-    private readonly cuentasPorCobrar: CuentaPorCobrarService
+    private readonly cuentasPorCobrar: CuentaPorCobrarService,
+    private readonly comprobantes: ComprobanteService
   ) {}
 
   /**
@@ -75,7 +80,7 @@ export class VentaService {
    * presentación → catálogo), líneas con IVA, pagos/cambio, lotes (FEFO) y descuento de stock +
    * Kardex en unidades base. Cualquier error revierte todo, incluido el secuencial.
    */
-  async crear(entrada: unknown, actor: ActorVenta): Promise<VentaCompleta> {
+  async crear(entrada: unknown, actor: ActorVenta): Promise<VentaEmitida> {
     return this.prisma.$transaction((tx) => this.crearEnTx(tx, entrada, actor), TX_OPCIONES);
   }
 
@@ -84,7 +89,7 @@ export class VentaService {
    * que debe confirmarse o revertirse junto con el cierre de la mesa). Con el pool de una conexión
    * no se pueden anidar transacciones: quien necesite componer operaciones usa este método.
    */
-  async crearEnTx(tx: Db, entrada: unknown, actor: ActorVenta, opciones: OpcionesVenta = {}): Promise<VentaCompleta> {
+  async crearEnTx(tx: Db, entrada: unknown, actor: ActorVenta, opciones: OpcionesVenta = {}): Promise<VentaEmitida> {
     const datos = parsear(VentaInputSchema, entrada);
 
     // 1) Primera escritura: reserva el secuencial y toma el bloqueo de escritura.
@@ -237,7 +242,8 @@ export class VentaService {
 
     // 5) Cálculo de importes
     const calculadas = resueltas.map((r) => {
-      const porcentajeIva = resolverPorcentajeIva(r.producto, tarifas);
+      const tarifa = resolverTarifaIva(r.producto, tarifas);
+      const porcentajeIva = tarifa.porcentaje;
       const calculo = calcularLinea({
         cantidad: r.cantidad,
         precioUnitario: r.precioUnitario,
@@ -245,7 +251,7 @@ export class VentaService {
         tipoDescuento: r.tipoDescuento,
         porcentajeIva,
       });
-      return { ...r, porcentajeIva, calculo };
+      return { ...r, porcentajeIva, codigoIva: tarifa.codigo, calculo };
     });
 
     const totales = calcularTotales(calculadas.map((c) => c.calculo));
@@ -281,6 +287,7 @@ export class VentaService {
         subtotal: c.calculo.subtotal,
         iva: c.calculo.iva,
         porcentajeIva: c.porcentajeIva,
+        codigoIvaSRI: c.codigoIva,
         total: c.calculo.total,
         // Costo por unidad BASE al momento de la venta (para margen y reversión por anulación)
         costoUnitario: c.producto.tipo === "BIEN" ? c.producto.costoPromedio : 0,
@@ -317,7 +324,21 @@ export class VentaService {
       });
     }
 
-    return venta;
+    // 8) Factura electrónica (opcional). Nunca bloquea la venta: si no puede generarse, la venta queda registrada y se
+    //    informa el motivo en `advertencias` (se puede reintentar con POST /api/ventas/:id/comprobante).
+    const advertencias: string[] = [];
+    let conComprobante: VentaCompleta = venta;
+    if (datos.emitirFactura) {
+      try {
+        const r = await this.comprobantes.emitirFacturaEnTx(tx, venta.id, actor.empresaId);
+        if (r.creado) conComprobante = (await this.repo.buscarPorId(tx, venta.id, actor.empresaId)) ?? venta;
+      } catch (e) {
+        // Los AppError se lanzan antes de escribir nada, de modo que la transacción de la venta sigue limpia.
+        if (!(e instanceof AppError)) throw e;
+        advertencias.push(`Factura electrónica no generada: ${e.message}`);
+      }
+    }
+    return Object.assign(conComprobante, { advertencias });
   }
 
   /** Anula una venta COMPLETADA y revierte su inventario (en unidades base) con movimientos DEVOLUCION. */
@@ -334,11 +355,19 @@ export class VentaService {
       const venta = await this.repo.buscarPorId(tx, ventaId, actor.empresaId);
       if (venta === null) throw new AppError("NO_ENCONTRADO", "Venta no encontrada");
       if (filas === 0) throw new AppError("ESTADO_INVALIDO", `La venta ${venta.numero} ya está anulada`);
-      if (venta.comprobante?.estado === "AUTORIZADO") {
-        throw new AppError(
-          "ESTADO_INVALIDO",
-          `La venta ${venta.numero} tiene una factura autorizada por el SRI: debe emitirse una nota de crédito`
-        );
+
+      // Factura electrónica de la venta
+      const factura = venta.comprobante;
+      if (factura !== null && factura.estado !== "ANULADO") {
+        if (factura.estado === "AUTORIZADO") {
+          // Ya existe ante el SRI: se anula con una nota de crédito por el total (falla si no puede emitirse)
+          await this.comprobantes.emitirNotaCreditoEnTx(tx, venta.id, actor.empresaId, motivo);
+        } else if (factura.estado === "EN_PROCESO") {
+          throw new AppError("ESTADO_INVALIDO", `La factura de la venta ${venta.numero} está en proceso de autorización: espere la respuesta del SRI`);
+        } else {
+          // PENDIENTE, RECHAZADO o DEVUELTO: nunca fue autorizada, se anula localmente
+          await this.comprobantes.anularLocalEnTx(tx, factura.id);
+        }
       }
 
       // Venta a crédito: anula su cuenta por cobrar (falla si ya tiene abonos)

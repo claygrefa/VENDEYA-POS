@@ -228,7 +228,7 @@ describe("VentaService.crear — validaciones y rollback", () => {
 
   it("usa la tarifa de impuesto asignada al producto (tarifaImpuestoId)", async () => {
     const p = await crearProducto(env, { codigo: "R10", precioVenta: 100, stock: 3 });
-    const tarifa5 = await env.prisma.tarifaImpuesto.findFirstOrThrow({ where: { empresaId: env.seed.empresaId, codigo: "3" } });
+    const tarifa5 = await env.prisma.tarifaImpuesto.findFirstOrThrow({ where: { empresaId: env.seed.empresaId, codigo: "5" } }); // 5 % = código SRI "5"
     await env.prisma.producto.update({ where: { id: p.id }, data: { tarifaImpuestoId: tarifa5.id } });
     const v = await env.servicios.ventas.crear(venta([linea(p, 1)], [{ formaPago: "EFECTIVO", monto: 105 }]), actor);
     expect(v).toMatchObject({ iva: 5, total: 105 });

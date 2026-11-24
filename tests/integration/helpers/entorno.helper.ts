@@ -67,6 +67,8 @@ export interface OpcionesProducto {
   principioActivo?: string;
   /** Restaurante: COCINA (default) o BARRA */
   destino?: "COCINA" | "BARRA";
+  /** Código SRI de la tarifa de IVA (Tabla 17): "4" = 15 % (default), "5" = 5 %, "0", "6", "7" */
+  codigoIva?: string;
 }
 
 export async function crearProducto(env: Entorno, o: OpcionesProducto): Promise<Producto> {
@@ -87,6 +89,7 @@ export async function crearProducto(env: Entorno, o: OpcionesProducto): Promise<
     ...(o.stockMinimo !== undefined ? { stockMinimo: o.stockMinimo } : {}),
     ...(o.principioActivo !== undefined ? { principioActivo: o.principioActivo } : {}),
     ...(o.destino !== undefined ? { destinoPreparacion: o.destino } : {}),
+    ...(o.codigoIva !== undefined ? { codigoIvaSRI: o.codigoIva } : {}),
   });
   // Los productos con lote reciben su stock a través de lotes (ver crearLote)
   if (o.stock !== undefined && o.stock > 0 && o.requiereLote !== true) {
@@ -156,6 +159,7 @@ export function configurarGiro(
     moduloListasPrecios?: boolean;
     moduloMesas?: boolean;
     moduloComandasCocina?: boolean;
+    emitirFacturas?: boolean;
   }
 ) {
   return env.prisma.configuracionGiro.update({ where: { empresaId: env.seed.empresaId }, data: flags });

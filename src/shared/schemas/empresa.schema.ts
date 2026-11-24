@@ -23,6 +23,8 @@ export const EmpresaSchema = z.object({
   agenteRetencion:      z.boolean().default(false),
   ambienteSRI:          z.enum(["PRUEBAS", "PRODUCCION"]).default("PRUEBAS"),
   resolucionAgente:     z.string().max(100).optional().nullable(),
+  /** Nº de resolución de contribuyente especial (3–13 caracteres alfanuméricos) */
+  contribuyenteEspecial: z.string().regex(/^[A-Za-z0-9]{3,13}$/, "3 a 13 caracteres alfanuméricos").optional().nullable(),
   logo:                 z.string().max(500).optional().nullable(),
 });
 

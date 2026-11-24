@@ -36,7 +36,7 @@ export interface Producto extends AuditTimestamps {
   stockActual:      number;
   costoPromedio:    Money;        // kardex costo promedio ponderado
   aplicaIva:        boolean;
-  codigoIvaSRI:     string;      // "2" = 15%, "0" = 0%, etc.
+  codigoIvaSRI:     string;      // Tabla 17 SRI: "4" = 15%, "5" = 5%, "0" = 0%, "6" = no objeto, "7" = exento
   tieneVencimiento: boolean;     // para módulo farmacia
   requiereLote:     boolean;
   status:           ActiveStatus;

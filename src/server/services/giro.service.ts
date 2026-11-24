@@ -5,7 +5,7 @@ import type { ConfiguracionRepository } from "../repositories/configuracion.repo
 import type { Db } from "../repositories/kardex.repository";
 import { AppError } from "./appError.util";
 
-export type ModuloFlag = "moduloLotes" | "moduloVencimientos" | "moduloListasPrecios" | "moduloMesas" | "moduloComandasCocina";
+export type ModuloFlag = "moduloLotes" | "moduloVencimientos" | "moduloListasPrecios" | "moduloMesas" | "moduloComandasCocina" | "emitirFacturas";
 
 const ETIQUETA: Record<ModuloFlag, string> = {
   moduloLotes: "Control de lotes",
@@ -13,6 +13,7 @@ const ETIQUETA: Record<ModuloFlag, string> = {
   moduloListasPrecios: "Listas de precios",
   moduloMesas: "Mesas y cuentas abiertas",
   moduloComandasCocina: "Comandas a cocina/barra",
+  emitirFacturas: "Emisión de facturas electrónicas",
 };
 
 export class GiroService {

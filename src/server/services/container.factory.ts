@@ -4,6 +4,7 @@
 import type { PrismaClient } from "@prisma/client";
 import { ClienteRepository } from "../repositories/cliente.repository";
 import { CompraRepository } from "../repositories/compra.repository";
+import { ComprobanteRepository } from "../repositories/comprobante.repository";
 import { ConfiguracionRepository } from "../repositories/configuracion.repository";
 import { CuentaPorCobrarRepository } from "../repositories/cuentaPorCobrar.repository";
 import { CuentaPorPagarRepository } from "../repositories/cuentaPorPagar.repository";
@@ -35,6 +36,8 @@ import { ProductoService } from "./producto.service";
 import { SessionService } from "./session.service";
 import { TurnoService } from "./turno.service";
 import { UsuarioService } from "./usuario.service";
+import { ComprobanteService } from "./sri/comprobante.service";
+import { XsdValidatorService } from "./sri/xsdValidator.service";
 import { VentaService } from "./venta.service";
 
 export interface Servicios {
@@ -54,6 +57,7 @@ export interface Servicios {
   presentaciones: PresentacionService;
   listasPrecio: ListaPrecioService;
   inventario: InventarioService;
+  comprobantes: ComprobanteService;
   mesas: MesaService;
   comandas: ComandaService;
   sesiones: SessionService;
@@ -68,7 +72,8 @@ export function crearServicios(prisma: PrismaClient, sesiones: SessionService = 
   const productos = new ProductoService(new ProductoRepository(prisma));
   const turnoRepo = new TurnoRepository();
   const cuentasPorCobrar = new CuentaPorCobrarService(prisma, new CuentaPorCobrarRepository(), turnoRepo);
-  const ventas = new VentaService(prisma, new VentaRepository(), kardex, cuentasPorCobrar);
+  const comprobantes = new ComprobanteService(prisma, new ComprobanteRepository(), giro, new XsdValidatorService());
+  const ventas = new VentaService(prisma, new VentaRepository(), kardex, cuentasPorCobrar, comprobantes);
   const cuentasPorPagar = new CuentaPorPagarService(prisma, new CuentaPorPagarRepository(), turnoRepo);
 
   return {
@@ -84,6 +89,7 @@ export function crearServicios(prisma: PrismaClient, sesiones: SessionService = 
     cuentasPorCobrar,
     cuentasPorPagar,
     giro,
+    comprobantes,
     lotes,
     presentaciones: new PresentacionService(prisma, new PresentacionRepository()),
     listasPrecio: new ListaPrecioService(prisma, new ListaPrecioRepository(), giro),

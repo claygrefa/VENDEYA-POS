@@ -104,6 +104,8 @@ export const CobrarComandaSchema = z
     clienteRuc:     z.string().max(13).optional().nullable(),
     clienteNombre:  z.string().max(300).optional().nullable(),
     propina:        z.number().nonnegative().max(100_000).default(0),
+    /** Genera la factura electrónica de esta venta */
+    emitirFactura:  z.boolean().default(false),
     pagos:          z.array(PagoVentaInputSchema).min(1, "Debe indicar al menos un pago"),
     observaciones:  z.string().max(300).optional().nullable(),
   })

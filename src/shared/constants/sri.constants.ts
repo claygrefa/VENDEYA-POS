@@ -2,8 +2,14 @@
 // src/shared/constants/sri.constants.ts — Constantes del SRI Ecuador
 // ============================================================
 
-/** Versiones de los esquemas XSD de comprobantes */
-export const SRI_VERSION_COMPROBANTE = "2.1.0" as const;
+/**
+ * Versión del XML (atributo `version` de la raíz) de cada comprobante que se emite, según los XSD oficiales
+ * incluidos en `src/server/services/sri/xsd`: factura 2.1.0 y nota de crédito 1.1.0.
+ */
+export const VERSION_XML_COMPROBANTE = { "01": "2.1.0", "04": "1.1.0" } as const;
+
+/** Versión de la Ficha Técnica de Comprobantes Electrónicos (esquema offline) sobre la que se implementó. */
+export const VERSION_FICHA_TECNICA_SRI = "2.34" as const;
 
 /** URLs de Web Services SRI */
 export const SRI_WS = {
@@ -17,21 +23,49 @@ export const SRI_WS = {
   },
 } as const;
 
-/** Tabla de IVA vigente Ecuador (2024–2025) */
+/**
+ * Tarifas de IVA según la Tabla 17 de la Ficha Técnica de Comprobantes Electrónicos (esquema offline, v2.34).
+ * El código es el que viaja en `codigoPorcentaje` del XML. Ojo: el código NO es el porcentaje
+ * (p. ej. 15 % es el código "4"; el "2" es la antigua tarifa del 12 %).
+ * Códigos no sembrados: "8" (IVA diferenciado por decreto, p. ej. 8 % turismo) y "10" (13 %).
+ */
 export const TARIFAS_IVA = [
-  { codigo: "0",  porcentaje: 0,   descripcion: "0%  - Tarifa 0"                              },
-  { codigo: "2",  porcentaje: 15,  descripcion: "15% - Tarifa General (desde abr-2024)"        },
-  { codigo: "3",  porcentaje: 5,   descripcion: "5%  - Tarifa Reducida (canasta básica)"        },
-  { codigo: "6",  porcentaje: 0,   descripcion: "No objeto de IVA"                             },
-  { codigo: "7",  porcentaje: 0,   descripcion: "Exento de IVA"                               },
-  { codigo: "8",  porcentaje: 8,   descripcion: "8%  - IVA turismo interno (Galápagos)"        },
-  { codigo: "10", porcentaje: 10,  descripcion: "10% - IVA turismo receptivo"                  },
-  { codigo: "9",  porcentaje: 15,  descripcion: "15% - Tarifa General (IVA bienes específicos)" },
+  { codigo: "0", porcentaje: 0,  descripcion: "0%",                       vigente: true  },
+  { codigo: "2", porcentaje: 12, descripcion: "12% (histórica)",           vigente: false },
+  { codigo: "3", porcentaje: 14, descripcion: "14% (histórica)",           vigente: false },
+  { codigo: "4", porcentaje: 15, descripcion: "15% - Tarifa general",      vigente: true  },
+  { codigo: "5", porcentaje: 5,  descripcion: "5% - Tarifa reducida",      vigente: true  },
+  { codigo: "6", porcentaje: 0,  descripcion: "No objeto de IVA",          vigente: true  },
+  { codigo: "7", porcentaje: 0,  descripcion: "Exento de IVA",             vigente: true  },
 ] as const;
 
-/** Tarifa IVA general vigente en Ecuador */
+/** Tarifa IVA general vigente en Ecuador (código SRI "4" = 15 %) */
 export const IVA_GENERAL_PORCENTAJE = 15;
-export const IVA_GENERAL_CODIGO     = "2";
+export const IVA_GENERAL_CODIGO     = "4";
+
+/** Códigos de IVA que no generan impuesto (0 %, no objeto, exento) */
+export const CODIGOS_IVA_SIN_IMPUESTO = ["0", "6", "7"] as const;
+
+/** Código del impuesto IVA en `<impuesto><codigo>` (Tabla 16) */
+export const CODIGO_IMPUESTO_IVA = "2";
+
+/** Formas de pago (Tabla 24) */
+export const FORMAS_PAGO_SRI = {
+  SIN_SISTEMA_FINANCIERO: "01",
+  COMPENSACION_DEUDAS:    "15",
+  TARJETA_DEBITO:         "16",
+  DINERO_ELECTRONICO:     "17",
+  TARJETA_PREPAGO:        "18",
+  TARJETA_CREDITO:        "19",
+  OTROS_SISTEMA_FINANCIERO: "20",
+  ENDOSO_TITULOS:         "21",
+} as const;
+
+/** Una factura a Consumidor Final no puede superar este valor (Ficha Técnica, 9.10): sobre él se identifica al adquirente. */
+export const MONTO_MAXIMO_CONSUMIDOR_FINAL = 50;
+
+/** La propina no puede superar este porcentaje del subtotal (Ficha Técnica, 9.16). */
+export const PROPINA_MAXIMA_PORCENTAJE = 10;
 
 /** Tipos de Comprobante (Tabla 4 Manual SRI) */
 export const TIPOS_COMPROBANTE = {

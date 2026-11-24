@@ -13,3 +13,4 @@ export * from "./compra.schema";
 export * from "./cuenta.schema";
 export * from "./inventario.schema";
 export * from "./restaurante.schema";
+export * from "./comprobante.schema";

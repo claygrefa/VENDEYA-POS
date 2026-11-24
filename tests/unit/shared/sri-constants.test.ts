@@ -16,13 +16,13 @@ import {
 } from "../../../src/shared/constants/sri.constants";
 
 describe("Constantes SRI Ecuador", () => {
-  it("IVA general debe ser 15% con código '2'", () => {
+  it("IVA general debe ser 15% con el código SRI '4' (Tabla 17)", () => {
     expect(IVA_GENERAL_PORCENTAJE).toBe(15);
-    expect(IVA_GENERAL_CODIGO).toBe("2");
+    expect(IVA_GENERAL_CODIGO).toBe("4");
   });
 
   it("TARIFAS_IVA debe incluir la tarifa del 15%", () => {
-    const tarifa15 = TARIFAS_IVA.find((t) => t.porcentaje === 15 && t.codigo === "2");
+    const tarifa15 = TARIFAS_IVA.find((t) => t.porcentaje === 15 && t.codigo === "4");
     expect(tarifa15).toBeDefined();
   });
 

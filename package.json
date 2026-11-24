@@ -12,7 +12,7 @@
     "dev:electron": "npm run build:main && wait-on tcp:5173 && cross-env NODE_ENV=development electron .",
     "build": "npm run build:tsc && npm run build:main && npm run build:vite && npm run build:electron",
     "build:tsc": "tsc --noEmit -p tsconfig.node.json",
-    "build:main": "tsc -p tsconfig.electron.json",
+    "build:main": "tsc -p tsconfig.electron.json && node -e \"require('fs').cpSync('src/server/services/sri/xsd','dist-electron/src/server/services/sri/xsd',{recursive:true})\"",
     "build:vite": "vite build",
     "build:electron": "electron-builder",
     "preview": "vite preview",
@@ -40,6 +40,7 @@
     "soap": "^1.0.0",
     "xml2js": "^0.6.2",
     "xmlbuilder2": "^3.1.1",
+    "xmllint-wasm": "^5.3.0",
     "zod": "^3.23.8",
     "zustand": "^5.0.1"
   },

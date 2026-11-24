@@ -3,6 +3,7 @@
 // ============================================================
 import type { FastifyInstance } from "fastify";
 import { crearAuthController } from "../controllers/auth.controller";
+import { crearComprobanteController } from "../controllers/comprobante.controller";
 import { crearClienteController } from "../controllers/cliente.controller";
 import { crearCuentaController } from "../controllers/cuenta.controller";
 import { crearHealthController } from "../controllers/health.controller";
@@ -24,6 +25,7 @@ export function registrarRutas(server: FastifyInstance, servicios: Servicios): v
   const cuentas = crearCuentaController(servicios);
   const inventario = crearInventarioController(servicios);
   const restaurante = crearRestauranteController(servicios);
+  const comprobantes = crearComprobanteController(servicios);
 
   // ── Públicas ──────────────────────────────────────────────
   server.get("/api/health", health.estado);
@@ -140,4 +142,10 @@ export function registrarRutas(server: FastifyInstance, servicios: Servicios): v
   server.post<{ Params: { id: string } }>("/api/comandas/:id/anular", permiso("restaurante", "anular"), restaurante.anularComanda);
 
   server.get("/api/cocina/pendientes", verRestaurante, restaurante.pendientesCocina);
+
+  // ── Comprobantes electrónicos SRI ─────────────────────────
+  // El envío y la autorización llegan en la Semana 11; por ahora se generan, validan y consultan.
+  server.get("/api/comprobantes", permiso("sri", "leer"), comprobantes.listar);
+  server.get<{ Params: { id: string } }>("/api/comprobantes/:id", permiso("sri", "leer"), comprobantes.obtener);
+  server.post<{ Params: { id: string } }>("/api/ventas/:id/comprobante", permiso("sri", "crear"), comprobantes.emitirFactura);
 }

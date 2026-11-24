@@ -83,6 +83,10 @@ const RUTAS: ReadonlyArray<readonly [Metodo, string, Requisito]> = [
   ["POST", "/api/comandas/:id/unir", "restaurante:actualizar"],
   ["POST", "/api/comandas/:id/cobrar", "ventas:crear"], // además el servicio exige restaurante:actualizar
   ["POST", "/api/comandas/:id/anular", "restaurante:anular"],
+  // ── Comprobantes electrónicos SRI ──
+  ["GET", "/api/comprobantes", "sri:leer"],
+  ["GET", "/api/comprobantes/:id", "sri:leer"],
+  ["POST", "/api/ventas/:id/comprobante", "sri:crear"],
 ];
 
 /** Permisos esperados por rol (fijados a mano: un cambio en el seed debe ser una decisión consciente). */

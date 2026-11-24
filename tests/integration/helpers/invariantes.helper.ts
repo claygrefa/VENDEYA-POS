@@ -4,6 +4,7 @@
 // Devuelve la lista de violaciones (vacía = consistente) para dar mensajes claros al fallar.
 // ============================================================
 import type { Entorno } from "./entorno.helper";
+import { parsearClaveAcceso, validarClaveAcceso } from "../../../src/server/services/sri/claveAcceso.util";
 import type { ActorCaja } from "../../../src/server/services/turno.service";
 
 const TOL_STOCK = 1e-6;
@@ -187,6 +188,49 @@ export async function verificarInvariantes(env: Entorno): Promise<string[]> {
     if (tieneCuenta && m.estado !== "OCUPADA") e.push(`[mesa] ${m.nombre}: tiene cuenta abierta pero está ${m.estado}`);
     if (!tieneCuenta && m.estado === "OCUPADA") e.push(`[mesa] ${m.nombre}: figura OCUPADA sin cuenta abierta`);
   }
+
+  // ── 9) Comprobantes electrónicos ────────────────────────────
+  const comprobantes = await prisma.comprobanteElectronico.findMany({ include: { puntoEmision: { include: { sucursal: true } }, colaSRI: true } });
+  const porVenta = new Map(ventas.map((v) => [v.id, v]));
+  for (const c of comprobantes) {
+    const lbl = `${c.tipoComprobante === "01" ? "factura" : "nota de crédito"} ${c.serie}-${c.secuencial}`;
+    if (!validarClaveAcceso(c.claveAcceso)) {
+      e.push(`[comprobante] ${lbl}: clave de acceso inválida (${c.claveAcceso})`);
+      continue;
+    }
+    const k = parsearClaveAcceso(c.claveAcceso);
+    if (k.tipoComprobante !== c.tipoComprobante) e.push(`[comprobante] ${lbl}: la clave dice tipo ${k.tipoComprobante}`);
+    if (k.serie !== c.serie.replace("-", "")) e.push(`[comprobante] ${lbl}: la clave dice serie ${k.serie}`);
+    if (k.secuencial !== c.secuencial) e.push(`[comprobante] ${lbl}: la clave dice secuencial ${k.secuencial}`);
+    if (k.ambiente !== c.ambiente) e.push(`[comprobante] ${lbl}: la clave dice ambiente ${k.ambiente}`);
+    if (c.xmlGenerado === null || !c.xmlGenerado.includes(`<claveAcceso>${c.claveAcceso}</claveAcceso>`)) e.push(`[comprobante] ${lbl}: sin XML o con otra clave de acceso`);
+    if (c.tipoComprobante === "01") {
+      const v = c.ventaId === null ? undefined : porVenta.get(c.ventaId);
+      if (v === undefined) e.push(`[comprobante] ${lbl}: factura sin venta`);
+      else if (v.estado === "ANULADA" && c.estado !== "ANULADO") {
+        const nc = comprobantes.find((x) => x.comprobanteOrigenId === c.id && x.estado !== "ANULADO");
+        if (c.estado !== "AUTORIZADO" || nc === undefined) e.push(`[comprobante] ${lbl}: la venta está anulada pero la factura sigue ${c.estado} sin nota de crédito`);
+      }
+      if (v !== undefined && v.estado === "COMPLETADA" && c.estado === "ANULADO") e.push(`[comprobante] ${lbl}: factura anulada de una venta vigente`);
+    } else if (c.tipoComprobante === "04") {
+      const origen = comprobantes.find((x) => x.id === c.comprobanteOrigenId);
+      if (origen === undefined || origen.tipoComprobante !== "01") e.push(`[comprobante] ${lbl}: sin factura de origen`);
+      else if (origen.estado !== "AUTORIZADO") e.push(`[comprobante] ${lbl}: modifica una factura que no está autorizada (${origen.estado})`);
+      if (c.motivo === null || c.motivo === "") e.push(`[comprobante] ${lbl}: sin motivo`);
+    }
+    if (c.estado === "PENDIENTE" && c.colaSRI === null) e.push(`[comprobante] ${lbl}: PENDIENTE sin registro en la cola de envío`);
+    if (c.estado === "ANULADO" && c.colaSRI !== null) e.push(`[comprobante] ${lbl}: ANULADO pero sigue en la cola de envío`);
+  }
+  // Secuenciales consecutivos y sin duplicados por (punto de emisión, tipo)
+  for (const sec of await prisma.secuencialComprobante.findMany()) {
+    const delTipo = comprobantes.filter((c) => c.puntoEmisionId === sec.puntoEmisionId && c.tipoComprobante === sec.tipoComprobante);
+    const numeros = delTipo.map((c) => Number(c.secuencial)).sort((a, b) => a - b);
+    if (numeros.length !== sec.ultimo) e.push(`[comprobante] tipo ${sec.tipoComprobante}: ${numeros.length} comprobantes pero contador ${sec.ultimo}`);
+    numeros.forEach((n, i) => {
+      if (n !== i + 1) e.push(`[comprobante] tipo ${sec.tipoComprobante}: secuencial ${i + 1} ausente o duplicado (hay ${n})`);
+    });
+  }
+  if (new Set(comprobantes.map((c) => c.claveAcceso)).size !== comprobantes.length) e.push("[comprobante] claves de acceso duplicadas");
 
   return e;
 }

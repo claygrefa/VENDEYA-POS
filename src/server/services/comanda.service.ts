@@ -426,6 +426,7 @@ export class ComandaService {
           lineas,
           pagos: datos.pagos,
           propina: datos.propina,
+          emitirFactura: datos.emitirFactura,
           observaciones: datos.observaciones != null && datos.observaciones !== "" ? `${nota}. ${datos.observaciones}` : nota,
         },
         actor,

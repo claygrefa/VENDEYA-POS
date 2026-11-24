@@ -75,7 +75,9 @@ describe("runSeed", () => {
   it("carga las tarifas de IVA vigentes (15% como general)", async () => {
     const tarifas = await prisma.tarifaImpuesto.findMany({ where: { empresaId: seed.empresaId } });
     expect(tarifas).toHaveLength(TARIFAS_IVA.length);
-    expect(tarifas.find((t) => t.codigo === "2")?.porcentaje).toBe(15);
+    expect(tarifas.find((t) => t.codigo === "4")?.porcentaje).toBe(15);
+    expect(tarifas.find((t) => t.codigo === "5")?.porcentaje).toBe(5);
+    expect(tarifas.filter((t) => t.vigente).map((t) => t.codigo).sort()).toEqual(["0", "4", "5", "6", "7"]); // 12 % y 14 % son históricas
   });
 
   it("crea Consumidor Final, empresa/sucursal/punto, categoría y unidades", async () => {
@@ -181,7 +183,7 @@ describe("ProductoService", () => {
     const p = await productos.crear(nuevo());
     expect(p.margen).toBe(25);
     expect(p.aplicaIva).toBe(true);
-    expect(p.codigoIvaSRI).toBe("2");
+    expect(p.codigoIvaSRI).toBe("4");
   });
 
   it("rechaza código duplicado y precio inválido", async () => {

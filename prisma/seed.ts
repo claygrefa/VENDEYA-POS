@@ -153,8 +153,8 @@ export async function runSeed(prisma: PrismaClient, opciones: SeedOptions = {}):
   for (const t of TARIFAS_IVA) {
     await prisma.tarifaImpuesto.upsert({
       where: { empresaId_tipoImpuesto_codigo: { empresaId: empresa.id, tipoImpuesto: "IVA", codigo: t.codigo } },
-      update: { porcentaje: t.porcentaje, descripcion: t.descripcion },
-      create: { empresaId: empresa.id, tipoImpuesto: "IVA", codigo: t.codigo, porcentaje: t.porcentaje, descripcion: t.descripcion },
+      update: { porcentaje: t.porcentaje, descripcion: t.descripcion, vigente: t.vigente },
+      create: { empresaId: empresa.id, tipoImpuesto: "IVA", codigo: t.codigo, porcentaje: t.porcentaje, descripcion: t.descripcion, vigente: t.vigente },
     });
   }
 
