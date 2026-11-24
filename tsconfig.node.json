@@ -33,5 +33,5 @@
     "prisma/seed.ts",
     "tests/**/*.ts"
   ],
-  "exclude": ["node_modules", "dist", "dist-electron", "src/renderer"]
+  "exclude": ["node_modules", "dist", "dist-electron", "src/renderer", "tests/unit/renderer", "tests/helpers/renderer", "tests/integration/renderer"]
 }

@@ -186,6 +186,7 @@ export function registrarRutas(server: FastifyInstance, servicios: Servicios): v
   server.put("/api/balanza", permiso("configuracion", "actualizar"), hardware.configurarBalanza);
   server.get("/api/balanza/peso", permiso("ventas", "crear"), hardware.peso);
   server.get("/api/sync/cajas", permiso("caja", "leer"), hardware.cajasConectadas);
+  server.get("/api/puntos-emision", permiso("caja", "leer"), hardware.puntosEmision);
 
   // ── Certificado digital de firma (.p12) ───────────────────
   // La contraseña y la clave privada nunca se devuelven: la consulta solo muestra titular, emisor, huella y vigencia.

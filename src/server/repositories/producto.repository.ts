@@ -4,6 +4,14 @@
 import type { Prisma, PrismaClient, Producto } from "@prisma/client";
 import { codigoBarrasEnUso, type PresentacionConProducto } from "./presentacion.repository";
 
+/** Lo que necesita una pantalla de venta de cada producto: su unidad de medida y la tarifa de IVA asignada. */
+export const incluirParaVenta = {
+  unidadMedida: { select: { codigo: true, nombre: true, permiteDecimales: true } },
+  tarifaImpuesto: { select: { porcentaje: true } },
+} satisfies Prisma.ProductoInclude;
+
+export type ProductoConDetalle = Prisma.ProductoGetPayload<{ include: typeof incluirParaVenta }>;
+
 export interface ResultadoPaginado<T> {
   items: T[];
   total: number;
@@ -53,7 +61,7 @@ export class ProductoRepository {
     return (await this.prisma.unidadMedida.findUnique({ where: { id }, select: { id: true } })) !== null;
   }
 
-  async buscar(filtro: FiltroProductos): Promise<ResultadoPaginado<Producto>> {
+  async buscar(filtro: FiltroProductos): Promise<ResultadoPaginado<ProductoConDetalle>> {
     const texto = filtro.search;
     const where: Prisma.ProductoWhereInput = {
       status: "ACTIVO",
@@ -71,6 +79,7 @@ export class ProductoRepository {
     const [items, total] = await this.prisma.$transaction([
       this.prisma.producto.findMany({
         where,
+        include: incluirParaVenta,
         orderBy: { nombre: "asc" },
         skip: (filtro.page - 1) * filtro.pageSize,
         take: filtro.pageSize,

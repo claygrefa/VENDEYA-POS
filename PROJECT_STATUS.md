@@ -3,10 +3,10 @@
 ## Estado General
 - **Proyecto:** VENDEYA POS (Sistema Punto de Venta Multi-Giro & Facturación Electrónica SRI Ecuador)
 - **Horizonte:** 6 Meses (24 Semanas)
-- **Fase Actual:** MES 4 — Semana 15: frontend POS principal (PosScreen), atajos de teclado y modo táctil
+- **Fase Actual:** MES 4 — Semana 16: vistas de gestión (inventario, kardex, clientes), reportes y monitor SRI
 - **Estado de Compilación:** ✅ `tsc --noEmit` → 0 errores | ✅ `tsconfig.node.json` → 0 errores | ✅ `tsconfig.electron.json` → 0 errores
-- **Tests:** ✅ 716/716 passed (44 archivos de prueba)
-- **Último Commit:** `feat: Semana 14 - lectores, balanzas y sincronizacion LAN`
+- **Tests:** ✅ 782/782 passed (48 archivos de prueba)
+- **Último Commit:** `feat: Semana 15 - pantalla POS principal`
 
 ---
 
@@ -33,8 +33,8 @@
 ### MES 4: Hardware, Red Local (LAN) y Experiencia de Caja
 - [x] **Semana 13 (COMPLETADA):** Motor de impresión térmica directa ESC/POS (USB, Ethernet, 80mm/58mm), apertura automática de gaveta de dinero y generador de RIDE en PDF A4.
 - [x] **Semana 14 (COMPLETADA):** Integración de periféricos (lectores de códigos de barras, balanzas seriales) y sincronización multi-caja en red local (LAN) vía WebSockets sin depender de internet.
-- [ ] **Semana 15 (ACTUAL):** Frontend POS principal (`PosScreen`), búsqueda ultrarrápida, atajos de teclado (`F2`, `F4`, `F8`, `ESC`), modo táctil y modal de cobro.
-- [ ] **Semana 16:** Vistas de Inventario, Kardex, Clientes, Reportes Gerenciales y Monitor de Comprobantes SRI (`SriMonitor`).
+- [x] **Semana 15 (COMPLETADA):** Frontend POS principal (`PosScreen`), búsqueda ultrarrápida, atajos de teclado (`F2`, `F4`, `F8`, `ESC`), modo táctil y modal de cobro.
+- [ ] **Semana 16 (ACTUAL):** Vistas de Inventario, Kardex, Clientes, Reportes Gerenciales y Monitor de Comprobantes SRI (`SriMonitor`).
 
 ### MES 5: Instalador Cero Fricción, Auto-Updater y Licenciamiento
 - [ ] **Semana 17:** Asistente de Configuración Inicial (`SetupWizard`) guiado en 3 pasos para clientes sin conocimientos técnicos (datos RUC, carga de `.p12`, selección de giro de negocio).
@@ -567,13 +567,43 @@ La matriz RBAC cubre las 4 rutas nuevas (77 entradas en la tabla; el recuento de
 
 **Verificación:** `tsc --noEmit` (3 tsconfig) ✅ 0 errores | `npx vitest run` ✅ 716/716 (44 archivos), última corrida completa.
 
+### Semana 15 — 2026-11-24 ✅ COMPLETADA
+**Dependencias nuevas (solo desarrollo):** `jsdom`, `@testing-library/react`, `@testing-library/user-event`, `@testing-library/dom` y `@testing-library/jest-dom` fijada en la 6.x (la 8 exige Vitest 5). Cada prueba de interfaz declara `// @vitest-environment jsdom`; las de servidor siguen en Node.
+
+**Frontend** (`src/renderer/`, React + TypeScript + Tailwind + Zustand + TanStack Query):
+- `services/` — `api.ts` (`ApiCliente`: token de sesión, cabecera `x-caja-id`, errores del dominio como `ApiError{codigo,status}`, `SIN_CONEXION`, aviso de 401), `pos.api.ts` (operaciones del POS), `tipos.ts`, `totales.ts` y `contexto.tsx` (dependencias inyectables: API y WebSocket).
+- `totales.ts` **reutiliza las mismas funciones puras del servidor** (`calcularLinea`, `calcularTotales`, `distribuirPagos`): lo que ve el cajero es lo que registra el servidor (hay una prueba contra el backend real). El precio nunca se envía: lo resuelve el servidor (lista del cliente, presentación, producto).
+- `store/` — `sesion.store` (token, usuario, turno, punto de emisión, modo táctil recordado) y `carrito.store` (líneas, descuentos, presentaciones, cliente).
+- `hooks/` — `useAtajos` (F2, F4, F8, ESC), `useEscaneo` (usa `DetectorEscaneo`: escaneo vs. digitación, también sin campo enfocado), `useSincronizacion` (usa `ClienteSync`: refresca productos/stock, clientes, turno y cola del SRI cuando **otra** caja cambia algo; `resync` recarga todo; si el servidor no tiene la sincronización activa la caja sigue sola) y `consultas`.
+- `components/` — `BuscadorProductos`, `CarritoPanel`, `ModalCobro`, `ModalLinea`, `ModalCliente`, `BarraEstado`, `TecladoNumerico`, `Modal`.
+- `pages/` — `LoginPage`, `AperturaTurnoPage` (retoma un turno abierto), `PosScreen`; `App.tsx` resuelve la URL del backend (`backend:get-info` de Electron, o la del servidor en una caja secundaria) y el flujo Ingreso → Turno → Venta.
+
+**Cómo se usa:** `F2` busca (la búsqueda filtra en el servidor por nombre, código o código de barras) · `F4` elige cliente (por defecto Consumidor Final) · `F8` cobra · `ESC` cierra el diálogo, o la confirmación, o borra la búsqueda · Enter en la búsqueda agrega el producto si es el único resultado o coincide exacto. Un lector de códigos (ráfaga + Enter) llama a `GET /api/escaneo/:codigo` (producto, presentación o etiqueta de balanza con su peso). Los productos a granel piden la cantidad: **«Pesar»** lee la balanza (`GET /api/balanza/peso`) o se teclea. Cobro con formas de pago mixtas, «Exacto», cambio, propina y «emitir factura». Tras cobrar: número de venta, cambio, estado de la factura, avisos del servidor y **reimprimir ticket**; el ticket y la gaveta salen solos desde el servidor. Barra de estado: cajero, sucursal y punto, conexión LAN, cola del SRI (si el rol puede verla), impresora y modo táctil (botones grandes y teclado numérico en pantalla).
+
+**Backend (cambios para la pantalla):** `GET /api/puntos-emision` (`caja:leer`: sucursales y puntos activos para abrir turno y vender); `GET /api/productos` y `GET /api/escaneo/:codigo` ahora incluyen `unidadMedida` y `tarifaImpuesto` del producto (cambio solo aditivo). Tabla de permisos: 90 filas.
+
+**Correcciones de arrastre:** `vite build` **fallaba desde la Semana 1** (`globals.css` usaba `surface-300…700`, que no existían en `tailwind.config.ts`): paleta completada y build verificado. La CSP del renderer solo permitía `127.0.0.1`: ahora permite `http:`/`ws:` para que una caja secundaria llegue al servidor de la red local (los scripts siguen limitados a los propios).
+
+**Pruebas nuevas (66):** `tests/unit/renderer/servicios.test.ts` (19: cliente HTTP, cálculos —IVA por tarifa, descuentos, pagos y cambio— y stores), `pos.test.tsx` (30: catálogo, carrito, descuento, escaneo vs. digitación con la misma cadena, escáner sin foco y con diálogo abierto, etiqueta de balanza, atajos, kilos con «Pesar», cliente, cobro mixto con el cuerpo validado por el esquema compartido, errores de stock/crédito/validación/sin red/sin turno, modo táctil, barra de estado) y `app.test.tsx` (11: ingreso, apertura y retomar turno, salir, sesión vencida y sincronización multi-caja con un WebSocket simulado); `tests/integration/renderer/pos-backend.test.ts` (6: el cliente del POS contra el **backend real por HTTP**: login, turno, formas de los datos, total de pantalla = total del servidor con varias tarifas, descuento en % y kilos, errores y permisos). Helpers en `tests/helpers/renderer/`. Los `tsconfig` quedaron así: el raíz compila interfaz, pruebas de interfaz y la prueba contra el backend; `tsconfig.node.json` las excluye.
+
+**Limitaciones conocidas:**
+- **No se probó dentro de Electron ni con un lector/impresora/balanza reales**, y no se miró la interfaz renderizada (solo jsdom y `vite build`): hay que revisar a ojo el diseño, el tamaño táctil y el rendimiento con un catálogo grande en un equipo de caja real.
+- El catálogo muestra los primeros 24 productos y filtra por texto en el servidor (sin paginación infinita ni categorías); la búsqueda ya es rápida pero la navegación por categorías/favoritos no existe.
+- El carrito vive en memoria: si se cierra la aplicación a mitad de una venta se pierde. No hay ventas en espera, devoluciones, anulaciones, cierre de turno ni arqueo desde la pantalla (el backend sí los tiene): llegan con las vistas de la Semana 16.
+- El total en pantalla es una estimación con el precio del catálogo; si el servidor resuelve otro precio (lista de precios del cliente) la confirmación muestra el total real, y el cobro exige haber cubierto el total estimado (si el real fuera mayor, el servidor lo rechaza con «Pago insuficiente»).
+- Sin factura para clientes nuevos desde el POS (no hay alta rápida de cliente), ni lectura de cédula/RUC; el modo táctil no tiene gestos ni pantalla de bloqueo.
+- Sin internacionalización: todo en español. Sin pruebas de accesibilidad automáticas (se usan roles y etiquetas, no hay auditoría axe).
+- Deudas de semanas anteriores abiertas (ver «Próxima Tarea»).
+
+**Verificación:** `tsc --noEmit` (3 tsconfig) ✅ 0 errores | `vite build` ✅ | `npx vitest run` ✅ 782/782 (48 archivos), 2 corridas consecutivas.
+
 ---
 
-## Próxima Tarea Exacta (Para ejecutar ahora — Semana 15)
-**Antes de empezar (deudas arrastradas):** (a) repetir contra `celcer` una consulta real desde la aplicación (el `ECONNRESET` del cliente SOAP) y, con un certificado de pruebas del SRI, confirmar firma, códigos 43/70 y una factura completa; (b) re-ejecutar la auditoría independiente (`REVIEWER_AGENT.md`); (c) probar en equipos reales la impresora/RIDE (Semana 13), la balanza y dos cajas en red (Semana 14); (d) decidir si se implementa la nota de débito (05) y conseguir el `ats.xsd` oficial.
+## Próxima Tarea Exacta (Para ejecutar ahora — Semana 16)
+**Antes de empezar (deudas arrastradas):** (a) repetir contra `celcer` una consulta real desde la aplicación (el `ECONNRESET` del cliente SOAP) y, con un certificado de pruebas del SRI, confirmar firma, códigos 43/70 y una factura completa; (b) re-ejecutar la auditoría independiente (`REVIEWER_AGENT.md`); (c) probar en equipos reales: ticket/RIDE (S13), balanza y dos cajas en red (S14) y la pantalla POS dentro de Electron (S15); (d) decidir si se implementa la nota de débito (05) y conseguir el `ats.xsd` oficial.
 
-1. **Frontend POS principal** (`src/renderer/`): revisar qué existe (estructura `App.tsx`, `main.tsx`, `pages/`, `components/`, `hooks/`, `services/`, `store/`) y construir `PosScreen` con React + TypeScript + Tailwind + Zustand + TanStack Query: carrito, búsqueda ultrarrápida por nombre/código, cliente (consumidor final por defecto), descuentos, totales con IVA por tarifa, modal de cobro con formas de pago mixtas y cambio, y la confirmación con ticket/gaveta/factura según la configuración.
-2. **Teclado y táctil:** atajos `F2` (buscar), `F4` (cliente), `F8` (cobrar), `ESC` (cancelar/cerrar) y navegación completa por teclado; modo táctil (botones grandes, teclado numérico en pantalla); integrar `DetectorEscaneo` (escaneo vs. digitación) y `GET /api/escaneo/:codigo` (incluida la etiqueta de balanza) y el peso de `GET /api/balanza/peso` para productos a granel.
-3. **Conexión con el backend:** cliente HTTP con el token de sesión, login, apertura de turno y manejo de errores del dominio (turno requerido, stock insuficiente, límite de crédito…); `ClienteSync` (WebSocket) para refrescar productos/stock cuando otra caja vende; indicador de estado (conexión, cola del SRI, impresora).
-4. **Pruebas:** componentes y flujo de venta con Vitest + Testing Library (carrito, atajos, escaneo vs. teclado, cobro mixto, errores del backend); verificar el build del renderer (`vite build`) y que el IPC/preload sigan siendo la única puerta a Electron.
-5. Verificar con `npx tsc --noEmit` y `npm test`; actualizar este archivo y commit `feat: Semana 15 - pantalla POS principal`.
+1. **Vistas de gestión** (`src/renderer/pages/`, navegación entre vistas con teclado y barra lateral según los permisos del rol): **Inventario** (productos con búsqueda y alta/edición, presentaciones, lotes y vencimientos, alertas de stock mínimo y de vencimiento, ajustes), **Kardex** (movimientos y costo promedio por producto), **Clientes** (alta y edición, cuentas por cobrar y abonos) y **Compras/Proveedores** (registro de compra, cuentas por pagar y pagos), todas sobre los endpoints que ya existen.
+2. **Caja:** cierre de turno con arqueo (cierre ciego), movimientos de ingreso y egreso, reporte del turno, reimpresión del ticket y **anulación de ventas** con motivo (permiso de supervisor) — lo que falta en la pantalla de venta.
+3. **Reportes gerenciales** (ventas por día/producto/forma de pago/cajero, utilidad con el costo promedio, stock valorado, cartera) con exportación a CSV, y el **monitor de comprobantes del SRI** (`SriMonitor`): lista filtrable por estado, mensajes de rechazo, reintento (`POST /api/comprobantes/:id/reintentar`), descarga del RIDE y del ATS por periodo. Si faltan endpoints de reportes, agregarlos en `src/server/` con sus pruebas y su permiso en la matriz RBAC.
+4. **Pruebas:** flujos de cada vista con Vitest + Testing Library y la API simulada (más pruebas contra el backend real para los endpoints nuevos); verificar permisos por rol (el cajero no ve Inventario ni Reportes), `vite build` y que las vistas sigan siendo accesibles por teclado.
+5. Verificar con `npx tsc --noEmit` y `npm test`; actualizar este archivo y commit `feat: Semana 16 - vistas de gestion, reportes y monitor SRI`.

@@ -14,6 +14,15 @@ export class EmpresaRepository {
     return this.prisma.empresa.findUnique({ where: { ruc } });
   }
 
+  /** Puntos de emisión activos de la empresa con su sucursal (el POS los necesita para abrir turno y vender). */
+  puntosEmision(empresaId: string) {
+    return this.prisma.puntoEmision.findMany({
+      where: { status: "ACTIVO", sucursal: { empresaId, status: "ACTIVO" } },
+      select: { id: true, codigo: true, descripcion: true, sucursal: { select: { id: true, codigo: true, nombre: true } } },
+      orderBy: [{ sucursal: { codigo: "asc" } }, { codigo: "asc" }],
+    });
+  }
+
   create(data: Prisma.EmpresaCreateInput): Promise<Empresa> {
     return this.prisma.empresa.create({ data });
   }

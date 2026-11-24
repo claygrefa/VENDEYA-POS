@@ -7,10 +7,11 @@
 //   3. Etiqueta de balanza (EAN-13 con prefijo 2, módulo de balanza activo): PLU → producto; el valor embebido es el peso
 //      (kg → cantidad en la unidad del producto) o el precio (importe ÷ precio unitario).
 // ============================================================
-import type { PresentacionProducto, PrismaClient, Producto } from "@prisma/client";
+import type { PresentacionProducto, PrismaClient } from "@prisma/client";
 import type { ConfiguracionRepository } from "../../repositories/configuracion.repository";
 import { AppError } from "../appError.util";
 import type { GiroService } from "../giro.service";
+import { incluirParaVenta, type ProductoConDetalle } from "../../repositories/producto.repository";
 import type { ProductoService } from "../producto.service";
 import type { ActorCaja } from "../turno.service";
 import { round2 } from "../ventaCalculo.util";
@@ -18,7 +19,7 @@ import { leerEtiquetaBalanza, type TipoEtiquetaBalanza } from "./codigoBarras.ut
 
 export interface ResultadoEscaneo {
   tipo: "PRODUCTO" | "PRESENTACION" | "BALANZA";
-  producto: Producto;
+  producto: ProductoConDetalle;
   presentacion: PresentacionProducto | null;
   /** Cantidad a vender en la unidad del producto (o en presentaciones si `tipo` es PRESENTACION) */
   cantidad: number;
@@ -84,10 +85,11 @@ export class EscaneoService {
     throw new AppError("NO_ENCONTRADO", `Sin producto para el PLU ${etiqueta.plu} de la balanza`);
   }
 
-  private async buscar(codigo: string): Promise<{ producto: Producto; presentacion: PresentacionProducto | null } | null> {
+  private async buscar(codigo: string): Promise<{ producto: ProductoConDetalle; presentacion: PresentacionProducto | null } | null> {
     try {
       const r = await this.productos.porCodigoBarras(codigo);
-      const { presentacion, ...producto } = r;
+      const { presentacion, id } = r;
+      const producto = await this.prisma.producto.findUniqueOrThrow({ where: { id }, include: incluirParaVenta });
       return { producto, presentacion };
     } catch (e) {
       if (e instanceof AppError && e.codigo === "NO_ENCONTRADO") return null;

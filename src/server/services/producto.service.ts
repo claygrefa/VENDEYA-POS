@@ -4,7 +4,7 @@
 import type { PresentacionProducto, Producto } from "@prisma/client";
 import { PaginacionSchema } from "../../shared/schemas/paginacion.schema";
 import { ProductoSchema } from "../../shared/schemas/producto.schema";
-import type { ProductoRepository, ResultadoPaginado } from "../repositories/producto.repository";
+import type { ProductoConDetalle, ProductoRepository, ResultadoPaginado } from "../repositories/producto.repository";
 import { AppError } from "./appError.util";
 import { omitUndefined } from "./object.util";
 import { parsear } from "./validation.util";
@@ -59,7 +59,7 @@ export class ProductoService {
   }
 
   /** Búsqueda paginada por nombre, código, código de barras o principio activo. */
-  async buscar(entrada: unknown): Promise<ResultadoPaginado<Producto>> {
+  async buscar(entrada: unknown): Promise<ResultadoPaginado<ProductoConDetalle>> {
     const p = parsear(PaginacionSchema, entrada ?? {});
     return this.repo.buscar({ page: p.page, pageSize: p.pageSize, ...(p.search !== undefined ? { search: p.search } : {}) });
   }

@@ -19,6 +19,11 @@ export class EmpresaService {
     return this.repo.create(omitUndefined(datos));
   }
 
+  /** Puntos de emisión activos de la empresa del actor. */
+  puntosEmision(empresaId: string) {
+    return this.repo.puntosEmision(empresaId);
+  }
+
   async obtener(id: string): Promise<Empresa> {
     const empresa = await this.repo.findById(id);
     if (empresa === null) throw new AppError("NO_ENCONTRADO", "Empresa no encontrada");

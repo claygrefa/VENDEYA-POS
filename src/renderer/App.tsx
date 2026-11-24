@@ -1,75 +1,86 @@
 // ============================================================
-// src/renderer/App.tsx — Componente raíz de la aplicación
+// src/renderer/App.tsx — Raíz de la aplicación: conexión con el backend y flujo Ingreso → Turno → Venta
 // ============================================================
-
-import React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import React, { useEffect, useMemo, useState } from "react";
+import { AperturaTurnoPage } from "./pages/AperturaTurnoPage";
+import { LoginPage } from "./pages/LoginPage";
+import { PosScreen } from "./pages/PosScreen";
+import { ProveedorPos, useContextoReal, usePos } from "./services/contexto";
+import { useCarrito } from "./store/carrito.store";
+import { useSesion } from "./store/sesion.store";
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime:            60_000,
-      gcTime:               300_000,
-      retry:                2,
-      refetchOnWindowFocus: false,
-    },
-  },
-});
+/** URL del backend: la que informa Electron (puerto libre o servidor de la red local); en desarrollo, la del entorno. */
+export async function resolverBaseUrl(): Promise<string> {
+  const puente = (window as Partial<Window>).vendeya;
+  if (puente !== undefined) {
+    try {
+      const info = await puente.invoke<{ url: string } | null>("backend:get-info");
+      if (info !== null && info !== undefined) return info.url;
+    } catch {
+      /* se usa la URL de respaldo */
+    }
+  }
+  return import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:3001";
+}
+
+/** Nombre de esta caja en la red local (se genera una vez y se recuerda). */
+export function cajaIdLocal(): string {
+  const clave = "vendeya.cajaId";
+  try {
+    const guardado = globalThis.localStorage?.getItem(clave);
+    if (guardado !== null && guardado !== undefined && guardado !== "") return guardado;
+    const nuevo = `caja-${Math.random().toString(36).slice(2, 6)}`;
+    globalThis.localStorage?.setItem(clave, nuevo);
+    return nuevo;
+  } catch {
+    return `caja-${Math.random().toString(36).slice(2, 6)}`;
+  }
+}
+
+export function crearQueryClient(): QueryClient {
+  return new QueryClient({ defaultOptions: { queries: { staleTime: 60_000, gcTime: 300_000, retry: false, refetchOnWindowFocus: false } } });
+}
+
+/** Flujo de pantallas (sin lógica de conexión): se prueba inyectando el contexto. */
+export function AplicacionPos({ baseUrl }: { baseUrl: string }): React.JSX.Element {
+  const { api } = usePos();
+  const token = useSesion((s) => s.token);
+  const turno = useSesion((s) => s.turno);
+
+  const salir = (): void => {
+    void api.logout().catch(() => undefined);
+    useCarrito.getState().vaciar();
+    useSesion.getState().cerrar();
+  };
+
+  if (token === null) return <LoginPage />;
+  if (turno === null) return <AperturaTurnoPage onSalir={salir} />;
+  return <PosScreen baseUrl={baseUrl} onSalir={salir} />;
+}
 
 export default function App(): React.JSX.Element {
+  const [baseUrl, setBaseUrl] = useState<string | null>(null);
+  const queryClient = useMemo(() => crearQueryClient(), []);
+  const cajaId = useMemo(() => cajaIdLocal(), []);
+
+  useEffect(() => {
+    void resolverBaseUrl().then(setBaseUrl);
+  }, []);
+
+  if (baseUrl === null) return <p className="p-8 text-center text-slate-300">Conectando con el servidor…</p>;
   return (
     <QueryClientProvider client={queryClient}>
-      <div className="min-h-screen bg-surface-900 text-white flex flex-col items-center justify-center select-none">
-        <div className="text-center space-y-4 p-8">
-          {/* Logo / wordmark */}
-          <div className="flex items-center justify-center gap-3 mb-8">
-            <div className="w-14 h-14 rounded-2xl bg-brand-600 flex items-center justify-center shadow-lg shadow-brand-900/50">
-              <span className="text-2xl font-bold text-white tracking-tighter">VP</span>
-            </div>
-            <div className="text-left">
-              <h1 className="text-3xl font-bold text-white tracking-tight">VENDEYA</h1>
-              <p className="text-brand-400 text-sm font-medium tracking-widest uppercase">Point of Sale</p>
-            </div>
-          </div>
-
-          {/* Estado del sistema */}
-          <div className="bg-surface-800 border border-surface-700 rounded-xl p-6 max-w-md w-full text-left space-y-3">
-            <h2 className="text-surface-200 font-semibold text-sm uppercase tracking-wider mb-4">Estado del Sistema</h2>
-            <StatusRow label="Motor POS"           status="ok"      text="Listo"              />
-            <StatusRow label="Base de Datos"        status="pending" text="Por inicializar (S2)" />
-            <StatusRow label="Servidor Fastify"     status="pending" text="Por integrar (S4)"    />
-            <StatusRow label="Facturación SRI"      status="pending" text="Por implementar (S9)"  />
-          </div>
-
-          {/* Footer versión */}
-          <p className="text-surface-600 text-xs mt-8">
-            VENDEYA POS v0.1.0 · Semana 1 de 24 · Offline-First · SRI Ecuador
-          </p>
-        </div>
-      </div>
+      <ConContexto baseUrl={baseUrl} cajaId={cajaId} />
     </QueryClientProvider>
   );
 }
 
-interface StatusRowProps {
-  label:  string;
-  status: "ok" | "pending" | "error";
-  text:   string;
-}
-
-function StatusRow({ label, status, text }: StatusRowProps): React.JSX.Element {
-  const dot: Record<StatusRowProps["status"], string> = {
-    ok:      "bg-success-500",
-    pending: "bg-warning-500",
-    error:   "bg-danger-500",
-  };
+function ConContexto({ baseUrl, cajaId }: { baseUrl: string; cajaId: string }): React.JSX.Element {
+  const valor = useContextoReal(baseUrl, cajaId);
   return (
-    <div className="flex items-center justify-between gap-4">
-      <span className="text-surface-400 text-sm">{label}</span>
-      <div className="flex items-center gap-2">
-        <span className={`w-2 h-2 rounded-full ${dot[status]}`} />
-        <span className="text-surface-300 text-sm font-mono">{text}</span>
-      </div>
-    </div>
+    <ProveedorPos valor={valor}>
+      <AplicacionPos baseUrl={baseUrl} />
+    </ProveedorPos>
   );
 }

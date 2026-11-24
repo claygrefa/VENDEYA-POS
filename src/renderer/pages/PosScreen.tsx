@@ -1,0 +1,366 @@
+// ============================================================
+// src/renderer/pages/PosScreen.tsx — Pantalla principal de venta
+//
+// Teclado: F2 buscar · F4 cliente · F8 cobrar · ESC cierra/cancela · Enter en la búsqueda agrega el producto.
+// Escáner: una ráfaga rápida terminada en Enter se resuelve en el servidor (producto, presentación o etiqueta de balanza);
+// lo que escribe una persona se busca como texto.
+// ============================================================
+import { useQueryClient } from "@tanstack/react-query";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { VentaInputSchema, type VentaInput } from "../../shared/schemas/venta.schema";
+import { BarraEstado } from "../components/BarraEstado";
+import { BuscadorProductos } from "../components/BuscadorProductos";
+import { CarritoPanel } from "../components/CarritoPanel";
+import { Aviso } from "../components/Modal";
+import { ModalCliente } from "../components/ModalCliente";
+import { ModalCobro, type DatosCobro } from "../components/ModalCobro";
+import { ModalLinea, type ResultadoLinea } from "../components/ModalLinea";
+import { useBalanza } from "../hooks/consultas";
+import { useAtajos } from "../hooks/useAtajos";
+import { useEscaneo } from "../hooks/useEscaneo";
+import { useSincronizacion } from "../hooks/useSincronizacion";
+import { ApiError } from "../services/api";
+import { usePos } from "../services/contexto";
+import type { PresentacionPos, ProductoPos, VentaEmitidaPos } from "../services/tipos";
+import { calcularCarrito, dinero, type LineaCarrito } from "../services/totales";
+import { useCarrito } from "../store/carrito.store";
+import { useSesion } from "../store/sesion.store";
+
+type Modal =
+  | { tipo: "cobro" }
+  | { tipo: "cliente" }
+  | { tipo: "linea"; clave: string }
+  | { tipo: "nueva"; producto: ProductoPos; presentacion: PresentacionPos | null };
+
+const UNIDADES_DE_PESO = ["KG", "LB", "G"];
+
+export function PosScreen({ baseUrl, onSalir }: { baseUrl: string; onSalir: () => void }): React.JSX.Element {
+  const { api } = usePos();
+  const qc = useQueryClient();
+  const tactil = useSesion((s) => s.modoTactil);
+  const punto = useSesion((s) => s.puntoEmision);
+  const fijarTurno = useSesion((s) => s.fijarTurno);
+  const lineas = useCarrito((s) => s.lineas);
+  const cliente = useCarrito((s) => s.cliente);
+  const carrito = useCarrito;
+  const calculo = useMemo(() => calcularCarrito(lineas), [lineas]);
+  const sync = useSincronizacion(baseUrl);
+  const balanza = useBalanza();
+
+  const [busqueda, setBusqueda] = useState("");
+  const [modal, setModal] = useState<Modal | null>(null);
+  const [aviso, setAviso] = useState<{ tipo: "error" | "exito" | "info"; texto: string } | null>(null);
+  const [confirmacion, setConfirmacion] = useState<VentaEmitidaPos | null>(null);
+  const [errorCobro, setErrorCobro] = useState<string | null>(null);
+  const [enviando, setEnviando] = useState(false);
+  const refBusqueda = useRef<HTMLInputElement>(null);
+  const modalAbierto = useRef(false);
+  modalAbierto.current = modal !== null;
+
+  // Los avisos se retiran solos (los errores duran más)
+  useEffect(() => {
+    if (aviso === null) return;
+    const t = setTimeout(() => setAviso(null), aviso.tipo === "error" ? 7_000 : 3_000);
+    return () => clearTimeout(t);
+  }, [aviso]);
+
+  const enfocarBusqueda = useCallback((): void => {
+    refBusqueda.current?.focus();
+    refBusqueda.current?.select();
+  }, []);
+
+  // ── Agregar al carrito ─────────────────────────────────────
+
+  const elegirProducto = useCallback(
+    (producto: ProductoPos, presentacion: PresentacionPos | null = null, cantidad?: number): void => {
+      setConfirmacion(null);
+      // Productos a granel: se pide el peso o la cantidad antes de agregarlos
+      if (cantidad === undefined && presentacion === null && producto.unidadMedida.permiteDecimales) {
+        setModal({ tipo: "nueva", producto, presentacion });
+        return;
+      }
+      carrito.getState().agregar({ producto, presentacion, cantidad: cantidad ?? 1 });
+      setBusqueda("");
+    },
+    [carrito]
+  );
+
+  const escanear = useCallback(
+    async (codigo: string): Promise<void> => {
+      if (modalAbierto.current) return; // con un diálogo abierto el lector no debe tocar el carrito de fondo
+      setBusqueda("");
+      try {
+        const r = await api.escanear(codigo);
+        if (r.tipo === "PRODUCTO") elegirProducto(r.producto);
+        else elegirProducto(r.producto, r.presentacion, r.cantidad);
+        if (r.tipo === "BALANZA") setAviso({ tipo: "exito", texto: `${r.producto.nombre}: ${r.cantidad} ${r.producto.unidadMedida.codigo}` });
+      } catch (e) {
+        setAviso({ tipo: "error", texto: e instanceof ApiError ? e.message : "No se pudo leer el código" });
+      }
+    },
+    [api, elegirProducto]
+  );
+
+  const digitar = useCallback(
+    async (texto: string): Promise<void> => {
+      if (modalAbierto.current) return;
+      const t = texto.trim();
+      try {
+        const r = await qc.fetchQuery({ queryKey: ["productos", t], queryFn: () => api.productos(t), staleTime: 15_000 });
+        const exacto = r.items.find((p) => p.codigo === t || p.codigoBarras === t);
+        const elegido = exacto ?? (r.items.length === 1 ? r.items[0] : undefined);
+        if (elegido !== undefined) elegirProducto(elegido);
+        else if (r.items.length === 0 && /^\d{6,}$/.test(t)) await escanear(t); // código tecleado a mano
+      } catch (e) {
+        setAviso({ tipo: "error", texto: e instanceof ApiError ? e.message : "No se pudo buscar" });
+      }
+    },
+    [api, qc, elegirProducto, escanear]
+  );
+
+  const { procesarTecla } = useEscaneo({ alEscanear: (c) => void escanear(c), alDigitar: (t) => void digitar(t) });
+
+  // ── Atajos ─────────────────────────────────────────────────
+
+  const abrirCobro = (): void => {
+    if (modal !== null || lineas.length === 0) return;
+    if (calculo.hayErrores) return setAviso({ tipo: "error", texto: "Corrija el descuento de la línea marcada antes de cobrar" });
+    setErrorCobro(null);
+    setModal({ tipo: "cobro" });
+  };
+  const nuevaVenta = (): void => {
+    setConfirmacion(null);
+    enfocarBusqueda();
+  };
+
+  useAtajos({
+    F2: () => {
+      if (modal === null) enfocarBusqueda();
+    },
+    F4: () => {
+      if (modal === null) setModal({ tipo: "cliente" });
+    },
+    F8: abrirCobro,
+    Escape: () => {
+      if (modal !== null) {
+        if (!enviando) setModal(null);
+      } else if (confirmacion !== null) nuevaVenta();
+      else if (busqueda !== "") {
+        setBusqueda("");
+        enfocarBusqueda();
+      }
+    },
+  });
+
+  useEffect(() => {
+    if (modal === null && confirmacion === null) refBusqueda.current?.focus();
+  }, [modal, confirmacion]);
+
+  // ── Cobro ──────────────────────────────────────────────────
+
+  const cobrar = async (d: DatosCobro): Promise<void> => {
+    if (punto === null) return;
+    setEnviando(true);
+    setErrorCobro(null);
+    // El precio nunca se envía: lo resuelve el servidor (lista del cliente, presentación, producto)
+    const entrada = {
+      puntoEmisionId: punto.id,
+      ...(cliente !== null ? { clienteId: cliente.id } : {}),
+      lineas: lineas.map((l) => ({
+        productoId: l.productoId,
+        ...(l.presentacionId !== null ? { presentacionId: l.presentacionId } : {}),
+        cantidad: l.cantidad,
+        descuento: l.descuento,
+        tipoDescuento: l.tipoDescuento,
+      })),
+      pagos: d.pagos.map((p) => ({ formaPago: p.formaPago, monto: p.monto })),
+      propina: d.propina,
+      emitirFactura: d.emitirFactura,
+    };
+    const valida = VentaInputSchema.safeParse(entrada);
+    if (!valida.success) {
+      setEnviando(false);
+      setErrorCobro(valida.error.issues.map((i) => i.message).join("; "));
+      return;
+    }
+    const venta: VentaInput = valida.data;
+    try {
+      const emitida = await api.crearVenta(venta);
+      carrito.getState().vaciar();
+      setModal(null);
+      setBusqueda("");
+      setConfirmacion(emitida);
+      void qc.invalidateQueries({ queryKey: ["productos"] });
+      void qc.invalidateQueries({ queryKey: ["colaSri"] });
+    } catch (e) {
+      if (e instanceof ApiError) {
+        setErrorCobro(e.message);
+        // Sin turno abierto (lo cerraron desde otra caja o un supervisor): se vuelve a la apertura; el carrito se conserva
+        if (e.codigo === "TURNO_REQUERIDO") fijarTurno(null);
+      } else setErrorCobro("No se pudo registrar la venta");
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  const reimprimir = async (): Promise<void> => {
+    if (confirmacion === null) return;
+    try {
+      await api.reimprimir(confirmacion.id);
+      setAviso({ tipo: "exito", texto: "Ticket enviado a la impresora" });
+    } catch (e) {
+      setAviso({ tipo: "error", texto: e instanceof ApiError ? e.message : "No se pudo imprimir" });
+    }
+  };
+
+  // ── Edición de una línea ───────────────────────────────────
+
+  const lineaEnEdicion: LineaCarrito | undefined = modal?.tipo === "linea" ? lineas.find((l) => l.clave === modal.clave) : undefined;
+  const hayBalanza = balanza.data?.habilitada === true && balanza.data.puerto !== null;
+
+  const aceptarNueva = (producto: ProductoPos, presentacion: PresentacionPos | null, r: ResultadoLinea): void => {
+    carrito.getState().agregar({ producto, presentacion, cantidad: r.cantidad });
+    setModal(null);
+    setBusqueda("");
+  };
+
+  const aceptarLinea = (l: LineaCarrito, r: ResultadoLinea): void => {
+    carrito.getState().fijarCantidad(l.clave, r.cantidad);
+    carrito.getState().fijarDescuento(l.clave, r.descuento, r.tipoDescuento);
+    setModal(null);
+  };
+
+  return (
+    <div className="flex h-screen flex-col bg-slate-900 text-white" data-tactil={tactil ? "si" : "no"}>
+      <BarraEstado sync={sync} onSalir={onSalir} />
+      {aviso !== null ? (
+        <div className="px-4 pt-2">
+          <Aviso tipo={aviso.tipo}>{aviso.texto}</Aviso>
+        </div>
+      ) : null}
+
+      <div className="flex min-h-0 flex-1 gap-4 p-4">
+        <div className="flex min-w-0 flex-1 flex-col">
+          <BuscadorProductos ref={refBusqueda} busqueda={busqueda} onBusqueda={setBusqueda} onTecla={(k) => procesarTecla(k)} onElegir={(p) => elegirProducto(p)} tactil={tactil} />
+        </div>
+
+        <aside className="flex w-[26rem] min-w-[22rem] flex-col rounded-2xl border border-slate-700 bg-slate-800/60 p-4">
+          {confirmacion !== null ? (
+            <Confirmacion venta={confirmacion} onNueva={nuevaVenta} onReimprimir={() => void reimprimir()} />
+          ) : (
+            <>
+              <CarritoPanel
+                lineas={lineas}
+                calculo={calculo}
+                clienteNombre={cliente?.razonSocial ?? "Consumidor Final"}
+                tactil={tactil}
+                onMas={(l) => carrito.getState().fijarCantidad(l.clave, l.cantidad + 1)}
+                onMenos={(l) => carrito.getState().fijarCantidad(l.clave, l.cantidad - 1)}
+                onQuitar={(l) => carrito.getState().quitar(l.clave)}
+                onEditar={(l) => setModal({ tipo: "linea", clave: l.clave })}
+              />
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                <button type="button" onClick={() => setModal({ tipo: "cliente" })} className={`rounded-xl bg-slate-700 text-white ${tactil ? "h-16" : "h-12"}`}>
+                  Cliente (F4)
+                </button>
+                <button type="button" onClick={() => carrito.getState().vaciar()} disabled={lineas.length === 0} className={`rounded-xl bg-slate-700 text-white disabled:opacity-40 ${tactil ? "h-16" : "h-12"}`}>
+                  Vaciar
+                </button>
+                <button type="button" onClick={abrirCobro} disabled={lineas.length === 0} className={`rounded-xl bg-emerald-600 font-semibold text-white disabled:opacity-40 ${tactil ? "h-16 text-lg" : "h-12"}`}>
+                  Cobrar (F8)
+                </button>
+              </div>
+            </>
+          )}
+        </aside>
+      </div>
+
+      {modal?.tipo === "cobro" ? (
+        <ModalCobro
+          total={calculo.totales.total}
+          clienteNombre={cliente?.razonSocial ?? "Consumidor Final"}
+          esConsumidorFinal={cliente === null}
+          tactil={tactil}
+          error={errorCobro}
+          enviando={enviando}
+          onConfirmar={(d) => void cobrar(d)}
+          onCancelar={() => setModal(null)}
+        />
+      ) : null}
+      {modal?.tipo === "cliente" ? (
+        <ModalCliente
+          actual={cliente}
+          tactil={tactil}
+          onElegir={(c) => {
+            carrito.getState().fijarCliente(c);
+            setModal(null);
+          }}
+          onCancelar={() => setModal(null)}
+        />
+      ) : null}
+      {modal?.tipo === "nueva" ? (
+        <ModalLinea
+          titulo={modal.producto.nombre}
+          unidad={modal.producto.unidadMedida.codigo}
+          permiteDecimales={modal.producto.unidadMedida.permiteDecimales}
+          productoId={UNIDADES_DE_PESO.includes(modal.producto.unidadMedida.codigo) ? modal.producto.id : null}
+          balanzaDisponible={hayBalanza}
+          inicial={{ cantidad: 0, descuento: 0, tipoDescuento: "VALOR" }}
+          conDescuento={false}
+          tactil={tactil}
+          onAceptar={(r) => aceptarNueva(modal.producto, modal.presentacion, r)}
+          onCancelar={() => setModal(null)}
+        />
+      ) : null}
+      {lineaEnEdicion !== undefined ? (
+        <ModalLinea
+          titulo={lineaEnEdicion.nombre}
+          unidad={lineaEnEdicion.unidad}
+          permiteDecimales={lineaEnEdicion.permiteDecimales}
+          productoId={UNIDADES_DE_PESO.includes(lineaEnEdicion.unidad) && lineaEnEdicion.presentacionId === null ? lineaEnEdicion.productoId : null}
+          balanzaDisponible={hayBalanza}
+          inicial={{ cantidad: lineaEnEdicion.cantidad, descuento: lineaEnEdicion.descuento, tipoDescuento: lineaEnEdicion.tipoDescuento }}
+          conDescuento
+          tactil={tactil}
+          onAceptar={(r) => aceptarLinea(lineaEnEdicion, r)}
+          onCancelar={() => setModal(null)}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function Confirmacion({ venta, onNueva, onReimprimir }: { venta: VentaEmitidaPos; onNueva: () => void; onReimprimir: () => void }): React.JSX.Element {
+  const cambio = venta.pagos.reduce((a, p) => a + p.cambio, 0);
+  return (
+    <section aria-label="Venta registrada" className="flex flex-1 flex-col justify-between">
+      <div className="space-y-3">
+        <Aviso tipo="exito">Venta {venta.numero} registrada</Aviso>
+        <p className="text-4xl font-bold text-white" data-testid="total-confirmado">
+          {dinero(venta.total + venta.propina)}
+        </p>
+        {cambio > 0 ? (
+          <p className="text-2xl font-semibold text-emerald-300" data-testid="cambio-confirmado">
+            Cambio: {dinero(cambio)}
+          </p>
+        ) : null}
+        {venta.comprobante !== null ? (
+          <p className="text-sm text-slate-300">Factura electrónica {venta.comprobante.estado === "AUTORIZADO" ? "autorizada" : "generada: se enviará al SRI en segundo plano"}.</p>
+        ) : null}
+        {venta.advertencias.map((a) => (
+          <Aviso key={a} tipo="info">
+            {a}
+          </Aviso>
+        ))}
+      </div>
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        <button type="button" onClick={onReimprimir} className="h-12 rounded-xl bg-slate-700 text-white">
+          Reimprimir ticket
+        </button>
+        <button type="button" data-autofocus autoFocus onClick={onNueva} className="h-12 rounded-xl bg-brand-600 font-semibold text-white">
+          Nueva venta
+        </button>
+      </div>
+    </section>
+  );
+}

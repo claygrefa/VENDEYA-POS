@@ -104,6 +104,7 @@ const RUTAS: ReadonlyArray<readonly [Metodo, string, Requisito]> = [
   ["PUT", "/api/balanza", "configuracion:actualizar"],
   ["GET", "/api/balanza/peso", "ventas:crear"],
   ["GET", "/api/sync/cajas", "caja:leer"],
+  ["GET", "/api/puntos-emision", "caja:leer"],
   ["GET", "/api/sri/cola", "sri:leer"],
   ["POST", "/api/comprobantes/:id/reintentar", "sri:crear"],
   // ── Certificado digital de firma (.p12) ──

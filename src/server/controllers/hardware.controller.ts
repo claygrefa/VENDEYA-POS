@@ -20,6 +20,10 @@ export function crearHardwareController(servicios: Servicios) {
     peso: async (req: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> =>
       reply.send(await servicios.balanza.leerPeso(req.query, actorDe(req))),
 
+    /** Sucursales y puntos de emisión donde esta caja puede abrir turno y vender. */
+    puntosEmision: async (req: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> =>
+      reply.send({ items: await servicios.empresas.puntosEmision(actorDe(req).empresaId) }),
+
     cajasConectadas: async (req: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> =>
       reply.send({ cajas: servicios.sync.cajasConectadas(actorDe(req).empresaId) }),
   };
