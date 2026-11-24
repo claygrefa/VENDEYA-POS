@@ -30,6 +30,8 @@ export interface OpcionesEntorno {
   sri?: BackendOptions["sri"];
   sriWorker?: BackendOptions["sriWorker"];
   impresion?: BackendOptions["impresion"];
+  balanza?: BackendOptions["balanza"];
+  sync?: BackendOptions["sync"];
   ride?: BackendOptions["ride"];
 }
 
@@ -43,6 +45,8 @@ export async function crearEntorno(opciones: OpcionesEntorno = {}): Promise<Ento
     ...(opciones.sri !== undefined ? { sri: opciones.sri } : {}),
     ...(opciones.sriWorker !== undefined ? { sriWorker: opciones.sriWorker } : {}),
     ...(opciones.impresion !== undefined ? { impresion: opciones.impresion } : {}),
+    ...(opciones.balanza !== undefined ? { balanza: opciones.balanza } : {}),
+    ...(opciones.sync !== undefined ? { sync: opciones.sync } : {}),
     ...(opciones.ride !== undefined ? { ride: opciones.ride } : {}),
   });
   const seed = await runSeed(backend.prisma, { adminPassword: PASSWORD_ADMIN });

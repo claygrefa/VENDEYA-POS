@@ -181,6 +181,11 @@ model ConfiguracionGiro {
   impresoraDireccion      String?                     // RED: dirección IP o nombre · SISTEMA: nombre de la impresora instalada
   impresoraPuerto         Int      @default(9100)
   impresoraAncho          Int      @default(80)       // Papel en mm: 80 | 58
+  // Balanza serial
+  balanzaPuerto           String?                     // COM3, /dev/ttyUSB0…
+  balanzaBaudios          Int      @default(9600)
+  balanzaProtocolo        String   @default("GENERICO") // GENERICO | CAS
+  balanzaEtiqueta         String   @default("PESO")     // Qué lleva embebido el código EAN-13 de la balanza: PESO (gramos) | PRECIO (centavos)
   // Certificado digital SRI
   rutaCertificadoP12      String?
   certPasswordEncriptado  String?                     // AES-256-GCM
@@ -852,4 +857,23 @@ model SecuencialComprobante {
   puntoEmision PuntoEmision @relation(fields: [puntoEmisionId], references: [id])
 
   @@unique([puntoEmisionId, tipoComprobante])
+}
+
+// ─────────────────────────────────────────────
+// SINCRONIZACIÓN MULTI-CAJA (LAN)
+// ─────────────────────────────────────────────
+
+/// Bitácora de cambios que el servidor difunde a las cajas por WebSocket (permite reanudar tras una desconexión).
+model EventoSync {
+  seq        Int      @id @default(autoincrement())
+  empresaId  String
+  modulo     String                       // ventas, inventario, productos, turnos, comprobantes…
+  accion     String                       // POST | PUT | PATCH | DELETE | ESTADO
+  ruta       String                       // patrón de la ruta que originó el cambio
+  ids        String                       // JSON { parámetro: valor }
+  usuarioId  String?
+  cajaId     String?
+  createdAt  DateTime @default(now())
+
+  @@index([empresaId, seq])
 }

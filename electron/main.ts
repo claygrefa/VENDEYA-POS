@@ -70,8 +70,31 @@ function createWindow(): BrowserWindow {
   return win;
 }
 
+/**
+ * Caja secundaria de la red local: con VENDEYA_SERVIDOR_URL=http://192.168.1.10:3001 esta instalación NO abre base de datos
+ * ni servidor propios; la interfaz usa el servidor de la caja principal (la sincronización avisa de los cambios por WebSocket).
+ */
+function urlDelServidor(): string | undefined {
+  const v = process.env["VENDEYA_SERVIDOR_URL"];
+  if (v === undefined || v === "") return undefined;
+  try {
+    const u = new URL(v);
+    return u.protocol === "http:" || u.protocol === "https:" ? u.origin : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 async function arrancar(): Promise<void> {
   const rutas = calcularRutas();
+  const servidor = urlDelServidor();
+  if (servidor !== undefined) {
+    console.log(`[caja secundaria] servidor: ${servidor}`);
+    registrarIpcImpresoras();
+    registrarIpcApp({ version: app.getVersion(), rutas, obtenerBackend: () => null, urlServidor: servidor });
+    createWindow();
+    return;
+  }
 
   backend = await iniciarBackend({
     dbPath: rutas.db,
@@ -88,6 +111,8 @@ async function arrancar(): Promise<void> {
         }
       : {}),
     sriWorker: { habilitado: process.env["SRI_WORKER"] !== "off" },
+    // Servidor de la red local: escucha a las demás cajas solo si se pide (VENDEYA_LAN=1)
+    redLocal: process.env["VENDEYA_LAN"] === "1",
     port: PUERTO_PREFERIDO,
     logLevel: process.env["LOG_LEVEL"] ?? (isDev ? "info" : "warn"),
   });

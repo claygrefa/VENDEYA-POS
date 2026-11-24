@@ -18,6 +18,8 @@ export interface IpcAppContexto {
   rutas: RutasApp;
   /** Devuelve el backend activo o null si aún no arrancó / ya se cerró */
   obtenerBackend: () => BackendHandle | null;
+  /** Caja secundaria de la red local: URL del servidor (este equipo no tiene backend propio) */
+  urlServidor?: string;
 }
 
 export interface BackendInfo {
@@ -44,6 +46,10 @@ export function registrarIpcApp(ctx: IpcAppContexto): void {
   ipcMain.handle("app:get-paths", (): RutasApp => ctx.rutas);
 
   ipcMain.handle("backend:get-info", (): BackendInfo | null => {
+    if (ctx.urlServidor !== undefined) {
+      const u = new URL(ctx.urlServidor);
+      return { url: ctx.urlServidor, port: Number(u.port || 80), migracionesAplicadas: [] };
+    }
     const b = ctx.obtenerBackend();
     return b === null ? null : { url: b.url, port: b.port, migracionesAplicadas: b.migraciones.aplicadas };
   });

@@ -5,6 +5,9 @@ import path from "path";
 import type { PrismaClient } from "@prisma/client";
 import { ClienteRepository } from "../repositories/cliente.repository";
 import { CompraRepository } from "../repositories/compra.repository";
+import { SyncService, type OpcionesSync } from "./sync/sync.service";
+import { BalanzaService, type OpcionesBalanza } from "./hardware/balanza.service";
+import { EscaneoService } from "./hardware/escaneo.service";
 import { ImpresionRepository } from "../repositories/impresion.repository";
 import { AtsRepository } from "../repositories/ats.repository";
 import { ColaSriRepository } from "../repositories/colaSri.repository";
@@ -78,6 +81,9 @@ export interface Servicios {
   documentosSri: EmisionDocumentosService;
   ats: AtsService;
   impresion: ImpresionService;
+  balanza: BalanzaService;
+  escaneo: EscaneoService;
+  sync: SyncService;
   ride: RideService;
   mesas: MesaService;
   comandas: ComandaService;
@@ -95,6 +101,10 @@ export interface OpcionesServicios {
   /** Conexión con el SRI: opciones del cliente SOAP real o un cliente sustituto (pruebas) */
   /** Impresora térmica (el transporte se sustituye en las pruebas) */
   impresion?: OpcionesImpresion;
+  /** Balanza serial (el puerto se sustituye en las pruebas) */
+  balanza?: OpcionesBalanza;
+  /** Sincronización LAN (latido y retención de la bitácora) */
+  sync?: OpcionesSync;
   /** Opciones del PDF del RIDE */
   ride?: { comprimir?: boolean };
   sri?: { cliente?: ClienteSri; soap?: OpcionesClienteSri; envio?: OpcionesEnvioSri };
@@ -121,7 +131,14 @@ export function crearServicios(prisma: PrismaClient, secretos: OpcionesServicios
   });
   const certificados = new CertificadoService(prisma, configuracionRepo, claveMaestra, path.join(secretos.directorioSecretos, "certificados"));
   const firma = new FirmaService(prisma, comprobanteRepo, certificados, xsd);
-  const envioSri = new EnvioSriService(prisma, new ColaSriRepository(), firma, secretos.sri?.cliente ?? new SriSoapClient(secretos.sri?.soap), secretos.sri?.envio);
+  const sync = new SyncService(prisma, sesiones, secretos.sync);
+  const envioSri = new EnvioSriService(prisma, new ColaSriRepository(), firma, secretos.sri?.cliente ?? new SriSoapClient(secretos.sri?.soap), {
+    ...secretos.sri?.envio,
+    // Un comprobante que cambia de estado en segundo plano (el worker) también se anuncia a las demás cajas
+    alCambiarEstado: (empresaId, comprobanteId, estado) => {
+      void sync.publicar({ empresaId, modulo: "comprobantes", accion: "ESTADO", ruta: "worker-sri", ids: { id: comprobanteId, estado } });
+    },
+  });
   const ventas = new VentaService(prisma, new VentaRepository(), kardex, cuentasPorCobrar, comprobantes);
   const cuentasPorPagar = new CuentaPorPagarService(prisma, new CuentaPorPagarRepository(), turnoRepo);
 
@@ -145,6 +162,9 @@ export function crearServicios(prisma: PrismaClient, secretos: OpcionesServicios
     documentosSri: new EmisionDocumentosService(prisma, comprobanteRepo, giro, xsd),
     ats: new AtsService(prisma, new AtsRepository()),
     impresion,
+    balanza: new BalanzaService(prisma, configuracionRepo, giro, secretos.balanza),
+    escaneo: new EscaneoService(prisma, productos, configuracionRepo, giro),
+    sync,
     ride: new RideService(prisma, comprobanteRepo, secretos.ride),
     lotes,
     presentaciones: new PresentacionService(prisma, new PresentacionRepository()),

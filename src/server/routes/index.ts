@@ -8,6 +8,7 @@ import { crearComprobanteController } from "../controllers/comprobante.controlle
 import { crearClienteController } from "../controllers/cliente.controller";
 import { crearCuentaController } from "../controllers/cuenta.controller";
 import { crearHealthController } from "../controllers/health.controller";
+import { crearHardwareController } from "../controllers/hardware.controller";
 import { crearImpresionController } from "../controllers/impresion.controller";
 import { crearInventarioController } from "../controllers/inventario.controller";
 import { crearRestauranteController } from "../controllers/restaurante.controller";
@@ -30,6 +31,7 @@ export function registrarRutas(server: FastifyInstance, servicios: Servicios): v
   const comprobantes = crearComprobanteController(servicios);
   const certificado = crearCertificadoController(servicios);
   const impresion = crearImpresionController(servicios);
+  const hardware = crearHardwareController(servicios);
 
   // ── Públicas ──────────────────────────────────────────────
   server.get("/api/health", health.estado);
@@ -176,6 +178,14 @@ export function registrarRutas(server: FastifyInstance, servicios: Servicios): v
   server.post("/api/impresora/gaveta", permiso("caja", "crear"), impresion.gaveta);
   server.post<{ Params: { id: string } }>("/api/ventas/:id/imprimir", permiso("caja", "crear"), impresion.reimprimirVenta);
   server.post<{ Params: { id: string } }>("/api/turnos/:id/imprimir", permiso("caja", "crear"), impresion.imprimirArqueo);
+
+  // ── Lectores de códigos, balanza serial y cajas conectadas (LAN) ──
+  // Escanear y pesar son parte de vender (ventas:crear); la configuración de la balanza la cambia el administrador.
+  server.get<{ Params: { codigo: string } }>("/api/escaneo/:codigo", permiso("ventas", "crear"), hardware.escanear);
+  server.get("/api/balanza", permiso("caja", "leer"), hardware.balanza);
+  server.put("/api/balanza", permiso("configuracion", "actualizar"), hardware.configurarBalanza);
+  server.get("/api/balanza/peso", permiso("ventas", "crear"), hardware.peso);
+  server.get("/api/sync/cajas", permiso("caja", "leer"), hardware.cajasConectadas);
 
   // ── Certificado digital de firma (.p12) ───────────────────
   // La contraseña y la clave privada nunca se devuelven: la consulta solo muestra titular, emisor, huella y vigencia.

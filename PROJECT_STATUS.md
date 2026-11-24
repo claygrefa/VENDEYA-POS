@@ -3,10 +3,10 @@
 ## Estado General
 - **Proyecto:** VENDEYA POS (Sistema Punto de Venta Multi-Giro & Facturación Electrónica SRI Ecuador)
 - **Horizonte:** 6 Meses (24 Semanas)
-- **Fase Actual:** MES 4 — Semana 14: lectores de códigos, balanzas seriales y sincronización multi-caja en LAN
+- **Fase Actual:** MES 4 — Semana 15: frontend POS principal (PosScreen), atajos de teclado y modo táctil
 - **Estado de Compilación:** ✅ `tsc --noEmit` → 0 errores | ✅ `tsconfig.node.json` → 0 errores | ✅ `tsconfig.electron.json` → 0 errores
-- **Tests:** ✅ 675/675 passed (41 archivos de prueba)
-- **Último Commit:** `feat: Semana 13 - impresion termica ESC/POS, gaveta y RIDE en PDF`
+- **Tests:** ✅ 716/716 passed (44 archivos de prueba)
+- **Último Commit:** `feat: Semana 14 - lectores, balanzas y sincronizacion LAN`
 
 ---
 
@@ -32,8 +32,8 @@
 
 ### MES 4: Hardware, Red Local (LAN) y Experiencia de Caja
 - [x] **Semana 13 (COMPLETADA):** Motor de impresión térmica directa ESC/POS (USB, Ethernet, 80mm/58mm), apertura automática de gaveta de dinero y generador de RIDE en PDF A4.
-- [ ] **Semana 14 (ACTUAL):** Integración de periféricos (lectores de códigos de barras, balanzas seriales) y sincronización multi-caja en red local (LAN) vía WebSockets sin depender de internet.
-- [ ] **Semana 15:** Frontend POS principal (`PosScreen`), búsqueda ultrarrápida, atajos de teclado (`F2`, `F4`, `F8`, `ESC`), modo táctil y modal de cobro.
+- [x] **Semana 14 (COMPLETADA):** Integración de periféricos (lectores de códigos de barras, balanzas seriales) y sincronización multi-caja en red local (LAN) vía WebSockets sin depender de internet.
+- [ ] **Semana 15 (ACTUAL):** Frontend POS principal (`PosScreen`), búsqueda ultrarrápida, atajos de teclado (`F2`, `F4`, `F8`, `ESC`), modo táctil y modal de cobro.
 - [ ] **Semana 16:** Vistas de Inventario, Kardex, Clientes, Reportes Gerenciales y Monitor de Comprobantes SRI (`SriMonitor`).
 
 ### MES 5: Instalador Cero Fricción, Auto-Updater y Licenciamiento
@@ -530,13 +530,50 @@ La matriz RBAC cubre las 4 rutas nuevas (77 entradas en la tabla; el recuento de
 
 **Verificación:** `tsc --noEmit` (3 tsconfig) ✅ 0 errores | `npx vitest run` ✅ 675/675 (41 archivos), 2 corridas consecutivas.
 
+### Semana 14 — 2026-11-24 ✅ COMPLETADA
+**Dependencias nuevas:** `ws` (cliente y pruebas del WebSocket; `@fastify/websocket` ya era dependencia) con `@types/ws`, y `serialport` como **dependencia opcional** (se carga solo al abrir la balanza; si falta o no compila para Electron se informa con claridad).
+
+**Esquema (migración `20261129090000_balanza_sync_lan`):** `ConfiguracionGiro.balanzaPuerto`, `balanzaBaudios` (9600), `balanzaProtocolo` (GENERICO | CAS) y `balanzaEtiqueta` (PESO | PRECIO); nueva tabla `EventoSync` (bitácora numerada de cambios). Se reutilizan los interruptores `moduloBalanza` y `sincronizacionLAN`.
+
+**1. Lectores de códigos** (`services/hardware/`):
+- `detectorEscaneo.util.ts` — `DetectorEscaneo`, función pura para la pantalla del POS: recibe cada tecla con su marca de tiempo y, al llegar Enter, distingue **ESCANEO** (ráfaga ≤ 50 ms entre teclas, 4–64 caracteres, sin Retroceso) de **MANUAL** (pausas, correcciones o texto corto). Umbrales configurables.
+- `codigoBarras.util.ts` — dígito verificador GS1 (EAN-8/13, UPC-A, GTIN-14) y etiquetas de balanza **EAN-13 con prefijo 2**: `2 PPPPPP VVVVV C` (PLU de 6 dígitos + 5 dígitos de peso en gramos o de precio en centavos).
+- `escaneo.service.ts` — `GET /api/escaneo/:codigo`: producto → 1 unidad; presentación (caja, paquete) → 1 presentación; etiqueta de balanza (requiere `moduloBalanza`) → producto por PLU (se registra el PLU como código de barras del producto) y cantidad en **su unidad** (kg, lb o g) o importe ÷ precio unitario.
+
+**2. Balanza serial:**
+- `balanza.protocolo.ts` — protocolos **CAS** (`ST,GS,+  1.250kg`) y **GENERICO** (número + unidad opcional, marcas ST/US), pesos normalizados a kg; `leerPesoEstable` (marca de estabilidad o N lecturas iguales; tramas partidas; tiempo máximo; cierra siempre el puerto); `PuertoSerie` sustituible y `PuertoSerieNode` (con `serialport`).
+- `balanza.service.ts` — configuración (`GET/PUT /api/balanza`, solo el administrador cambia) y `GET /api/balanza/peso?productoId=&tara=`: peso estable − tara, convertido a la unidad del producto. Un solo dueño del puerto: la segunda lectura simultánea recibe un aviso.
+
+**3. Sincronización multi-caja en LAN** (`services/sync/`, `routes/sync.routes.ts`):
+- **Modelo:** la BD (SQLite) vive **solo en el equipo servidor**; las demás cajas son clientes de su API, sin copia local. Por eso no hay conflictos de escritura (cada cambio pasa por una transacción del servidor). Lo que se sincroniza es el **aviso** del cambio.
+- `GET /api/sync?token=&cajaId=&desde=` (WebSocket): valida la sesión (4401), exige `sincronizacionLAN` activo (4403), una caja que se vuelve a conectar reemplaza a la anterior (4409). Responde `hola` con el último evento y las cajas presentes, difunde `presencia` de las que llegan y salen y **reenvía lo perdido** desde `desde`; si la bitácora ya no lo conserva envía `resync` (recargar todo).
+- **Eventos:** un gancho `onResponse` anuncia toda operación que cambia datos y termina bien (ventas, productos, inventario, turnos, compras, comprobantes…) con módulo, método, ruta, parámetros, usuario y `x-caja-id`; también los cambios de estado de comprobantes hechos por el worker del SRI. Lecturas, sesión, impresora, balanza y operaciones fallidas no generan eventos. Bitácora con retención configurable (5000) y poda periódica.
+- **Latido:** cada 15 s se cierra la sesión revocada (4408) y se da de baja la caja que no responde al ping; las demás cajas lo saben.
+- `syncCliente.ts` — `ClienteSync` para cada caja: recuerda el último evento, reconecta con espera creciente pidiendo `desde`, ignora repetidos y **no reintenta** cuando el cierre es definitivo (sesión, módulo apagado, caja duplicada). Independiente del navegador (recibe la función que crea el WebSocket).
+- `GET /api/sync/cajas` (`caja:leer`): cajas conectadas.
+- **Red:** el servidor escucha solo en este equipo (127.0.0.1) salvo `redLocal` (Electron: `VENDEYA_LAN=1`) → 0.0.0.0. Caja secundaria en Electron: `VENDEYA_SERVIDOR_URL=http://IP:3001` no abre BD ni servidor y usa los del servidor (`backend:get-info` devuelve esa URL).
+
+**Pruebas nuevas (41):** `tests/unit/server/hardware/lectores.test.ts` (17: GS1 y etiquetas, detector de escaneo con temporización simulada, protocolos y lectura estable con puerto simulado), `tests/integration/server/lectores.test.ts` (11: escaneo de los tres tipos y sus errores, balanza con tara y unidades, API) y `tests/integration/server/sync-lan.test.ts` (13, **con el backend real y clientes WebSocket**: autenticación y cierres, presencia, difusión con quién y desde dónde, ausencia de eventos en lecturas/fallos, evento del worker del SRI, reanudación sin duplicados, reconexión automática, `resync`, sesión revocada sin reintento, caja duplicada, caja que no contesta, permisos). La matriz RBAC suma 5 rutas (89 filas). Dos defectos encontrados por las pruebas y corregidos: el cliente descartaba los eventos reenviados porque el `hola` adelantaba su cursor, y un test de turnos fallaba al azar cuando un UUID contenía «133» (`turno.service.test.ts`).
+
+**Limitaciones conocidas:**
+- **Sin hardware ni red real:** los protocolos de balanza y el puerto serie se probaron con tramas simuladas; **ni `serialport` ni el cableado de una balanza CAS se probaron en un equipo** (y `serialport` es un módulo nativo: hay que verificar `electron-rebuild`/prebuilds en el empaquetado). Toledo y otros protocolos no están. La sincronización se probó en `127.0.0.1`, no entre equipos distintos (firewall de Windows: abrir el puerto del servidor).
+- **Seguridad en la LAN:** el token de sesión viaja en la URL del WebSocket y el tráfico va **sin cifrar** (HTTP/WS en red local). Aceptable en una red privada de confianza; para redes compartidas hace falta TLS.
+- **Descubrimiento:** la caja secundaria se configura a mano con la IP del servidor (sin mDNS). Si el servidor cae, las cajas no pueden vender (no hay modo offline por caja).
+- Las etiquetas de **precio** usan el precio unitario **sin IVA** del producto; las balanzas que imprimen el precio con IVA incluido darán una cantidad mayor a la real hasta que se parametrice.
+- El PLU debe registrarse como código de barras del producto (6 dígitos; se acepta con o sin ceros a la izquierda); no hay otros formatos de etiqueta (prefijos distintos de 2, PLU de 4–5 dígitos).
+- La bitácora solo se registra mientras `sincronizacionLAN` esté activo; al activarla por primera vez las cajas deben cargar todo desde la API. Los eventos indican **qué** cambió, no los datos: la caja vuelve a consultar.
+- El detector de escaneo es una función pura sin interfaz: **no hay pantalla que lo use todavía** (llega con el POS de la Semana 15). Tampoco hay aún cliente de `ClienteSync` en el renderer.
+- Deudas de semanas anteriores aún abiertas (ver «Próxima Tarea»).
+
+**Verificación:** `tsc --noEmit` (3 tsconfig) ✅ 0 errores | `npx vitest run` ✅ 716/716 (44 archivos), última corrida completa.
+
 ---
 
-## Próxima Tarea Exacta (Para ejecutar ahora — Semana 14)
-**Antes de empezar (deudas arrastradas):** (a) repetir contra `celcer` una consulta real desde la aplicación (el `ECONNRESET` del cliente SOAP) y, con un certificado de pruebas del SRI, confirmar firma, códigos 43/70 y el flujo de una factura; (b) re-ejecutar la auditoría independiente (`REVIEWER_AGENT.md`); (c) probar la impresora y el RIDE en un equipo real; (d) decidir si se implementa la nota de débito (05) y conseguir el `ats.xsd` oficial.
+## Próxima Tarea Exacta (Para ejecutar ahora — Semana 15)
+**Antes de empezar (deudas arrastradas):** (a) repetir contra `celcer` una consulta real desde la aplicación (el `ECONNRESET` del cliente SOAP) y, con un certificado de pruebas del SRI, confirmar firma, códigos 43/70 y una factura completa; (b) re-ejecutar la auditoría independiente (`REVIEWER_AGENT.md`); (c) probar en equipos reales la impresora/RIDE (Semana 13), la balanza y dos cajas en red (Semana 14); (d) decidir si se implementa la nota de débito (05) y conseguir el `ats.xsd` oficial.
 
-1. **Lectores de códigos de barras** (`src/server/services/hardware/`): normalizar la entrada de lectores tipo teclado (HID) y seriales — el POS debe distinguir un escaneo (ráfaga rápida terminada en Enter) de la digitación; búsqueda de producto por código de barras (ya existe `GET /api/productos/barcode/:codigo`), códigos de presentaciones (unidad/paquete/caja) y de balanza con precio/peso embebido (EAN-13 con prefijo 2).
-2. **Balanzas seriales** (puerto serie, p. ej. protocolos CAS/Toledo/genérico): interfaz de transporte sustituible (como `TransporteImpresora`), lectura de peso estable, tara y unidades; integración con la venta a granel (`moduloBalanza` de `ConfiguracionGiro`).
-3. **Sincronización multi-caja en LAN con WebSockets** (`@fastify/websocket` ya es dependencia): un servidor y N cajas en red local sin Internet; eventos de catálogo/precios/stock y de turnos; resolución de conflictos y reconexión; autenticación de las cajas; sin romper el modo monocaja. Definir qué datos se replican y cuáles viven solo en el servidor (SQLite no se comparte por red).
-4. **Pruebas:** escaneo vs. digitación con temporización simulada, EAN de balanza (peso/precio), protocolo de la balanza con transporte simulado (peso inestable, tara, desconexión), dos o más clientes WebSocket contra el mismo backend (orden de eventos, reconexión, caja no autorizada), matriz RBAC actualizada.
-5. Verificar con `npx tsc --noEmit` y `npm test`; actualizar este archivo y commit `feat: Semana 14 - lectores, balanzas y sincronizacion LAN`.
+1. **Frontend POS principal** (`src/renderer/`): revisar qué existe (estructura `App.tsx`, `main.tsx`, `pages/`, `components/`, `hooks/`, `services/`, `store/`) y construir `PosScreen` con React + TypeScript + Tailwind + Zustand + TanStack Query: carrito, búsqueda ultrarrápida por nombre/código, cliente (consumidor final por defecto), descuentos, totales con IVA por tarifa, modal de cobro con formas de pago mixtas y cambio, y la confirmación con ticket/gaveta/factura según la configuración.
+2. **Teclado y táctil:** atajos `F2` (buscar), `F4` (cliente), `F8` (cobrar), `ESC` (cancelar/cerrar) y navegación completa por teclado; modo táctil (botones grandes, teclado numérico en pantalla); integrar `DetectorEscaneo` (escaneo vs. digitación) y `GET /api/escaneo/:codigo` (incluida la etiqueta de balanza) y el peso de `GET /api/balanza/peso` para productos a granel.
+3. **Conexión con el backend:** cliente HTTP con el token de sesión, login, apertura de turno y manejo de errores del dominio (turno requerido, stock insuficiente, límite de crédito…); `ClienteSync` (WebSocket) para refrescar productos/stock cuando otra caja vende; indicador de estado (conexión, cola del SRI, impresora).
+4. **Pruebas:** componentes y flujo de venta con Vitest + Testing Library (carrito, atajos, escaneo vs. teclado, cobro mixto, errores del backend); verificar el build del renderer (`vite build`) y que el IPC/preload sigan siendo la única puerta a Electron.
+5. Verificar con `npx tsc --noEmit` y `npm test`; actualizar este archivo y commit `feat: Semana 15 - pantalla POS principal`.

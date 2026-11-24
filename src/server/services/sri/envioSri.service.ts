@@ -42,6 +42,8 @@ export type ResultadoEnvio = "AUTORIZADO" | "RECHAZADO" | "DEVUELTO" | "REINTENT
 export interface OpcionesEnvioSri {
   /** Reloj inyectable (pruebas) */
   ahora?: () => Date;
+  /** Se invoca cuando un comprobante llega a un estado definitivo (AUTORIZADO, RECHAZADO, DEVUELTO) */
+  alCambiarEstado?: (empresaId: string, comprobanteId: string, estado: string) => void;
 }
 
 const ambienteDe = (c: { ambiente: string }): AmbienteSri => (c.ambiente === "2" ? "2" : "1");
@@ -63,6 +65,7 @@ const mensajesJson = (m: MensajeSri[]): string | null => (m.length > 0 ? JSON.st
 
 export class EnvioSriService {
   private readonly ahora: () => Date;
+  private readonly alCambiarEstado: ((empresaId: string, comprobanteId: string, estado: string) => void) | undefined;
   private readonly oyentes: Array<() => void> = [];
 
   constructor(
@@ -73,6 +76,7 @@ export class EnvioSriService {
     opciones: OpcionesEnvioSri = {}
   ) {
     this.ahora = opciones.ahora ?? (() => new Date());
+    this.alCambiarEstado = opciones.alCambiarEstado;
   }
 
   /** El worker se suscribe para despertar cuando hay trabajo nuevo (reintento manual). */
@@ -144,7 +148,7 @@ export class EnvioSriService {
         return "REINTENTO";
       }
       if (!ids.has(ID_CLAVE_REGISTRADA)) {
-        await this.cerrar(c.id, { estado: "DEVUELTO", mensajesRespuesta: mensajesJson(recepcion.mensajes) });
+        await this.cerrar(c, { estado: "DEVUELTO", mensajesRespuesta: mensajesJson(recepcion.mensajes) });
         return "DEVUELTO";
       }
       // 43: ya estaba registrado (un envío anterior llegó pero no se alcanzó a leer la respuesta): se consulta la autorización
@@ -160,7 +164,7 @@ export class EnvioSriService {
 
     if (autorizacion.estado === "AUTORIZADO") {
       const comprobanteXml = autorizacion.comprobante ?? xmlFirmado;
-      await this.cerrar(c.id, {
+      await this.cerrar(c, {
         estado: "AUTORIZADO",
         mensajesRespuesta: mensajesJson(autorizacion.mensajes),
         xmlAutorizado: construirXmlAutorizado(autorizacion, comprobanteXml),
@@ -169,7 +173,7 @@ export class EnvioSriService {
       });
       return "AUTORIZADO";
     }
-    await this.cerrar(c.id, { estado: "RECHAZADO", mensajesRespuesta: mensajesJson(autorizacion.mensajes) });
+    await this.cerrar(c, { estado: "RECHAZADO", mensajesRespuesta: mensajesJson(autorizacion.mensajes) });
     return "RECHAZADO";
   }
 
@@ -198,8 +202,9 @@ export class EnvioSriService {
 
   // ── Internos ───────────────────────────────────────────────
 
-  private async cerrar(id: string, r: ResultadoFinal): Promise<void> {
-    await this.prisma.$transaction((tx) => this.repo.finalizar(tx, id, r));
+  private async cerrar(c: { id: string; empresaId: string }, r: ResultadoFinal): Promise<void> {
+    await this.prisma.$transaction((tx) => this.repo.finalizar(tx, c.id, r));
+    this.alCambiarEstado?.(c.empresaId, c.id, r.estado);
   }
 
   private async diferir(id: string, motivo: string): Promise<void> {

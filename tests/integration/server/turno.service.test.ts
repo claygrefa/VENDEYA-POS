@@ -97,7 +97,8 @@ describe("Ciclo completo de caja con cierre ciego", () => {
     expect(rep.ventas).toMatchObject({ cantidad: 2, total: 46 });
     expect(rep.ventas.anuladas).toEqual({ cantidad: 1, total: 23 });
     // el JSON completo no contiene el esperado
-    expect(JSON.stringify(rep)).not.toContain("133");
+    // (como número JSON suelto: un UUID aleatorio puede contener «133» y no es una filtración)
+    expect(JSON.stringify(rep)).not.toMatch(/[:,\[]133(\.\d+)?[,\}\]]/);
   });
 
   it("el cierre calcula esperado y diferencia (faltante) y los devuelve ya cerrado", async () => {

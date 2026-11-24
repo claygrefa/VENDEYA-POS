@@ -13,6 +13,7 @@ import { crearServicios, type Servicios } from "./services/container.factory";
 import type { ProteccionClave } from "./services/sri/firma/claveMaestra.provider";
 import { SriWorker, type OpcionesSriWorker } from "./jobs/sriWorker.job";
 import type { OpcionesServicios } from "./services/container.factory";
+import { registrarSync } from "./routes/sync.routes";
 import { MigrationService, type ResultadoMigracion } from "./services/migration.service";
 
 const HTTP_POR_CODIGO: Record<CodigoError, number> = {
@@ -57,6 +58,8 @@ export async function buildServer(servicios: Servicios, logLevel = "info"): Prom
     reply.status(404).send({ error: "NO_ENCONTRADO", mensaje: "Ruta no encontrada" })
   );
 
+  // La sincronización va antes de las rutas: su gancho debe conocerlas para anunciar los cambios
+  await registrarSync(server, servicios);
   registrarRutas(server, servicios);
   return server;
 }
@@ -74,6 +77,14 @@ export interface BackendOptions {
   directorioSecretos?: string;
   /** Protección de la clave maestra con el sistema operativo (Electron safeStorage); sin ella queda en el archivo */
   proteccionClave?: ProteccionClave;
+  /** Balanza serial y sincronización LAN (pruebas: puerto simulado, latido corto) */
+  balanza?: OpcionesServicios["balanza"];
+  sync?: OpcionesServicios["sync"];
+  /**
+   * Escuchar en toda la red local (0.0.0.0) para que otras cajas se conecten. Desactivado por defecto: el servidor solo
+   * atiende a este equipo (127.0.0.1). Aun activado, las cajas deben tener la sincronización LAN habilitada en el giro.
+   */
+  redLocal?: boolean;
   /** Impresora térmica y RIDE (en pruebas se sustituye el transporte de la impresora) */
   impresion?: OpcionesServicios["impresion"];
   ride?: OpcionesServicios["ride"];
@@ -109,7 +120,7 @@ export interface BackendHandle {
  * Si algo falla libera lo abierto y propaga el error.
  */
 export async function iniciarBackend(opciones: BackendOptions): Promise<BackendHandle> {
-  const host = opciones.host ?? "127.0.0.1";
+  const host = opciones.host ?? (opciones.redLocal === true ? "0.0.0.0" : "127.0.0.1");
   mkdirSync(path.dirname(opciones.dbPath), { recursive: true });
   const prisma = crearPrismaPara(opciones.dbPath);
   let server: FastifyInstance | null = null;
@@ -130,6 +141,8 @@ export async function iniciarBackend(opciones: BackendOptions): Promise<BackendH
       ...(opciones.proteccionClave !== undefined ? { proteccionClave: opciones.proteccionClave } : {}),
       ...(opciones.sri !== undefined ? { sri: opciones.sri } : {}),
       ...(opciones.impresion !== undefined ? { impresion: opciones.impresion } : {}),
+      ...(opciones.balanza !== undefined ? { balanza: opciones.balanza } : {}),
+      ...(opciones.sync !== undefined ? { sync: opciones.sync } : {}),
       ...(opciones.ride !== undefined ? { ride: opciones.ride } : {}),
     });
     worker = opciones.sriWorker?.habilitado === true ? new SriWorker(servicios.envioSri, opciones.sriWorker) : null;
@@ -146,6 +159,7 @@ export async function iniciarBackend(opciones: BackendOptions): Promise<BackendH
     const puerto = typeof direccion === "object" && direccion !== null ? direccion.port : opciones.port;
     const servidor = server;
     await worker?.iniciar();
+    servicios.sync.iniciar();
 
     return {
       server: servidor,
