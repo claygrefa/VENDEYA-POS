@@ -3,10 +3,10 @@
 ## Estado General
 - **Proyecto:** VENDEYA POS (Sistema Punto de Venta Multi-Giro & Facturación Electrónica SRI Ecuador)
 - **Horizonte:** 6 Meses (24 Semanas)
-- **Fase Actual:** MES 3 — Semana 12: retenciones, guías de remisión, liquidaciones de compra y ATS
+- **Fase Actual:** MES 4 — Semana 13: impresión térmica ESC/POS, gaveta y RIDE en PDF A4
 - **Estado de Compilación:** ✅ `tsc --noEmit` → 0 errores | ✅ `tsconfig.node.json` → 0 errores | ✅ `tsconfig.electron.json` → 0 errores
-- **Tests:** ✅ 603/603 passed (36 archivos de prueba)
-- **Último Commit:** `feat: Semana 11 - cliente SOAP del SRI y worker de la cola offline`
+- **Tests:** ✅ 628/628 passed (38 archivos de prueba)
+- **Último Commit:** `feat: Semana 12 - retenciones, guias, liquidaciones y ATS`
 
 ---
 
@@ -28,10 +28,10 @@
 - [x] **Semana 9 (COMPLETADA):** Generador de Clave de Acceso (49 dígitos, Módulo 11) + Constructor de XML v2.10/v2.30 para Facturas y Notas de Crédito + validación contra esquemas XSD del SRI.
 - [x] **Semana 10 (COMPLETADA):** Firmador digital XAdES-BES en Node.js compatible con certificados `.p12` de Ecuador + encriptación AES-256-GCM de credenciales del certificado.
 - [x] **Semana 11 (COMPLETADA):** Cliente SOAP para Web Services del SRI (`RecepcionComprobantesOffline` y `AutorizacionComprobantesOffline` en Pruebas y Producción) + Worker en segundo plano para cola offline (`cola_sri`).
-- [ ] **Semana 12 (ACTUAL):** Soporte para Retenciones, Guías de Remisión, Liquidaciones de Compra y generador automático de archivo XML del Anexo Transaccional Simplificado (ATS).
+- [x] **Semana 12 (COMPLETADA):** Soporte para Retenciones, Guías de Remisión, Liquidaciones de Compra y generador automático de archivo XML del Anexo Transaccional Simplificado (ATS).
 
 ### MES 4: Hardware, Red Local (LAN) y Experiencia de Caja
-- [ ] **Semana 13:** Motor de impresión térmica directa ESC/POS (USB, Ethernet, 80mm/58mm), apertura automática de gaveta de dinero y generador de RIDE en PDF A4.
+- [ ] **Semana 13 (ACTUAL):** Motor de impresión térmica directa ESC/POS (USB, Ethernet, 80mm/58mm), apertura automática de gaveta de dinero y generador de RIDE en PDF A4.
 - [ ] **Semana 14:** Integración de periféricos (lectores de códigos de barras, balanzas seriales) y sincronización multi-caja en red local (LAN) vía WebSockets sin depender de internet.
 - [ ] **Semana 15:** Frontend POS principal (`PosScreen`), búsqueda ultrarrápida, atajos de teclado (`F2`, `F4`, `F8`, `ESC`), modo táctil y modal de cobro.
 - [ ] **Semana 16:** Vistas de Inventario, Kardex, Clientes, Reportes Gerenciales y Monitor de Comprobantes SRI (`SriMonitor`).
@@ -448,11 +448,54 @@ Las respuestas nunca incluyen la contraseña, la clave privada, la ruta del arch
 
 **Verificación:** `tsc --noEmit` (3 tsconfig) ✅ 0 errores | `npx vitest run` ✅ 603/603 (36 archivos).
 
+### Semana 12 — 2026-11-23 ✅ COMPLETADA (parcial: ver «No incluido»)
+**Fuentes oficiales descargadas del portal del SRI (sin modificar):** `XML y XSD Comprobante de Retención` (usado: **2.0.0**), `XML y XSD Liquidación` (**1.1.0**), `XML y XSD Guía de Remisión` (**1.1.0**) → `src/server/services/sri/xsd/` y `ORIGEN.md`; y la *Ficha Técnica Esquema Offline v2.34* en PDF (leída para la contrastación de la Semana 11).
+
+**Contrastación de la Semana 11 con la ficha y con `celcer`:** la ficha (7.2.3) documenta la respuesta de recepción (`RECIBIDA`/`DEVUELTA`) y la de autorización; se hizo una consulta de prueba inocua (XML vacío y una clave inexistente) a `celcer` con `curl`: la respuesta real coincide con lo que parsea el cliente (`DEVUELTA` con identificador 35, y `autorizaciones` vacío con `numeroComprobantes` 0). **Corrección:** la ficha ilustra el rechazo con el estado `RECHAZADO` (el servicio real suele devolver `NO AUTORIZADO`): ahora ambos se tratan como rechazo. **Sin confirmar:** los identificadores 43 y 70 **no aparecen** en el texto de la ficha (solo el 35, 46 y 60 en los ejemplos); siguen siendo suposición y hay que verificarlos con un envío real a `celcer`. Además la ficha pide esperar un tiempo (parametrizable) entre RECIBIDA y la consulta de autorización y fija 24 h como máximo de respuesta, y un máximo de 320 KB por comprobante (hoy no se valida el tamaño). **Prueba pendiente:** el cliente de Node (`http`) recibió `ECONNRESET` de `celcer` en una prueba puntual mientras `curl` sí obtuvo respuesta; no se investigó más (el entorno bloqueó nuevas pruebas contra el servicio externo). Hay que repetir la llamada desde la propia aplicación y, si se reproduce, revisar cabeceras/TLS del cliente.
+
+**Esquema (migración `20261127090000_documentos_compra_sri`):** `Compra.tipoDocumento` (FACTURA | NOTA_VENTA | LIQUIDACION), `Compra.codSustento` (2 dígitos), `Compra.autorizacion`; `ComprobanteElectronico.compraId` (+ relación); nueva tabla `RetencionLinea` (impuesto 1 renta / 2 IVA / 6 ISD, código de retención, base, porcentaje, valor).
+
+**Archivos:**
+- `sri/comprobantesCompra.builder.ts` — constructores puros de **Retención 2.0.0 (07)**, **Liquidación de Compra 1.1.0 (03)** y **Guía de Remisión 1.1.0 (06)** (reutiliza `infoTributaria`, `detalles`, `infoAdicional` del constructor de factura, ahora exportados).
+- `sri/emisionDocumentos.service.ts` — `EmisionDocumentosService`: `emitirRetencion`, `emitirLiquidacion`, `emitirGuiaRemision`. Mismo patrón que la factura: todo se valida **antes** de escribir (reglas, clave de acceso, XML, XSD) y recién entonces se reserva el secuencial, se guarda y se encola. Las **retenciones van con prioridad 1** en la cola. Idempotente por compra. Respetan los flags `emitirRetenciones`, `emitirLiquidaciones` y `emitirGuiasRemision`.
+- `sri/ats.service.ts` + `repositories/ats.repository.ts` — generador del **ATS** mensual.
+- `shared/schemas/documentosSri.schema.ts` (entradas Zod y periodo), `compra.schema.ts`/`compra.service.ts`/`compra.repository.ts` (nuevos campos), `giro.service.ts` (3 flags), `xsdValidator.service.ts` y `firma.service.ts` (nuevos tipos 03/06/07), `container.factory.ts`, `comprobante.controller.ts`, `routes/index.ts`.
+
+**Endpoints nuevos:**
+| Ruta | Permiso |
+|---|---|
+| `POST /api/compras/:id/retencion` — `{ puntoEmisionId, retenciones: [{ codigo, codigoRetencion, baseImponible, porcentaje }], parteRelacionada? }` (201 / 200 si ya existía) | `sri:crear` |
+| `POST /api/compras/:id/liquidacion` — `{ puntoEmisionId }` (compra de tipo LIQUIDACION) | `sri:crear` |
+| `POST /api/guias-remision` — transportista, fechas, placa, destinatarios con sus productos y documento de sustento opcional | `sri:crear` |
+| `GET /api/reportes/ats?anio=&mes=` — descarga el XML (`ATS-AAAA-MM.xml`); `&formato=json` devuelve `{ xml, resumen }` | `reportes:exportar` |
+La matriz RBAC cubre las 4 rutas nuevas (77 entradas en la tabla; el recuento de semanas anteriores era aproximado).
+
+**Reglas implementadas:**
+- **Retención:** solo agentes de retención; el valor se calcula en el servidor (base × % redondeado a 2 decimales); base de IVA ≤ IVA de la compra y base de renta ≤ subtotal; sustento con 15 dígitos (el número de la compra debe ser `001-001-000000123`) y autorización del proveedor si existe; si la compra es una liquidación, el sustento es la propia liquidación (hay que emitirla antes). Tipo de sujeto deducido del RUC (3.er dígito 6/9 = sociedad) y tipo de identificación de su longitud.
+- **Liquidación:** solo para compras registradas como LIQUIDACION (el proveedor no emite comprobantes); a crédito lleva plazo.
+- **ATS:** compras con sustento, autorización, bases (gravada / 0 %), IVA y las retenciones emitidas (IVA según % → `valRetBien10`, `valRetServ20`, `valorRetBienes`, `valRetServ50`, `valorRetServicios`, `valRetServ100`; renta en `air/detalleAir`; datos de la retención); ventas agrupadas por cliente y tipo (18 factura, 04 nota de crédito) con bases y formas de pago; ventas por establecimiento y total neto de notas de crédito; anulados con autorización. Solo entran los comprobantes **AUTORIZADOS** y el resumen informa cuántos del periodo siguen pendientes. **Si faltan datos de una compra (formato del número, autorización, liquidación sin emitir) no se genera un anexo incompleto: se devuelve el listado a corregir.** Meses en hora de Ecuador.
+- **Arreglo de la intermitencia de la suite:** la prueba de concurrencia mixta fallaba bajo carga con *«Unable to start a transaction in the given time»*: Prisma espera 2 s por defecto para iniciar una transacción y con una única conexión SQLite las transacciones se encolan. Ahora `crearPrismaPara` fija `maxWait` 30 s y `timeout` 60 s para **todas** las transacciones (2 corridas completas seguidas 628/628).
+
+**Pruebas nuevas (25):** `tests/unit/server/sri/comprobantesCompra.test.ts` (6: XML de los tres comprobantes válido contra su XSD oficial y reglas) y `tests/integration/server/documentos-sri.test.ts` (19: emisión, idempotencia, rechazos sin rastro, agente de retención y módulos apagados, firma y envío por el SRI simulado, prioridad 1 antes de una factura, estado `RECHAZADO` de la ficha, liquidación y su retención, guía con sustento, ATS con ventas/notas de crédito/compras/retenciones cuadradas contra las ventas y compras reales, anexo incompleto rechazado, API y RBAC).
+
+**No incluido / limitaciones:**
+- **Nota de débito (05): no se implementó** (la tarea decía «si cabe»); el XSD tampoco se incluye.
+- **ATS sin XSD oficial:** el SRI no publica `ats.xsd` en el portal de comprobantes electrónicos (el anexo se carga con DIMM Formularios) y no se pudo obtener de una fuente oficial. Se siguió la estructura publicada del anexo (orden de nodos y campos de memoria del formato), **sin validación contra un XSD**: debe revisarse en DIMM antes de presentarlo. Campos no cubiertos: reembolsos, exportaciones, retenciones que nos practican los clientes (`valorRetIva`/`valorRetRenta` salen en 0), ICE, base no objeto/exenta en compras (todo lo no gravado va a la base 0 %), pagos al exterior y formas de pago de compras (siempre `01`).
+- Una sola retención por compra y un solo documento sustento por retención (el XSD admite varios); sin dividendos, compras de banano ni reembolsos.
+- Las retenciones de renta se ingresan a mano (código y porcentaje): no hay catálogo de conceptos de retención ni cálculo automático por tipo de proveedor/bien/servicio.
+- No se valida el plazo legal para emitir la retención (5 días hábiles) ni se anulan retenciones/guías/liquidaciones desde la aplicación.
+- La guía de remisión no se vincula a una venta ni descuenta inventario: es un documento independiente con los datos indicados.
+- **Auditoría independiente (`REVIEWER_AGENT.md`) sin re-ejecutar:** `AUDIT_REPORT.md` sigue describiendo la Semana 9. Hay que lanzarla (no la inicié por mi cuenta). Ambos archivos de auditoría quedan fuera del commit.
+
+**Verificación:** `tsc --noEmit` (3 tsconfig) ✅ 0 errores | `npx vitest run` ✅ 628/628 (38 archivos), 2 corridas consecutivas.
+
 ---
 
-## Próxima Tarea Exacta (Para ejecutar ahora — Semana 12)
-1. **Retenciones (07), Guías de Remisión (06), Liquidaciones de Compra (03)** y, si cabe, Notas de Débito (05): descargar los XSD oficiales del SRI (como en la Semana 9; no escribirlos a mano) y registrarlos en `xsd/ORIGEN.md`; constructores XML puros en `comprobanteXml.builder.ts` (o archivos por tipo), mapeo desde compras (liquidación, retención sobre compras/gastos) y validación XSD con `XsdValidatorService`. Reutilizar clave de acceso, secuenciales, firma y la cola de la Semana 10–11 (prioridad 1 para retenciones). Respetar los flags `emitirRetenciones`, `emitirGuiasRemision` y `emitirLiquidaciones` de `ConfiguracionGiro`.
-2. **Anexo Transaccional Simplificado (ATS)**: generador del XML mensual (ventas por tipo de comprobante, compras con sus retenciones, anulados) y su validación contra el XSD oficial del ATS; endpoint de descarga por periodo (`reportes:exportar`).
-3. **Pruebas:** XML de cada comprobante válido contra su XSD, firma y envío por el SRI simulado, totales del ATS contra datos de ventas/compras reales del entorno de pruebas, matriz RBAC actualizada.
-4. Antes de empezar: contrastar con la ficha (y, si se consigue, con `celcer`) los códigos de respuesta de la Semana 11 y re-ejecutar la auditoría independiente (`REVIEWER_AGENT.md`).
-5. Verificar con `npx tsc --noEmit` y `npm test`; actualizar este archivo y commit `feat: Semana 12 - retenciones, guias, liquidaciones y ATS`.
+## Próxima Tarea Exacta (Para ejecutar ahora — Semana 13)
+**Antes de empezar (deudas del MES 3):** (a) repetir contra `celcer` una consulta real desde la aplicación (el `ECONNRESET` del cliente de Node) y, con un certificado de pruebas del SRI, confirmar firma, códigos 43/70 y el flujo completo de una factura; (b) re-ejecutar la auditoría independiente (`REVIEWER_AGENT.md`); (c) decidir si se implementa la nota de débito (05) y conseguir el `ats.xsd` oficial (DIMM Formularios) para validar el anexo.
+
+1. **RIDE en PDF A4** (`src/server/services/sri/ride/`): representación impresa de factura, nota de crédito, retención, liquidación y guía a partir del `xmlAutorizado` (o del firmado si aún no se autoriza, marcado como no válido), con los campos de la ficha técnica (número de autorización, clave de acceso y código de barras de la clave, ambiente, emisión normal, datos del emisor y del comprador, detalle, totales por tarifa y formas de pago). Generación sin dependencias nativas; endpoint de descarga (`sri:leer`).
+2. **Ticket térmico ESC/POS 80 mm y 58 mm** (`src/server/services/hardware/`): constructor de comandos (texto, alineación, negrita, tamaño, código de barras/QR de la clave de acceso, corte), ticket de venta y de arqueo; transporte **USB** y **Ethernet (TCP 9100)** detrás de una interfaz sustituible para pruebas; **apertura automática de la gaveta** al cobrar en efectivo (pulso por la impresora).
+3. **Integración y configuración:** campos de impresora en `ConfiguracionGiro`/ajustes (tipo de conexión, dirección, ancho de papel, gaveta), endpoints para imprimir/reimprimir un ticket y probar la impresora (`caja:crear`), IPC en `electron/` para impresoras USB; la impresión nunca debe bloquear ni hacer fallar una venta.
+4. **Pruebas:** bytes ESC/POS esperados (golden), codificación de acentos (CP858/CP437), anchos de 32/42/48 columnas, impresora simulada (TCP local), gaveta solo en pagos en efectivo, RIDE con los datos del XML y sin romper ante campos opcionales; matriz RBAC actualizada.
+5. Verificar con `npx tsc --noEmit` y `npm test`; actualizar este archivo y commit `feat: Semana 13 - impresion termica ESC/POS, gaveta y RIDE en PDF`.

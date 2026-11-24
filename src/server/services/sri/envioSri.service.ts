@@ -24,6 +24,7 @@ import { SriTransporteError, type AutorizacionSri, type ClienteSri, type Mensaje
 /** Estados desde los que se puede forzar un nuevo envío. */
 const ESTADOS_REINTENTABLES = ["PENDIENTE", "RECHAZADO", "DEVUELTO"] as const;
 /** Identificadores del SRI con significado propio (Ficha Técnica, tabla de mensajes). */
+const ESTADOS_NO_AUTORIZADO = ["NO AUTORIZADO", "RECHAZADO"];
 const ID_CLAVE_REGISTRADA = "43";
 const ID_EN_PROCESAMIENTO = "70";
 
@@ -150,7 +151,8 @@ export class EnvioSriService {
     }
 
     const respuesta = await this.cliente.consultarAutorizacion(ambiente, c.claveAcceso);
-    const autorizacion = respuesta.autorizaciones.find((a) => a.estado === "AUTORIZADO") ?? respuesta.autorizaciones.find((a) => a.estado === "NO AUTORIZADO");
+    // La ficha (7.2.3) ilustra el rechazo con el estado "RECHAZADO" y el servicio devuelve "NO AUTORIZADO": ambos son un rechazo
+    const autorizacion = respuesta.autorizaciones.find((a) => a.estado === "AUTORIZADO") ?? respuesta.autorizaciones.find((a) => ESTADOS_NO_AUTORIZADO.includes(a.estado));
     if (autorizacion === undefined) {
       await this.diferir(c.id, "El SRI recibió el comprobante pero aún no lo autoriza");
       return "REINTENTO";

@@ -5,6 +5,7 @@ import path from "path";
 import type { PrismaClient } from "@prisma/client";
 import { ClienteRepository } from "../repositories/cliente.repository";
 import { CompraRepository } from "../repositories/compra.repository";
+import { AtsRepository } from "../repositories/ats.repository";
 import { ColaSriRepository } from "../repositories/colaSri.repository";
 import { ComprobanteRepository } from "../repositories/comprobante.repository";
 import { ConfiguracionRepository } from "../repositories/configuracion.repository";
@@ -38,6 +39,8 @@ import { ProductoService } from "./producto.service";
 import { SessionService } from "./session.service";
 import { TurnoService } from "./turno.service";
 import { UsuarioService } from "./usuario.service";
+import { AtsService } from "./sri/ats.service";
+import { EmisionDocumentosService } from "./sri/emisionDocumentos.service";
 import { CertificadoService } from "./sri/certificado.service";
 import { ComprobanteService } from "./sri/comprobante.service";
 import { ProveedorClaveMaestra, type ProteccionClave } from "./sri/firma/claveMaestra.provider";
@@ -69,6 +72,8 @@ export interface Servicios {
   certificados: CertificadoService;
   firma: FirmaService;
   envioSri: EnvioSriService;
+  documentosSri: EmisionDocumentosService;
+  ats: AtsService;
   mesas: MesaService;
   comandas: ComandaService;
   sesiones: SessionService;
@@ -126,6 +131,8 @@ export function crearServicios(prisma: PrismaClient, secretos: OpcionesServicios
     certificados,
     firma,
     envioSri,
+    documentosSri: new EmisionDocumentosService(prisma, comprobanteRepo, giro, xsd),
+    ats: new AtsService(prisma, new AtsRepository()),
     lotes,
     presentaciones: new PresentacionService(prisma, new PresentacionRepository()),
     listasPrecio: new ListaPrecioService(prisma, new ListaPrecioRepository(), giro),

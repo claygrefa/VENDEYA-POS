@@ -88,6 +88,10 @@ const RUTAS: ReadonlyArray<readonly [Metodo, string, Requisito]> = [
   ["GET", "/api/comprobantes/:id", "sri:leer"],
   ["POST", "/api/ventas/:id/comprobante", "sri:crear"],
   ["POST", "/api/comprobantes/:id/firmar", "sri:crear"],
+  ["POST", "/api/compras/:id/retencion", "sri:crear"],
+  ["POST", "/api/compras/:id/liquidacion", "sri:crear"],
+  ["POST", "/api/guias-remision", "sri:crear"],
+  ["GET", "/api/reportes/ats", "reportes:exportar"],
   ["GET", "/api/sri/cola", "sri:leer"],
   ["POST", "/api/comprobantes/:id/reintentar", "sri:crear"],
   // ── Certificado digital de firma (.p12) ──

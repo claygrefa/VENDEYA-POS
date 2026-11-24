@@ -28,6 +28,15 @@ export const CompraInputSchema = z.object({
   diasCredito:   z.number().int().nonnegative().max(365).optional(),
   lineas:        z.array(LineaCompraInputSchema).min(1, "La compra debe tener al menos una línea"),
   observaciones: z.string().trim().max(300).optional(),
+  /**
+   * Documento que sustenta la compra: FACTURA (01), NOTA_VENTA (02) o LIQUIDACION (03: la emite el comprador a un
+   * proveedor que no emite comprobantes; `numeroFactura` es entonces solo una referencia interna).
+   */
+  tipoDocumento: z.enum(["FACTURA", "NOTA_VENTA", "LIQUIDACION"]).default("FACTURA"),
+  /** Sustento tributario (Tabla de la ficha del ATS, 2 dígitos) */
+  codSustento:   z.string().regex(/^\d{2}$/, "El sustento tributario son 2 dígitos").default("01"),
+  /** Nº de autorización del documento del proveedor (10 a 49 dígitos) */
+  autorizacion:  z.string().regex(/^\d{10,49}$/, "La autorización son 10 a 49 dígitos").optional(),
 });
 
 export type CompraInput = z.infer<typeof CompraInputSchema>;

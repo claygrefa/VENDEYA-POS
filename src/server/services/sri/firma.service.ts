@@ -16,7 +16,7 @@ import type { TipoXsd, XsdValidatorService } from "./xsdValidator.service";
 /** Estados en los que se puede (re)firmar: aún no están en poder del SRI. */
 export const ESTADOS_FIRMABLES = ["PENDIENTE", "RECHAZADO", "DEVUELTO"] as const;
 
-const TIPO_XSD: Record<string, TipoXsd> = { "01": "factura", "04": "notaCredito" };
+const TIPO_XSD: Record<string, TipoXsd> = { "01": "factura", "03": "liquidacionCompra", "04": "notaCredito", "06": "guiaRemision", "07": "retencion" };
 
 export interface ResultadoFirma {
   id: string;

@@ -15,3 +15,4 @@ export * from "./inventario.schema";
 export * from "./restaurante.schema";
 export * from "./comprobante.schema";
 export * from "./certificado.schema";
+export * from "./documentosSri.schema";

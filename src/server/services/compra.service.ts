@@ -87,6 +87,9 @@ export class CompraService {
         iva: totales.iva,
         total: totales.total,
         observaciones: datos.observaciones ?? null,
+        tipoDocumento: datos.tipoDocumento,
+        codSustento: datos.codSustento,
+        autorizacion: datos.autorizacion ?? null,
         lineas: calculadas.map((c) => ({
           productoId: c.producto.id,
           cantidad: c.entrada.cantidad,

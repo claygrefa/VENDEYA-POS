@@ -37,8 +37,22 @@ const seleccionResumen = {
 
 export type ComprobanteResumen = Prisma.ComprobanteElectronicoGetPayload<{ select: typeof seleccionResumen }>;
 
+/** Compra con todo lo necesario para sustentar una retención o una liquidación. */
+const incluirCompraParaDocumento = {
+  proveedor: true,
+  lineas: { include: { producto: { select: { codigo: true, nombre: true } } } },
+  cuentaPorPagar: { select: { fechaEmision: true, fechaVencimiento: true } },
+  comprobantes: { select: { id: true, tipoComprobante: true, estado: true, serie: true, secuencial: true, claveAcceso: true, numeroAutorizacion: true } },
+} satisfies Prisma.CompraInclude;
+
+export type CompraParaDocumento = Prisma.CompraGetPayload<{ include: typeof incluirCompraParaDocumento }>;
+
+const incluirPuntoEmision = { sucursal: { include: { empresa: true } } } satisfies Prisma.PuntoEmisionInclude;
+export type PuntoEmisionConEmpresa = Prisma.PuntoEmisionGetPayload<{ include: typeof incluirPuntoEmision }>;
+
 export interface NuevoComprobante {
   ventaId: string | null;
+  compraId?: string | null;
   empresaId: string;
   sucursalId: string;
   puntoEmisionId: string;
@@ -80,6 +94,23 @@ export class ComprobanteRepository {
       create: { puntoEmisionId, tipoComprobante, ultimo: 1 },
     });
     return fila.ultimo;
+  }
+
+  compraParaDocumento(db: Db, compraId: string, empresaId: string): Promise<CompraParaDocumento | null> {
+    return db.compra.findFirst({ where: { id: compraId, sucursal: { empresaId } }, include: incluirCompraParaDocumento });
+  }
+
+  /** Punto de emisión activo de la empresa (con su sucursal y empresa). */
+  puntoEmision(db: Db, puntoEmisionId: string, empresaId: string): Promise<PuntoEmisionConEmpresa | null> {
+    return db.puntoEmision.findFirst({ where: { id: puntoEmisionId, sucursal: { empresaId } }, include: incluirPuntoEmision });
+  }
+
+  async crearRetenciones(
+    db: Db,
+    comprobanteId: string,
+    lineas: ReadonlyArray<{ codigoImpuesto: string; codigoRetencion: string; baseImponible: number; porcentaje: number; valor: number }>
+  ): Promise<void> {
+    for (const l of lineas) await db.retencionLinea.create({ data: { comprobanteId, ...l } });
   }
 
   crear(db: Db, c: NuevoComprobante): Promise<ComprobanteElectronico> {

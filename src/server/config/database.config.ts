@@ -18,7 +18,9 @@ export function sqliteUrl(rutaArchivo: string): string {
  */
 export function crearPrismaPara(rutaArchivo: string): PrismaClient {
   const url = `${sqliteUrl(rutaArchivo)}?connection_limit=1&pool_timeout=60&socket_timeout=60`;
-  return new PrismaClient({ datasources: { db: { url } } });
+  // Con una sola conexión las transacciones se encolan: la espera por 2 s que trae Prisma por defecto falla bajo carga
+  // ("Unable to start a transaction in the given time") aunque no haya ningún error. Se amplía para todas las transacciones.
+  return new PrismaClient({ datasources: { db: { url } }, transactionOptions: { maxWait: 30_000, timeout: 60_000 } });
 }
 
 let instancia: PrismaClient | null = null;

@@ -24,6 +24,9 @@ export interface NuevaCompra {
   iva: number;
   total: number;
   observaciones: string | null;
+  tipoDocumento: string;
+  codSustento: string;
+  autorizacion: string | null;
   lineas: Array<Omit<Prisma.LineaCompraUncheckedCreateWithoutCompraInput, "id">>;
 }
 

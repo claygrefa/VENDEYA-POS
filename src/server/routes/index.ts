@@ -153,6 +153,12 @@ export function registrarRutas(server: FastifyInstance, servicios: Servicios): v
   // Firma XAdES-BES con el certificado de la empresa (no cambia el estado del comprobante)
   server.post<{ Params: { id: string } }>("/api/comprobantes/:id/firmar", permiso("sri", "crear"), certificado.firmar);
 
+  // Retenciones y liquidaciones (sobre compras), guías de remisión y ATS
+  server.post<{ Params: { id: string } }>("/api/compras/:id/retencion", permiso("sri", "crear"), comprobantes.emitirRetencion);
+  server.post<{ Params: { id: string } }>("/api/compras/:id/liquidacion", permiso("sri", "crear"), comprobantes.emitirLiquidacion);
+  server.post("/api/guias-remision", permiso("sri", "crear"), comprobantes.emitirGuiaRemision);
+  server.get("/api/reportes/ats", permiso("reportes", "exportar"), comprobantes.ats);
+
   // Cola de envíos al SRI: la procesa el worker en segundo plano; aquí se consulta y se fuerza el reintento
   server.get("/api/sri/cola", permiso("sri", "leer"), comprobantes.estadoCola);
   server.post<{ Params: { id: string } }>("/api/comprobantes/:id/reintentar", permiso("sri", "crear"), comprobantes.reintentar);

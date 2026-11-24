@@ -7,7 +7,7 @@ import { existsSync, readFileSync } from "fs";
 import path from "path";
 import { validateXML } from "xmllint-wasm";
 
-export type TipoXsd = "factura" | "notaCredito";
+export type TipoXsd = "factura" | "notaCredito" | "retencion" | "liquidacionCompra" | "guiaRemision";
 
 export interface ErrorXsd {
   /** Mensaje del validador sin el prefijo de archivo/línea */
@@ -24,6 +24,9 @@ export interface ResultadoXsd {
 const ARCHIVO_XSD: Record<TipoXsd, string> = {
   factura: "factura_V2.1.0.xsd",
   notaCredito: "NotaCredito_V1.1.0.xsd",
+  retencion: "ComprobanteRetencion_V2.0.0.xsd",
+  liquidacionCompra: "LiquidacionCompra_V1.1.0.xsd",
+  guiaRemision: "GuiaRemision_V1.1.0.xsd",
 };
 const ARCHIVO_DSIG = "xmldsig-core-schema.xsd";
 

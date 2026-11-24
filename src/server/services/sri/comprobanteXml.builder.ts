@@ -66,7 +66,7 @@ export function calcularTotalesComprobante(lineas: ReadonlyArray<LineaComprobant
 
 // ── Bloques comunes ──────────────────────────────────────────
 
-function infoTributaria(raiz: XMLBuilder, e: DatosEmisor, claveAcceso: string, codDoc: string, secuencial: string): void {
+export function infoTributaria(raiz: XMLBuilder, e: DatosEmisor, claveAcceso: string, codDoc: string, secuencial: string): void {
   const n = raiz.ele("infoTributaria");
   n.ele("ambiente").txt(e.ambiente);
   n.ele("tipoEmision").txt("1");
@@ -83,7 +83,7 @@ function infoTributaria(raiz: XMLBuilder, e: DatosEmisor, claveAcceso: string, c
   if (e.contribuyenteRimpe) n.ele("contribuyenteRimpe").txt(LEYENDA_RIMPE);
 }
 
-function detalles(raiz: XMLBuilder, lineas: ReadonlyArray<LineaComprobante>, tipo: "factura" | "notaCredito"): void {
+export function detalles(raiz: XMLBuilder, lineas: ReadonlyArray<LineaComprobante>, tipo: "factura" | "notaCredito"): void {
   const nodo = raiz.ele("detalles");
   for (const l of lineas) {
     const d = nodo.ele("detalle");
@@ -104,7 +104,7 @@ function detalles(raiz: XMLBuilder, lineas: ReadonlyArray<LineaComprobante>, tip
   }
 }
 
-function infoAdicional(raiz: XMLBuilder, campos: ReadonlyArray<CampoAdicional>): void {
+export function infoAdicional(raiz: XMLBuilder, campos: ReadonlyArray<CampoAdicional>): void {
   const validos = campos
     .map((c) => ({ nombre: limpiarTextoOpcional(c.nombre, 300), valor: limpiarTextoOpcional(c.valor, 300) }))
     .filter((c): c is { nombre: string; valor: string } => c.nombre !== undefined && c.valor !== undefined)
@@ -114,7 +114,7 @@ function infoAdicional(raiz: XMLBuilder, campos: ReadonlyArray<CampoAdicional>):
   for (const c of validos) nodo.ele("campoAdicional", { nombre: c.nombre }).txt(c.valor);
 }
 
-function validarComun(d: DatosFactura | DatosNotaCredito): void {
+export function validarComun(d: { claveAcceso: string; secuencial: string }): void {
   if (!/^\d{49}$/.test(d.claveAcceso)) throw new AppError("VALIDACION", "La clave de acceso debe tener 49 dígitos");
   if (!/^\d{9}$/.test(d.secuencial)) throw new AppError("VALIDACION", "El secuencial debe tener 9 dígitos");
 }

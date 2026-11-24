@@ -505,6 +505,7 @@ model PagoVenta {
 model ComprobanteElectronico {
   id                   String    @id @default(uuid())
   ventaId              String?   @unique
+  compraId             String?                   // Compra que sustenta la retención o la liquidación
   empresaId            String
   sucursalId           String
   puntoEmisionId       String
@@ -529,6 +530,8 @@ model ComprobanteElectronico {
   updatedAt            DateTime  @updatedAt
 
   venta        Venta?       @relation(fields: [ventaId],        references: [id])
+  compra       Compra?      @relation(fields: [compraId],       references: [id])
+  retenciones  RetencionLinea[]
   empresa      Empresa      @relation(fields: [empresaId],      references: [id])
   sucursal     Sucursal     @relation(fields: [sucursalId],      references: [id])
   puntoEmision PuntoEmision @relation(fields: [puntoEmisionId],  references: [id])
@@ -537,8 +540,24 @@ model ComprobanteElectronico {
   modificadores ComprobanteElectronico[] @relation("ModificaA")
 
   @@index([comprobanteOrigenId])
+  @@index([compraId])
   @@index([estado, proximoIntento])
   @@index([claveAcceso])
+}
+
+/// Línea de un comprobante de retención (impuesto retenido sobre un documento de compra)
+model RetencionLinea {
+  id                String   @id @default(uuid())
+  comprobanteId     String
+  codigoImpuesto    String                       // 1 = Renta · 2 = IVA · 6 = ISD
+  codigoRetencion   String                       // Código de retención del SRI (p. ej. 303, 312, 9, 10…)
+  baseImponible     Float
+  porcentaje        Float
+  valor             Float
+
+  comprobante ComprobanteElectronico @relation(fields: [comprobanteId], references: [id], onDelete: Cascade)
+
+  @@index([comprobanteId])
 }
 
 model ColaSRI {
@@ -661,9 +680,14 @@ model Compra {
   total          Float    @default(0)
   estado         String   @default("REGISTRADA")   // REGISTRADA | ANULADA
   observaciones  String?
+  // Documento que sustenta la compra (retenciones, liquidaciones y ATS)
+  tipoDocumento  String   @default("FACTURA")      // FACTURA (01) | LIQUIDACION (03: la emite el comprador) | NOTA_VENTA (02)
+  codSustento    String   @default("01")           // Tabla de sustento tributario del SRI (2 dígitos)
+  autorizacion   String?                           // Nº de autorización del documento del proveedor (10–49 dígitos)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
+  comprobantes   ComprobanteElectronico[]
   proveedor      Proveedor      @relation(fields: [proveedorId], references: [id])
   sucursal       Sucursal       @relation(fields: [sucursalId], references: [id])
   lineas         LineaCompra[]
