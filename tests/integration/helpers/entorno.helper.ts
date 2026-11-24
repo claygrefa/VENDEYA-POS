@@ -29,6 +29,8 @@ export const PASSWORD_ADMIN = "ClaveDePrueba1";
 export interface OpcionesEntorno {
   sri?: BackendOptions["sri"];
   sriWorker?: BackendOptions["sriWorker"];
+  impresion?: BackendOptions["impresion"];
+  ride?: BackendOptions["ride"];
 }
 
 export async function crearEntorno(opciones: OpcionesEntorno = {}): Promise<Entorno> {
@@ -40,6 +42,8 @@ export async function crearEntorno(opciones: OpcionesEntorno = {}): Promise<Ento
     logLevel: "silent",
     ...(opciones.sri !== undefined ? { sri: opciones.sri } : {}),
     ...(opciones.sriWorker !== undefined ? { sriWorker: opciones.sriWorker } : {}),
+    ...(opciones.impresion !== undefined ? { impresion: opciones.impresion } : {}),
+    ...(opciones.ride !== undefined ? { ride: opciones.ride } : {}),
   });
   const seed = await runSeed(backend.prisma, { adminPassword: PASSWORD_ADMIN });
   const categoria = await backend.prisma.categoria.findFirstOrThrow({ where: { nombre: "General" } });

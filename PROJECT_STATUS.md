@@ -3,10 +3,10 @@
 ## Estado General
 - **Proyecto:** VENDEYA POS (Sistema Punto de Venta Multi-Giro & Facturación Electrónica SRI Ecuador)
 - **Horizonte:** 6 Meses (24 Semanas)
-- **Fase Actual:** MES 4 — Semana 13: impresión térmica ESC/POS, gaveta y RIDE en PDF A4
+- **Fase Actual:** MES 4 — Semana 14: lectores de códigos, balanzas seriales y sincronización multi-caja en LAN
 - **Estado de Compilación:** ✅ `tsc --noEmit` → 0 errores | ✅ `tsconfig.node.json` → 0 errores | ✅ `tsconfig.electron.json` → 0 errores
-- **Tests:** ✅ 628/628 passed (38 archivos de prueba)
-- **Último Commit:** `feat: Semana 12 - retenciones, guias, liquidaciones y ATS`
+- **Tests:** ✅ 675/675 passed (41 archivos de prueba)
+- **Último Commit:** `feat: Semana 13 - impresion termica ESC/POS, gaveta y RIDE en PDF`
 
 ---
 
@@ -31,8 +31,8 @@
 - [x] **Semana 12 (COMPLETADA):** Soporte para Retenciones, Guías de Remisión, Liquidaciones de Compra y generador automático de archivo XML del Anexo Transaccional Simplificado (ATS).
 
 ### MES 4: Hardware, Red Local (LAN) y Experiencia de Caja
-- [ ] **Semana 13 (ACTUAL):** Motor de impresión térmica directa ESC/POS (USB, Ethernet, 80mm/58mm), apertura automática de gaveta de dinero y generador de RIDE en PDF A4.
-- [ ] **Semana 14:** Integración de periféricos (lectores de códigos de barras, balanzas seriales) y sincronización multi-caja en red local (LAN) vía WebSockets sin depender de internet.
+- [x] **Semana 13 (COMPLETADA):** Motor de impresión térmica directa ESC/POS (USB, Ethernet, 80mm/58mm), apertura automática de gaveta de dinero y generador de RIDE en PDF A4.
+- [ ] **Semana 14 (ACTUAL):** Integración de periféricos (lectores de códigos de barras, balanzas seriales) y sincronización multi-caja en red local (LAN) vía WebSockets sin depender de internet.
 - [ ] **Semana 15:** Frontend POS principal (`PosScreen`), búsqueda ultrarrápida, atajos de teclado (`F2`, `F4`, `F8`, `ESC`), modo táctil y modal de cobro.
 - [ ] **Semana 16:** Vistas de Inventario, Kardex, Clientes, Reportes Gerenciales y Monitor de Comprobantes SRI (`SriMonitor`).
 
@@ -489,13 +489,54 @@ La matriz RBAC cubre las 4 rutas nuevas (77 entradas en la tabla; el recuento de
 
 **Verificación:** `tsc --noEmit` (3 tsconfig) ✅ 0 errores | `npx vitest run` ✅ 628/628 (38 archivos), 2 corridas consecutivas.
 
+### Semana 13 — 2026-11-23 ✅ COMPLETADA
+**Dependencias nuevas:** `pdfkit` (PDF puro en JavaScript, sin módulos nativos), `bwip-js` (solo calcula las barras del Code 128), `iconv-lite` (CP858 para la impresora) y `@types/pdfkit`.
+
+**Esquema (migración `20261128090000_impresora_termica`):** `ConfiguracionGiro.impresoraConexion` (NINGUNA | RED | SISTEMA), `impresoraDireccion`, `impresoraPuerto` (9100) e `impresoraAncho` (80 | 58). Se reutilizan los interruptores que ya existían: `impresionTermica` (imprimir al cobrar) y `aperturaGaveta`.
+
+**Archivos** (en `src/server/services/hardware/` salvo indicación):
+- `escpos.builder.ts` — `EscPosBuilder`: inicializar + página de códigos CP858 (acentos, ñ, ¿, €), alineación, negrita, tamaño, `columnasLR`, separador, avance, **QR nativo** (GS ( k), **corte** y **pulso de gaveta** (`ESC p`). El texto se sanea: ningún carácter de control (ESC, GS, DEL, separadores Unicode) del nombre de un producto o cliente llega a la impresora. 80 mm = 48 columnas, 58 mm = 32.
+- `ticket.builder.ts` — ticket de venta (datos del negocio, cliente, líneas, totales, pagos y cambio; con factura: ambiente, estado, clave de acceso en texto y QR; ANULADA / REIMPRESIÓN; gaveta al final) y ticket de **arqueo / cierre de caja**.
+- `transporteImpresora.ts` — `TransporteRed` (socket TCP, 9100) y `TransporteSistema` (cola de impresión del sistema en modo RAW: `copy /b` a la impresora local en Windows y `lp -o raw` en Linux/macOS; valida el nombre de la impresora contra inyección y borra el archivo temporal). Interfaz `TransporteImpresora` sustituible.
+- `impresion.service.ts` — `ImpresionService`: configuración, `alCobrar` (automático, **nunca lanza**), `reimprimirVenta`, `imprimirArqueo`, `abrirGaveta`, `probar`. La gaveta se abre solo al cobrar con **efectivo** (también en pagos mixtos), nunca en reimpresiones ni ventas anuladas, y respeta el interruptor del giro.
+- `sri/ride/ride.datos.ts` — XML → datos del RIDE para factura, liquidación, nota de crédito, retención y guía de remisión (acepta el XML autorizado con el comprobante en CDATA). `ride.pdf.ts` — PDF A4: cabecera con los datos del emisor y del comprobante, **código de barras Code 128 de la clave de acceso**, receptor, detalle paginado, totales por tarifa, formas de pago e información adicional; **marca de agua «SIN VALOR TRIBUTARIO»** y leyenda de pie si aún no está autorizado. `ride.service.ts` — usa el XML autorizado, o el firmado/generado si no lo hay.
+- `repositories/impresion.repository.ts`, `shared/schemas/impresora.schema.ts`, `controllers/impresion.controller.ts`, `container.factory.ts`/`server/index.ts` (opciones `impresion` y `ride`), `venta.controller.ts` y `restaurante.controller.ts` (impresión **aparte** al cobrar), `electron/ipc/printer.ipc.ts` (`printer:list`: impresoras instaladas, canal que ya estaba en la allowlist del preload) y `electron/main.ts`.
+
+**Endpoints nuevos:**
+| Ruta | Permiso |
+|---|---|
+| `GET /api/impresora` — configuración | `caja:leer` |
+| `PUT /api/impresora` — `{ conexion, direccion, puerto, ancho }` | `configuracion:actualizar` (solo ADMIN) |
+| `POST /api/impresora/probar` (204) | `caja:crear` |
+| `POST /api/impresora/gaveta` (204; 403 si la apertura está desactivada) | `caja:crear` |
+| `POST /api/ventas/:id/imprimir` — reimpresión (204) | `caja:crear` |
+| `POST /api/turnos/:id/imprimir` — arqueo (204; cierre ciego: el cajero no ve el efectivo esperado de su turno abierto, el supervisor sí) | `caja:crear` |
+| `GET /api/comprobantes/:id/ride` (`?descargar=1` como archivo; cabecera `X-Comprobante-Autorizado`) | `sri:leer` |
+
+**Reglas:**
+- **La impresión nunca bloquea ni hace fallar una venta:** `POST /api/ventas` y el cobro de comandas responden sin esperar a la impresora (hay una prueba con una impresora que nunca responde). Los errores de la impresión automática se informan por `alError`; las acciones explícitas (reimprimir, probar, gaveta, arqueo) devuelven 409 con el motivo.
+- Sin impresora configurada (`NINGUNA`, el valor por defecto) no se imprime nada.
+
+**Pruebas nuevas (47):** `tests/unit/server/hardware/escpos.test.ts` (17: bytes golden de cada comando y del QR, CP858, saneamiento de caracteres hostiles, ajuste a 32/48 columnas, ticket de venta/arqueo, gaveta, TCP real contra un servidor local, `lp`/`copy` con ejecutor simulado, nombres de impresora peligrosos), `tests/unit/server/sri/ride.test.ts` (13: datos de los cinco tipos desde su XML, hora de autorización, Code 128 —ancho y parada—, PDF A4 con su texto, marca de agua, paginación de 120 líneas, comprimido) y `tests/integration/server/impresion.test.ts` (17: configuración y validación, gaveta según forma de pago y flags, 58 mm, factura con QR, impresora que falla o se cuelga, API, reimpresión, arqueo, RIDE sin autorizar/autorizado/permisos). La matriz RBAC suma 7 rutas (84 filas). Helpers `tests/helpers/pdf.helper.ts` y `documentosSri.fixture.ts`.
+
+**Limitaciones conocidas:**
+- **Sin impresora física ni inspección visual del PDF:** los bytes ESC/POS se verifican contra el estándar (golden) y el PDF se comprobó con su texto extraído y con `pdftotext` (poppler), pero no se imprimió en un equipo real ni se miró renderizado (no hay rasterizador en el entorno). Primera prueba a hacer en un equipo con impresora Epson/Bixolon: página de prueba (acentos y 32/48 columnas), ticket con QR y pulso de gaveta.
+- **USB:** no hay acceso directo por `libusb` (evita módulos nativos y controladores). Las impresoras USB se usan a través de la cola del sistema (`SISTEMA`); en Windows la impresora debe estar **compartida** con el nombre configurado (`\\localhost\<nombre>`). Hay que probarlo en un equipo real.
+- La página de códigos fija es CP858; algunos modelos de 58 mm usan otra y mostrarán mal las tildes (hay que parametrizarla por modelo).
+- El código de barras de la clave no va en el ticket térmico (solo texto y QR); sí va en el RIDE.
+- El diseño del RIDE sigue la estructura de la ficha (datos del emisor, autorización, clave de acceso, detalle, totales, pagos, información adicional) pero **no se comparó píxel a píxel** con el formato oficial; no incluye logotipo. No hay RIDE de notas de débito (no se emiten).
+- El cobro de comandas dispara la impresión igual que la venta, pero no tiene prueba propia de integración (comparte el mismo servicio que `POST /ventas`).
+- Deudas del MES 3 que siguen abiertas (ver «Próxima Tarea»): `ECONNRESET` del cliente SOAP contra `celcer`, auditoría independiente sin re-ejecutar, `ats.xsd` oficial y nota de débito.
+
+**Verificación:** `tsc --noEmit` (3 tsconfig) ✅ 0 errores | `npx vitest run` ✅ 675/675 (41 archivos), 2 corridas consecutivas.
+
 ---
 
-## Próxima Tarea Exacta (Para ejecutar ahora — Semana 13)
-**Antes de empezar (deudas del MES 3):** (a) repetir contra `celcer` una consulta real desde la aplicación (el `ECONNRESET` del cliente de Node) y, con un certificado de pruebas del SRI, confirmar firma, códigos 43/70 y el flujo completo de una factura; (b) re-ejecutar la auditoría independiente (`REVIEWER_AGENT.md`); (c) decidir si se implementa la nota de débito (05) y conseguir el `ats.xsd` oficial (DIMM Formularios) para validar el anexo.
+## Próxima Tarea Exacta (Para ejecutar ahora — Semana 14)
+**Antes de empezar (deudas arrastradas):** (a) repetir contra `celcer` una consulta real desde la aplicación (el `ECONNRESET` del cliente SOAP) y, con un certificado de pruebas del SRI, confirmar firma, códigos 43/70 y el flujo de una factura; (b) re-ejecutar la auditoría independiente (`REVIEWER_AGENT.md`); (c) probar la impresora y el RIDE en un equipo real; (d) decidir si se implementa la nota de débito (05) y conseguir el `ats.xsd` oficial.
 
-1. **RIDE en PDF A4** (`src/server/services/sri/ride/`): representación impresa de factura, nota de crédito, retención, liquidación y guía a partir del `xmlAutorizado` (o del firmado si aún no se autoriza, marcado como no válido), con los campos de la ficha técnica (número de autorización, clave de acceso y código de barras de la clave, ambiente, emisión normal, datos del emisor y del comprador, detalle, totales por tarifa y formas de pago). Generación sin dependencias nativas; endpoint de descarga (`sri:leer`).
-2. **Ticket térmico ESC/POS 80 mm y 58 mm** (`src/server/services/hardware/`): constructor de comandos (texto, alineación, negrita, tamaño, código de barras/QR de la clave de acceso, corte), ticket de venta y de arqueo; transporte **USB** y **Ethernet (TCP 9100)** detrás de una interfaz sustituible para pruebas; **apertura automática de la gaveta** al cobrar en efectivo (pulso por la impresora).
-3. **Integración y configuración:** campos de impresora en `ConfiguracionGiro`/ajustes (tipo de conexión, dirección, ancho de papel, gaveta), endpoints para imprimir/reimprimir un ticket y probar la impresora (`caja:crear`), IPC en `electron/` para impresoras USB; la impresión nunca debe bloquear ni hacer fallar una venta.
-4. **Pruebas:** bytes ESC/POS esperados (golden), codificación de acentos (CP858/CP437), anchos de 32/42/48 columnas, impresora simulada (TCP local), gaveta solo en pagos en efectivo, RIDE con los datos del XML y sin romper ante campos opcionales; matriz RBAC actualizada.
-5. Verificar con `npx tsc --noEmit` y `npm test`; actualizar este archivo y commit `feat: Semana 13 - impresion termica ESC/POS, gaveta y RIDE en PDF`.
+1. **Lectores de códigos de barras** (`src/server/services/hardware/`): normalizar la entrada de lectores tipo teclado (HID) y seriales — el POS debe distinguir un escaneo (ráfaga rápida terminada en Enter) de la digitación; búsqueda de producto por código de barras (ya existe `GET /api/productos/barcode/:codigo`), códigos de presentaciones (unidad/paquete/caja) y de balanza con precio/peso embebido (EAN-13 con prefijo 2).
+2. **Balanzas seriales** (puerto serie, p. ej. protocolos CAS/Toledo/genérico): interfaz de transporte sustituible (como `TransporteImpresora`), lectura de peso estable, tara y unidades; integración con la venta a granel (`moduloBalanza` de `ConfiguracionGiro`).
+3. **Sincronización multi-caja en LAN con WebSockets** (`@fastify/websocket` ya es dependencia): un servidor y N cajas en red local sin Internet; eventos de catálogo/precios/stock y de turnos; resolución de conflictos y reconexión; autenticación de las cajas; sin romper el modo monocaja. Definir qué datos se replican y cuáles viven solo en el servidor (SQLite no se comparte por red).
+4. **Pruebas:** escaneo vs. digitación con temporización simulada, EAN de balanza (peso/precio), protocolo de la balanza con transporte simulado (peso inestable, tara, desconexión), dos o más clientes WebSocket contra el mismo backend (orden de eventos, reconexión, caja no autorizada), matriz RBAC actualizada.
+5. Verificar con `npx tsc --noEmit` y `npm test`; actualizar este archivo y commit `feat: Semana 14 - lectores, balanzas y sincronizacion LAN`.

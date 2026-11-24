@@ -176,6 +176,11 @@ model ConfiguracionGiro {
   lecturaCodigoBarras     Boolean  @default(true)
   sincronizacionLAN       Boolean  @default(false)
   modoTactil              Boolean  @default(false)
+  // Impresora térmica (ESC/POS)
+  impresoraConexion       String   @default("NINGUNA") // NINGUNA | RED (TCP, p. ej. 9100) | SISTEMA (cola de impresión del sistema operativo: USB instalada)
+  impresoraDireccion      String?                     // RED: dirección IP o nombre · SISTEMA: nombre de la impresora instalada
+  impresoraPuerto         Int      @default(9100)
+  impresoraAncho          Int      @default(80)       // Papel en mm: 80 | 58
   // Certificado digital SRI
   rutaCertificadoP12      String?
   certPasswordEncriptado  String?                     // AES-256-GCM

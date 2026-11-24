@@ -8,6 +8,7 @@ import { crearComprobanteController } from "../controllers/comprobante.controlle
 import { crearClienteController } from "../controllers/cliente.controller";
 import { crearCuentaController } from "../controllers/cuenta.controller";
 import { crearHealthController } from "../controllers/health.controller";
+import { crearImpresionController } from "../controllers/impresion.controller";
 import { crearInventarioController } from "../controllers/inventario.controller";
 import { crearRestauranteController } from "../controllers/restaurante.controller";
 import { crearProductoController } from "../controllers/producto.controller";
@@ -28,6 +29,7 @@ export function registrarRutas(server: FastifyInstance, servicios: Servicios): v
   const restaurante = crearRestauranteController(servicios);
   const comprobantes = crearComprobanteController(servicios);
   const certificado = crearCertificadoController(servicios);
+  const impresion = crearImpresionController(servicios);
 
   // ── Públicas ──────────────────────────────────────────────
   server.get("/api/health", health.estado);
@@ -162,6 +164,18 @@ export function registrarRutas(server: FastifyInstance, servicios: Servicios): v
   // Cola de envíos al SRI: la procesa el worker en segundo plano; aquí se consulta y se fuerza el reintento
   server.get("/api/sri/cola", permiso("sri", "leer"), comprobantes.estadoCola);
   server.post<{ Params: { id: string } }>("/api/comprobantes/:id/reintentar", permiso("sri", "crear"), comprobantes.reintentar);
+
+  // RIDE (PDF A4) de cualquier comprobante de la empresa
+  server.get<{ Params: { id: string }; Querystring: { descargar?: string } }>("/api/comprobantes/:id/ride", permiso("sri", "leer"), impresion.ride);
+
+  // ── Impresora térmica ESC/POS y gaveta ────────────────────
+  // La configuración la cambia el administrador; el cajero imprime, reimprime y abre la gaveta (operar caja).
+  server.get("/api/impresora", permiso("caja", "leer"), impresion.configuracion);
+  server.put("/api/impresora", permiso("configuracion", "actualizar"), impresion.configurar);
+  server.post("/api/impresora/probar", permiso("caja", "crear"), impresion.probar);
+  server.post("/api/impresora/gaveta", permiso("caja", "crear"), impresion.gaveta);
+  server.post<{ Params: { id: string } }>("/api/ventas/:id/imprimir", permiso("caja", "crear"), impresion.reimprimirVenta);
+  server.post<{ Params: { id: string } }>("/api/turnos/:id/imprimir", permiso("caja", "crear"), impresion.imprimirArqueo);
 
   // ── Certificado digital de firma (.p12) ───────────────────
   // La contraseña y la clave privada nunca se devuelven: la consulta solo muestra titular, emisor, huella y vigencia.

@@ -74,6 +74,9 @@ export interface BackendOptions {
   directorioSecretos?: string;
   /** Protección de la clave maestra con el sistema operativo (Electron safeStorage); sin ella queda en el archivo */
   proteccionClave?: ProteccionClave;
+  /** Impresora térmica y RIDE (en pruebas se sustituye el transporte de la impresora) */
+  impresion?: OpcionesServicios["impresion"];
+  ride?: OpcionesServicios["ride"];
   /** Conexión con el SRI (cliente SOAP, endpoints y espera de cada llamada); por defecto los Web Services oficiales */
   sri?: OpcionesServicios["sri"];
   /**
@@ -126,6 +129,8 @@ export async function iniciarBackend(opciones: BackendOptions): Promise<BackendH
       directorioSecretos: opciones.directorioSecretos ?? path.join(path.dirname(opciones.dbPath), "secretos"),
       ...(opciones.proteccionClave !== undefined ? { proteccionClave: opciones.proteccionClave } : {}),
       ...(opciones.sri !== undefined ? { sri: opciones.sri } : {}),
+      ...(opciones.impresion !== undefined ? { impresion: opciones.impresion } : {}),
+      ...(opciones.ride !== undefined ? { ride: opciones.ride } : {}),
     });
     worker = opciones.sriWorker?.habilitado === true ? new SriWorker(servicios.envioSri, opciones.sriWorker) : null;
     server = await buildServer(servicios, opciones.logLevel ?? "info");

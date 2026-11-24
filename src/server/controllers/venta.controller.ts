@@ -8,7 +8,10 @@ import { actorDe } from "./actor.util";
 export function crearVentaController(servicios: Servicios) {
   return {
     crear: async (req: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> => {
-      const venta = await servicios.ventas.crear(req.body, actorDe(req));
+      const actor = actorDe(req);
+      const venta = await servicios.ventas.crear(req.body, actor);
+      // El ticket y la gaveta se atienden aparte: la respuesta de la venta no espera a la impresora ni depende de ella
+      void servicios.impresion.alCobrar(venta.id, actor);
       return reply.status(201).send(venta);
     },
 

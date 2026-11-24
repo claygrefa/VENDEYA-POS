@@ -5,6 +5,7 @@ import path from "path";
 import type { PrismaClient } from "@prisma/client";
 import { ClienteRepository } from "../repositories/cliente.repository";
 import { CompraRepository } from "../repositories/compra.repository";
+import { ImpresionRepository } from "../repositories/impresion.repository";
 import { AtsRepository } from "../repositories/ats.repository";
 import { ColaSriRepository } from "../repositories/colaSri.repository";
 import { ComprobanteRepository } from "../repositories/comprobante.repository";
@@ -39,6 +40,8 @@ import { ProductoService } from "./producto.service";
 import { SessionService } from "./session.service";
 import { TurnoService } from "./turno.service";
 import { UsuarioService } from "./usuario.service";
+import { ImpresionService, type OpcionesImpresion } from "./hardware/impresion.service";
+import { RideService } from "./sri/ride/ride.service";
 import { AtsService } from "./sri/ats.service";
 import { EmisionDocumentosService } from "./sri/emisionDocumentos.service";
 import { CertificadoService } from "./sri/certificado.service";
@@ -74,6 +77,8 @@ export interface Servicios {
   envioSri: EnvioSriService;
   documentosSri: EmisionDocumentosService;
   ats: AtsService;
+  impresion: ImpresionService;
+  ride: RideService;
   mesas: MesaService;
   comandas: ComandaService;
   sesiones: SessionService;
@@ -88,6 +93,10 @@ export interface OpcionesServicios {
   /** Protección de la clave maestra con el almacén del sistema operativo (Electron safeStorage) */
   proteccionClave?: ProteccionClave;
   /** Conexión con el SRI: opciones del cliente SOAP real o un cliente sustituto (pruebas) */
+  /** Impresora térmica (el transporte se sustituye en las pruebas) */
+  impresion?: OpcionesImpresion;
+  /** Opciones del PDF del RIDE */
+  ride?: { comprimir?: boolean };
   sri?: { cliente?: ClienteSri; soap?: OpcionesClienteSri; envio?: OpcionesEnvioSri };
 }
 
@@ -99,10 +108,12 @@ export function crearServicios(prisma: PrismaClient, secretos: OpcionesServicios
   const lotes = new LoteService(prisma, loteRepo, kardex, giro);
   const productos = new ProductoService(new ProductoRepository(prisma));
   const turnoRepo = new TurnoRepository();
+  const turnos = new TurnoService(prisma, turnoRepo);
   const cuentasPorCobrar = new CuentaPorCobrarService(prisma, new CuentaPorCobrarRepository(), turnoRepo);
   const xsd = new XsdValidatorService();
   const comprobanteRepo = new ComprobanteRepository();
   const configuracionRepo = new ConfiguracionRepository();
+  const impresion = new ImpresionService(prisma, new ImpresionRepository(), configuracionRepo, turnos, secretos.impresion);
   const comprobantes = new ComprobanteService(prisma, comprobanteRepo, giro, xsd);
   const claveMaestra = new ProveedorClaveMaestra({
     directorio: secretos.directorioSecretos,
@@ -122,7 +133,7 @@ export function crearServicios(prisma: PrismaClient, secretos: OpcionesServicios
     clientes: new ClienteService(new ClienteRepository(prisma)),
     kardex,
     ventas,
-    turnos: new TurnoService(prisma, turnoRepo),
+    turnos,
     compras: new CompraService(prisma, new CompraRepository(), kardex, cuentasPorPagar, lotes, giro),
     cuentasPorCobrar,
     cuentasPorPagar,
@@ -133,6 +144,8 @@ export function crearServicios(prisma: PrismaClient, secretos: OpcionesServicios
     envioSri,
     documentosSri: new EmisionDocumentosService(prisma, comprobanteRepo, giro, xsd),
     ats: new AtsService(prisma, new AtsRepository()),
+    impresion,
+    ride: new RideService(prisma, comprobanteRepo, secretos.ride),
     lotes,
     presentaciones: new PresentacionService(prisma, new PresentacionRepository()),
     listasPrecio: new ListaPrecioService(prisma, new ListaPrecioRepository(), giro),

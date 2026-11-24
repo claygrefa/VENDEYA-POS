@@ -8,6 +8,7 @@ import path from "path";
 import { app, BrowserWindow, dialog, safeStorage, shell } from "electron";
 import { iniciarBackend, type BackendHandle } from "../src/server";
 import { liberarIpcApp, registrarIpcApp, type RutasApp } from "./ipc/app.ipc";
+import { liberarIpcImpresoras, registrarIpcImpresoras } from "./ipc/printer.ipc";
 
 const isDev = process.env["NODE_ENV"] === "development";
 const PUERTO_PREFERIDO = parseInt(process.env["SERVER_PORT"] ?? "3001", 10);
@@ -95,6 +96,7 @@ async function arrancar(): Promise<void> {
     console.log(`[backend] respaldo previo: ${backend.migraciones.respaldo}`);
   }
 
+  registrarIpcImpresoras();
   registrarIpcApp({
     version: app.getVersion(),
     rutas,
@@ -144,6 +146,7 @@ if (!app.requestSingleInstanceLock()) {
     evento.preventDefault();
     cerrando = true;
     liberarIpcApp();
+    liberarIpcImpresoras();
     const actual = backend;
     backend = null;
     actual

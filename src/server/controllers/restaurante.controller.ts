@@ -54,8 +54,12 @@ export function crearRestauranteController(servicios: Servicios) {
     preCuenta: async (req: ConId, reply: FastifyReply): Promise<FastifyReply> =>
       reply.send(await servicios.comandas.preCuenta(req.params.id, req.query, actorDe(req))),
 
-    cobrar: async (req: ConId, reply: FastifyReply): Promise<FastifyReply> =>
-      reply.status(201).send(await servicios.comandas.cobrar(req.params.id, req.body, actorDe(req))),
+    cobrar: async (req: ConId, reply: FastifyReply): Promise<FastifyReply> => {
+      const actor = actorDe(req);
+      const resultado = await servicios.comandas.cobrar(req.params.id, req.body, actor);
+      void servicios.impresion.alCobrar(resultado.venta.id, actor); // aparte: no retrasa ni condiciona el cobro
+      return reply.status(201).send(resultado);
+    },
 
     anularComanda: async (req: ConId, reply: FastifyReply): Promise<FastifyReply> =>
       reply.send(await servicios.comandas.anular(req.params.id, req.body, actorDe(req))),
