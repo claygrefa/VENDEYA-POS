@@ -19,6 +19,8 @@ export interface Entorno {
   seed: SeedResult;
   categoriaId: string;
   unidadMedidaId: string;
+  /** Carpeta de secretos del backend (clave maestra y certificados) */
+  secretos: string;
   cerrar: () => Promise<void>;
 }
 
@@ -43,6 +45,7 @@ export async function crearEntorno(): Promise<Entorno> {
     seed,
     categoriaId: categoria.id,
     unidadMedidaId: unidad.id,
+    secretos: path.join(dir, "data", "secretos"),
     cerrar: async () => {
       await backend.close();
       rmSync(dir, { recursive: true, force: true });

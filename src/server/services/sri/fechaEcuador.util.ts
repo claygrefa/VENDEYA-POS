@@ -30,3 +30,9 @@ export function fechaParaXml(fecha: Date): string {
   const { dia, mes, anio } = aFechaCivilEcuador(fecha);
   return `${dos(dia)}/${dos(mes)}/${anio}`;
 }
+
+/** Fecha y hora civil de Ecuador con su desfase, p. ej. `2024-05-10T21:30:05-05:00` (formato de `SigningTime` de XAdES). */
+export function fechaHoraIsoEcuador(fecha: Date): string {
+  const local = new Date(fecha.getTime() + OFFSET_ECUADOR_MS).toISOString().slice(0, 19);
+  return `${local}-05:00`;
+}

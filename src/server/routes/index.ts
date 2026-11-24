@@ -3,6 +3,7 @@
 // ============================================================
 import type { FastifyInstance } from "fastify";
 import { crearAuthController } from "../controllers/auth.controller";
+import { crearCertificadoController } from "../controllers/certificado.controller";
 import { crearComprobanteController } from "../controllers/comprobante.controller";
 import { crearClienteController } from "../controllers/cliente.controller";
 import { crearCuentaController } from "../controllers/cuenta.controller";
@@ -26,6 +27,7 @@ export function registrarRutas(server: FastifyInstance, servicios: Servicios): v
   const inventario = crearInventarioController(servicios);
   const restaurante = crearRestauranteController(servicios);
   const comprobantes = crearComprobanteController(servicios);
+  const certificado = crearCertificadoController(servicios);
 
   // ── Públicas ──────────────────────────────────────────────
   server.get("/api/health", health.estado);
@@ -148,4 +150,14 @@ export function registrarRutas(server: FastifyInstance, servicios: Servicios): v
   server.get("/api/comprobantes", permiso("sri", "leer"), comprobantes.listar);
   server.get<{ Params: { id: string } }>("/api/comprobantes/:id", permiso("sri", "leer"), comprobantes.obtener);
   server.post<{ Params: { id: string } }>("/api/ventas/:id/comprobante", permiso("sri", "crear"), comprobantes.emitirFactura);
+  // Firma XAdES-BES con el certificado de la empresa (no cambia el estado del comprobante)
+  server.post<{ Params: { id: string } }>("/api/comprobantes/:id/firmar", permiso("sri", "crear"), certificado.firmar);
+
+  // ── Certificado digital de firma (.p12) ───────────────────
+  // La contraseña y la clave privada nunca se devuelven: la consulta solo muestra titular, emisor, huella y vigencia.
+  const configurar = permiso("configuracion", "actualizar");
+  server.put("/api/configuracion/certificado", configurar, certificado.guardar);
+  server.get("/api/configuracion/certificado", permiso("configuracion", "leer"), certificado.informacion);
+  server.delete("/api/configuracion/certificado", configurar, certificado.eliminar);
+  server.post("/api/configuracion/certificado/rotar-clave", configurar, certificado.rotarClave);
 }

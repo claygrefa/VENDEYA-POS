@@ -10,6 +10,7 @@ import { crearPrismaPara } from "./config/database.config";
 import { registrarRutas } from "./routes";
 import { AppError, type CodigoError } from "./services/appError.util";
 import { crearServicios, type Servicios } from "./services/container.factory";
+import type { ProteccionClave } from "./services/sri/firma/claveMaestra.provider";
 import { MigrationService, type ResultadoMigracion } from "./services/migration.service";
 
 const HTTP_POR_CODIGO: Record<CodigoError, number> = {
@@ -67,6 +68,10 @@ export interface BackendOptions {
   migrationsDir: string;
   /** Carpeta de respaldos previos a migrar (default: <carpeta de la BD>/backups) */
   backupsDir?: string;
+  /** Carpeta de secretos locales: clave maestra y certificados .p12 (default: <carpeta de la BD>/secretos) */
+  directorioSecretos?: string;
+  /** Protección de la clave maestra con el sistema operativo (Electron safeStorage); sin ella queda en el archivo */
+  proteccionClave?: ProteccionClave;
   /** Puerto preferido; si está ocupado se usa uno libre. 0 = libre directamente. */
   port: number;
   host?: string;
@@ -105,7 +110,10 @@ export async function iniciarBackend(opciones: BackendOptions): Promise<BackendH
     // Modo WAL (lecturas concurrentes y mejor tolerancia a cortes de energía)
     await prisma.$queryRawUnsafe("PRAGMA journal_mode=WAL");
 
-    const servicios = crearServicios(prisma);
+    const servicios = crearServicios(prisma, {
+      directorioSecretos: opciones.directorioSecretos ?? path.join(path.dirname(opciones.dbPath), "secretos"),
+      ...(opciones.proteccionClave !== undefined ? { proteccionClave: opciones.proteccionClave } : {}),
+    });
     server = await buildServer(servicios, opciones.logLevel ?? "info");
 
     try {

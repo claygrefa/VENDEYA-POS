@@ -95,6 +95,15 @@ export class ComprobanteRepository {
     await db.comprobanteElectronico.update({ where: { id }, data: { estado: "ANULADO", proximoIntento: null } });
   }
 
+  /**
+   * Guarda el XML firmado solo si el comprobante sigue en uno de los estados permitidos (evita pisar un envío en curso).
+   * Devuelve false si el estado cambió entre la lectura y la escritura.
+   */
+  async guardarXmlFirmado(db: Db, id: string, xmlFirmado: string, estadosPermitidos: readonly string[]): Promise<boolean> {
+    const r = await db.comprobanteElectronico.updateMany({ where: { id, estado: { in: [...estadosPermitidos] } }, data: { xmlFirmado } });
+    return r.count === 1;
+  }
+
   /** Asigna (o corrige) el comprador de una venta antes de emitir su factura. */
   async asignarClienteAVenta(db: Db, ventaId: string, cliente: { id: string; identificacion: string; razonSocial: string }): Promise<void> {
     await db.venta.update({

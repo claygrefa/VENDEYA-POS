@@ -87,6 +87,12 @@ const RUTAS: ReadonlyArray<readonly [Metodo, string, Requisito]> = [
   ["GET", "/api/comprobantes", "sri:leer"],
   ["GET", "/api/comprobantes/:id", "sri:leer"],
   ["POST", "/api/ventas/:id/comprobante", "sri:crear"],
+  ["POST", "/api/comprobantes/:id/firmar", "sri:crear"],
+  // ── Certificado digital de firma (.p12) ──
+  ["GET", "/api/configuracion/certificado", "configuracion:leer"],
+  ["PUT", "/api/configuracion/certificado", "configuracion:actualizar"],
+  ["DELETE", "/api/configuracion/certificado", "configuracion:actualizar"],
+  ["POST", "/api/configuracion/certificado/rotar-clave", "configuracion:actualizar"],
 ];
 
 /** Permisos esperados por rol (fijados a mano: un cambio en el seed debe ser una decisión consciente). */

@@ -3,10 +3,10 @@
 ## Estado General
 - **Proyecto:** VENDEYA POS (Sistema Punto de Venta Multi-Giro & Facturación Electrónica SRI Ecuador)
 - **Horizonte:** 6 Meses (24 Semanas)
-- **Fase Actual:** MES 3 — Semana 10: firmador digital XAdES-BES y cifrado AES-256-GCM del certificado
+- **Fase Actual:** MES 3 — Semana 11: cliente SOAP del SRI (recepción y autorización) + worker de la cola offline
 - **Estado de Compilación:** ✅ `tsc --noEmit` → 0 errores | ✅ `tsconfig.node.json` → 0 errores | ✅ `tsconfig.electron.json` → 0 errores
-- **Tests:** ✅ 505/505 passed (30 archivos de prueba)
-- **Último Commit:** `feat: Semana 9 - clave de acceso, XML y validacion XSD de comprobantes SRI`
+- **Tests:** ✅ 573/573 passed (34 archivos de prueba)
+- **Último Commit:** `feat: Semana 10 - firma XAdES-BES y cifrado AES-256-GCM del certificado`
 
 ---
 
@@ -26,8 +26,8 @@
 
 ### MES 3: Motor Tributario SRI Ecuador (100% Offline-First)
 - [x] **Semana 9 (COMPLETADA):** Generador de Clave de Acceso (49 dígitos, Módulo 11) + Constructor de XML v2.10/v2.30 para Facturas y Notas de Crédito + validación contra esquemas XSD del SRI.
-- [ ] **Semana 10 (ACTUAL):** Firmador digital XAdES-BES en Node.js compatible con certificados `.p12` de Ecuador + encriptación AES-256-GCM de credenciales del certificado.
-- [ ] **Semana 11:** Cliente SOAP para Web Services del SRI (`RecepcionComprobantesOffline` y `AutorizacionComprobantesOffline` en Pruebas y Producción) + Worker en segundo plano para cola offline (`cola_sri`).
+- [x] **Semana 10 (COMPLETADA):** Firmador digital XAdES-BES en Node.js compatible con certificados `.p12` de Ecuador + encriptación AES-256-GCM de credenciales del certificado.
+- [ ] **Semana 11 (ACTUAL):** Cliente SOAP para Web Services del SRI (`RecepcionComprobantesOffline` y `AutorizacionComprobantesOffline` en Pruebas y Producción) + Worker en segundo plano para cola offline (`cola_sri`).
 - [ ] **Semana 12:** Soporte para Retenciones, Guías de Remisión, Liquidaciones de Compra y generador automático de archivo XML del Anexo Transaccional Simplificado (ATS).
 
 ### MES 4: Hardware, Red Local (LAN) y Experiencia de Caja
@@ -363,11 +363,54 @@ Filtros de listados: `estado`, `clienteId`/`proveedorId`, `vencidas=true|false`,
 
 **Verificación:** `tsc --noEmit` (3 tsconfig) ✅ 0 errores | `npx vitest run` ✅ 505/505 (30 archivos), 3 corridas consecutivas | `npm run build:main` ✅ (copia los XSD) | el código compilado valida contra los XSD.
 
+### Semana 10 — 2026-11-23 ✅ COMPLETADA
+**Fuente oficial:** *Ficha Técnica de Comprobantes Electrónicos — Esquema Offline v2.34*, sección 6 (firma electrónica) y **Anexo 14** (estructura XAdES-BES). Los algoritmos no se asumieron: se fijaron de la ficha.
+
+**Algoritmos (ficha):** firma **enveloped** XAdES-BES (esquema 1.3.2) · canonicalización **C14N 1.0 inclusiva** · **RSA-SHA1** con resumen **SHA-1** · clave RSA **≥ 2048 bits** · certificado en PKCS#12. La firma cubre tres referencias: `#comprobante` (transformación enveloped), las `SignedProperties` de XAdES y el `KeyInfo` con el certificado. `SigningTime` lleva la hora de Ecuador (`-05:00`) y el emisor va en formato RFC 2253 como en el ejemplo oficial.
+
+**Esquema (migración `20261126090000_certificado_firma`):** `ConfiguracionGiro` gana `certTitular`, `certEmisor` y `certHuella` (informativos). Los campos `rutaCertificadoP12`, `certPasswordEncriptado`, `certIv`, `certTag` y `certVencimiento` ya existían.
+
+**Archivos** (en `src/server/services/sri/` salvo indicación):
+- `firma/cifrado.util.ts` — **AES-256-GCM**: IV aleatorio de 12 bytes, tag de 16, clave derivada con **HKDF-SHA256** de la clave maestra y **AAD** que enlaza el secreto a su empresa (un secreto copiado a otra fila no se descifra). Cualquier fallo (texto, IV, tag, AAD o clave) produce el mismo error genérico.
+- `firma/claveMaestra.provider.ts` — clave maestra de 32 bytes: variable de entorno `VENDEYA_CLAVE_MAESTRA` (servidores) o archivo `master.key` en la carpeta de secretos, **fuera de la BD y del repositorio**; en Electron se envuelve con `safeStorage` (DPAPI/Keychain). Escritura atómica y permisos 0600. **Rotación en dos fases** (`master.key.nueva`): un corte a mitad nunca deja secretos inaccesibles.
+- `firma/pkcs12.util.ts` — lectura de `.p12` con `node-forge` (soporta el cifrado clásico RC2/3DES de las entidades ecuatorianas y AES-256); empareja la clave privada con **su** certificado aunque el archivo traiga la cadena; contraseña incorrecta y archivo dañado dan el mismo error. `validarCertificadoParaEmisor`: clave ≥ 2048, vigencia, RUC (o cédula del titular) presente; aviso a ≤ 30 días del vencimiento.
+- `firma/xades.firma.ts` — `firmarXmlXades` y `verificarFirmaXades`. Estructura XAdES armada según el Anexo 14 con el canonicalizador de xml-crypto (su `SignedXml` no puede firmar referencias a nodos dentro de la propia firma). El verificador exige los algoritmos de la ficha, las 3 referencias, Id únicos, que `#comprobante` sea la **raíz** (defensa contra *signature wrapping*), la transformación enveloped, los tres resúmenes, la firma RSA con el certificado de `KeyInfo` y que `SigningCertificate` corresponda a ese certificado. El analizador XML rechaza también las advertencias de xmldom (etiquetas sin cerrar).
+- `certificado.service.ts` — `guardar` (valida, cifra, guarda `<empresaId>-<huella8>.p12` de forma atómica, borra el anterior), `informacion`, `eliminar`, `obtenerMaterial` (descifra, comprueba que el archivo corresponda a la huella registrada y que no esté vencido) y `rotarClaveMaestra` (re-cifra todo en una transacción; se recupera sola si hubo un corte).
+- `firma.service.ts` — `firmarComprobante`: solo PENDIENTE/RECHAZADO/DEVUELTO; firma el `xmlGenerado`, **autoverifica**, valida el firmado contra el **XSD oficial** y guarda `xmlFirmado` con escritura condicional al estado. El estado **no cambia** (sigue PENDIENTE) y la cola no se toca.
+- `shared/schemas/certificado.schema.ts`, `controllers/certificado.controller.ts`, `repositories/configuracion.repository.ts` y `comprobante.repository.ts` (`guardarXmlFirmado`), `container.factory.ts` (`crearServicios(prisma, { directorioSecretos, proteccionClave }, sesiones)`), `server/index.ts` (`directorioSecretos`, `proteccionClave`; por defecto `<carpeta de la BD>/secretos`), `electron/main.ts` (carpeta `userData/secretos` + `safeStorage`), `fechaEcuador.util.ts` (`fechaHoraIsoEcuador`).
+- Dependencias nuevas: `xml-crypto` (canonicalización y verificación independiente en pruebas) y `@xmldom/xmldom`.
+
+**Endpoints nuevos:**
+| Ruta | Permiso |
+|---|---|
+| `PUT /api/configuracion/certificado` — `{ archivoBase64, password, confirmarTitular? }` | `configuracion:actualizar` (solo ADMIN) |
+| `GET /api/configuracion/certificado` — titular, emisor, huella, vencimiento, días restantes, advertencia | `configuracion:leer` (solo ADMIN) |
+| `DELETE /api/configuracion/certificado` (204; borra el archivo) | `configuracion:actualizar` |
+| `POST /api/configuracion/certificado/rotar-clave` | `configuracion:actualizar` |
+| `POST /api/comprobantes/:id/firmar` — firma o re-firma | `sri:crear` (ADMIN y SUPERVISOR) |
+
+Las respuestas nunca incluyen la contraseña, la clave privada, la ruta del archivo ni datos de la clave maestra (hay pruebas que lo verifican).
+
+**Reglas y decisiones:**
+- **Titular:** un certificado que declara **otro** RUC/cédula nunca se acepta, ni siquiera con `confirmarTitular`; la confirmación solo cubre certificados que no declaran ninguno. La identificación se detecta buscando cadenas de 10/13 dígitos en el sujeto y en las extensiones (heurística: cada entidad certificadora la coloca en un OID distinto).
+- **Dos piezas separadas:** quien copie solo la BD no obtiene ni el `.p12` ni la clave; quien copie solo la carpeta de certificados no obtiene la contraseña.
+- La clave maestra del entorno no se puede rotar desde la aplicación (409).
+
+**Pruebas nuevas (68):** `tests/unit/server/sri/firma/` — `xades` (22: estructura del Anexo 14, hora y emisor, determinismo, XSD de factura y nota de crédito, verificación con el verificador independiente de **xml-crypto**, alteración de importe/comprador/cantidad/SigningTime/certificado/SignatureValue/algoritmos, firma eliminada o duplicada, *signature wrapping*, Id duplicado, XML mal formado, 3DES y AES-256), `cifrado` (11: ida y vuelta, manipular tag/IV/texto, AAD, clave distinta, proveedor de clave, rotación en dos fases) y `validacionCertificado` (8); `tests/integration/server/firma-certificado.test.ts` (27: carga, rechazos sin efectos secundarios, firma de factura y nota de crédito, re-firma, estados, certificado vencido al firmar, manipulación de la BD y del archivo, ruta fuera de la carpeta, secreto trasladado a otra empresa, rotación con recuperación de cortes, API y RBAC). Los `.p12` se generan en cada prueba (`tests/helpers/certificados.helper.ts`); no hay ningún certificado en el repositorio (`.gitignore` ya excluye `*.p12`). La matriz RBAC cubre las 5 rutas nuevas (77 rutas).
+
+**Limitaciones conocidas:**
+- La firma se verificó con nuestro verificador y con **xml-crypto**, pero **no contra el validador del SRI**: la confirmación real llega con el ambiente de pruebas (`celcer`) en la Semana 11. Si el SRI rechazara la firma, los puntos a revisar son la canonicalización en contexto y el orden de los nodos de `KeyInfo`.
+- No se valida la cadena de confianza ni la revocación del certificado (el SRI lo hace del lado servidor).
+- La identificación del titular es heurística; sin soporte para certificados en token/tarjeta (solo `.p12`). Un único certificado por empresa.
+- `AUDIT_REPORT.md` sigue obsoleto (describe la Semana 9): hay que volver a ejecutar la auditoría; ambos archivos de auditoría quedan fuera del commit.
+
+**Verificación:** `tsc --noEmit` (3 tsconfig) ✅ 0 errores | `npx vitest run` ✅ 573/573 (34 archivos).
+
 ---
 
-## Próxima Tarea Exacta (Para ejecutar ahora — Semana 10)
-1. **Firma digital XAdES-BES** (`src/server/services/sri/firma/`): firmar el `xmlGenerado` con el certificado `.p12` de la empresa (`node-forge` ya es dependencia para leer PKCS#12; evaluar una librería de XML-DSig/XAdES sin compilación nativa o implementar la firma manualmente). Antes de codificar, leer la sección de **firma electrónica** de la Ficha Técnica v2.34 (ya descargada en el portal del SRI) y fijar de ahí los algoritmos de resumen y firma, la canonicalización, las referencias (`#comprobante` con transformación enveloped), `KeyInfo` y las `SignedProperties` de XAdES; no asumir valores.
-2. **Cifrado AES-256-GCM** de la clave del certificado: usar los campos que ya existen en `ConfiguracionGiro` (`rutaCertificadoP12`, `certPasswordEncriptado`, `certIv`, `certTag`, `certVencimiento`); definir de dónde sale la clave maestra (derivada por equipo/instalación, nunca en el repositorio ni en la BD junto al texto cifrado) y cómo rotarla. Servicio `CertificadoService`: cargar `.p12`, validar contraseña, extraer vencimiento, emisor y RUC/cédula del titular, y rechazar certificados vencidos o que no correspondan al RUC de la empresa.
-3. **Integración:** guardar el resultado en `ComprobanteElectronico.xmlFirmado` (el estado sigue PENDIENTE hasta la Semana 11); endpoint para cargar el certificado (`configuracion:actualizar`, multipart o ruta local) y para firmar/re-firmar un comprobante (`sri:crear`); el XML firmado debe seguir validando contra los XSD (el elemento `ds:Signature` está permitido por el esquema) y la firma debe poder verificarse localmente.
-4. **Pruebas** con un `.p12` de prueba generado en el propio test con `node-forge` (nunca un certificado real en el repositorio): firma y verificación de ida y vuelta; alteración de un byte del XML ⇒ la verificación falla; cifrado/descifrado AES-256-GCM (manipular el *tag* o el IV ⇒ error); contraseña incorrecta; certificado vencido; certificado de otro RUC; matriz RBAC actualizada con las rutas nuevas.
-5. Verificar con `npx tsc --noEmit` y `npm test`; actualizar este archivo y commit `feat: Semana 10 - firma XAdES-BES y cifrado AES-256-GCM del certificado`.
+## Próxima Tarea Exacta (Para ejecutar ahora — Semana 11)
+1. **Cliente SOAP del SRI** (`src/server/services/sri/ws/`): `RecepcionComprobantesOffline` (`validarComprobante`, envía el XML firmado en base64) y `AutorizacionComprobantesOffline` (`autorizacionComprobante` por clave de acceso) en **Pruebas** (`celcer`) y **Producción** (`cel`); URLs ya en `src/shared/constants/sri.constants.ts`. Antes de codificar, leer en la Ficha Técnica v2.34 los estados (`RECIBIDA`, `DEVUELTA`, `AUTORIZADO`, `NO AUTORIZADO`, `EN PROCESAMIENTO`), los mensajes/identificadores de error y el manejo de claves de acceso ya registradas (código 43) y secuenciales ya usados (45). Timeouts, errores de red y respuestas SOAP inesperadas deben tratarse como reintentables, no como rechazo.
+2. **Worker de la cola offline** (`ColaSRI`): tomar los comprobantes PENDIENTE (firmándolos si aún no tienen `xmlFirmado`), enviarlos, consultar la autorización, guardar `xmlAutorizado`, `numeroAutorizacion`, `fechaAutorizacion` y `mensajesRespuesta`, y pasar a AUTORIZADO / RECHAZADO / DEVUELTO; reintentos con *backoff* exponencial y `proximoIntento`; nunca debe bloquear ni retrasar una venta, debe tolerar cortes de Internet y de energía (estado EN_PROCESO recuperable al reiniciar) y respetar el orden cronológico de la ficha (9.18).
+3. **Integración:** arrancar/detener el worker con el backend (`iniciarBackend`); endpoints para consultar el estado de la cola y forzar el reintento de un comprobante (`sri:crear`); el SRI se simula en las pruebas con un servidor SOAP local (nunca llamar al SRI real desde los tests).
+4. **Pruebas:** respuestas de recepción y autorización de cada estado, errores de red/timeout con reintento, recuperación tras reinicio con EN_PROCESO, idempotencia (un comprobante ya autorizado no se reenvía), certificado vencido o ausente (el comprobante queda PENDIENTE con mensaje claro), orden cronológico, matriz RBAC actualizada.
+5. Verificar con `npx tsc --noEmit` y `npm test`; actualizar este archivo y commit `feat: Semana 11 - cliente SOAP del SRI y worker de la cola offline`.

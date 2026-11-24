@@ -5,7 +5,7 @@
 // ============================================================
 
 import path from "path";
-import { app, BrowserWindow, dialog, shell } from "electron";
+import { app, BrowserWindow, dialog, safeStorage, shell } from "electron";
 import { iniciarBackend, type BackendHandle } from "../src/server";
 import { liberarIpcApp, registrarIpcApp, type RutasApp } from "./ipc/app.ipc";
 
@@ -76,6 +76,16 @@ async function arrancar(): Promise<void> {
     dbPath: rutas.db,
     migrationsDir: rutas.migraciones,
     backupsDir: rutas.backups,
+    // Clave maestra y certificados .p12: fuera de la BD; la clave se envuelve con DPAPI/Keychain si el sistema lo permite
+    directorioSecretos: path.join(rutas.userData, "secretos"),
+    ...(safeStorage.isEncryptionAvailable()
+      ? {
+          proteccionClave: {
+            proteger: (clave: string) => safeStorage.encryptString(clave).toString("base64"),
+            desproteger: (protegido: string) => safeStorage.decryptString(Buffer.from(protegido, "base64")),
+          },
+        }
+      : {}),
     port: PUERTO_PREFERIDO,
     logLevel: process.env["LOG_LEVEL"] ?? (isDev ? "info" : "warn"),
   });

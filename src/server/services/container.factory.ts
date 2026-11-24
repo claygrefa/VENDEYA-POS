@@ -1,6 +1,7 @@
 // ============================================================
 // src/server/services/container.factory.ts — Composición de dependencias
 // ============================================================
+import path from "path";
 import type { PrismaClient } from "@prisma/client";
 import { ClienteRepository } from "../repositories/cliente.repository";
 import { CompraRepository } from "../repositories/compra.repository";
@@ -36,7 +37,10 @@ import { ProductoService } from "./producto.service";
 import { SessionService } from "./session.service";
 import { TurnoService } from "./turno.service";
 import { UsuarioService } from "./usuario.service";
+import { CertificadoService } from "./sri/certificado.service";
 import { ComprobanteService } from "./sri/comprobante.service";
+import { ProveedorClaveMaestra, type ProteccionClave } from "./sri/firma/claveMaestra.provider";
+import { FirmaService } from "./sri/firma.service";
 import { XsdValidatorService } from "./sri/xsdValidator.service";
 import { VentaService } from "./venta.service";
 
@@ -58,12 +62,24 @@ export interface Servicios {
   listasPrecio: ListaPrecioService;
   inventario: InventarioService;
   comprobantes: ComprobanteService;
+  certificados: CertificadoService;
+  firma: FirmaService;
   mesas: MesaService;
   comandas: ComandaService;
   sesiones: SessionService;
 }
 
-export function crearServicios(prisma: PrismaClient, sesiones: SessionService = new SessionService()): Servicios {
+export interface OpcionesSecretos {
+  /**
+   * Carpeta de secretos locales (clave maestra y certificados .p12): fuera de la BD y del repositorio.
+   * Los certificados van en la subcarpeta `certificados`.
+   */
+  directorioSecretos: string;
+  /** Protección de la clave maestra con el almacén del sistema operativo (Electron safeStorage) */
+  proteccionClave?: ProteccionClave;
+}
+
+export function crearServicios(prisma: PrismaClient, secretos: OpcionesSecretos, sesiones: SessionService = new SessionService()): Servicios {
   const kardexRepo = new KardexRepository();
   const kardex = new KardexService(kardexRepo);
   const giro = new GiroService(new ConfiguracionRepository());
@@ -72,7 +88,16 @@ export function crearServicios(prisma: PrismaClient, sesiones: SessionService = 
   const productos = new ProductoService(new ProductoRepository(prisma));
   const turnoRepo = new TurnoRepository();
   const cuentasPorCobrar = new CuentaPorCobrarService(prisma, new CuentaPorCobrarRepository(), turnoRepo);
-  const comprobantes = new ComprobanteService(prisma, new ComprobanteRepository(), giro, new XsdValidatorService());
+  const xsd = new XsdValidatorService();
+  const comprobanteRepo = new ComprobanteRepository();
+  const configuracionRepo = new ConfiguracionRepository();
+  const comprobantes = new ComprobanteService(prisma, comprobanteRepo, giro, xsd);
+  const claveMaestra = new ProveedorClaveMaestra({
+    directorio: secretos.directorioSecretos,
+    ...(secretos.proteccionClave !== undefined ? { proteccion: secretos.proteccionClave } : {}),
+  });
+  const certificados = new CertificadoService(prisma, configuracionRepo, claveMaestra, path.join(secretos.directorioSecretos, "certificados"));
+  const firma = new FirmaService(prisma, comprobanteRepo, certificados, xsd);
   const ventas = new VentaService(prisma, new VentaRepository(), kardex, cuentasPorCobrar, comprobantes);
   const cuentasPorPagar = new CuentaPorPagarService(prisma, new CuentaPorPagarRepository(), turnoRepo);
 
@@ -90,6 +115,8 @@ export function crearServicios(prisma: PrismaClient, sesiones: SessionService = 
     cuentasPorPagar,
     giro,
     comprobantes,
+    certificados,
+    firma,
     lotes,
     presentaciones: new PresentacionService(prisma, new PresentacionRepository()),
     listasPrecio: new ListaPrecioService(prisma, new ListaPrecioRepository(), giro),

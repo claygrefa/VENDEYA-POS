@@ -182,6 +182,9 @@ model ConfiguracionGiro {
   certIv                  String?
   certTag                 String?
   certVencimiento         DateTime?
+  certTitular             String?                     // CN del certificado (solo informativo)
+  certEmisor              String?                     // Autoridad certificadora
+  certHuella              String?                     // SHA-1 del certificado (hex)
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
 
