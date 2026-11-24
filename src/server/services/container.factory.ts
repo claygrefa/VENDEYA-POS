@@ -5,6 +5,7 @@ import path from "path";
 import type { PrismaClient } from "@prisma/client";
 import { ClienteRepository } from "../repositories/cliente.repository";
 import { CompraRepository } from "../repositories/compra.repository";
+import { ColaSriRepository } from "../repositories/colaSri.repository";
 import { ComprobanteRepository } from "../repositories/comprobante.repository";
 import { ConfiguracionRepository } from "../repositories/configuracion.repository";
 import { CuentaPorCobrarRepository } from "../repositories/cuentaPorCobrar.repository";
@@ -40,7 +41,10 @@ import { UsuarioService } from "./usuario.service";
 import { CertificadoService } from "./sri/certificado.service";
 import { ComprobanteService } from "./sri/comprobante.service";
 import { ProveedorClaveMaestra, type ProteccionClave } from "./sri/firma/claveMaestra.provider";
+import { EnvioSriService, type OpcionesEnvioSri } from "./sri/envioSri.service";
 import { FirmaService } from "./sri/firma.service";
+import { SriSoapClient, type OpcionesClienteSri } from "./sri/ws/sriSoap.client";
+import type { ClienteSri } from "./sri/ws/sriSoap.types";
 import { XsdValidatorService } from "./sri/xsdValidator.service";
 import { VentaService } from "./venta.service";
 
@@ -64,12 +68,13 @@ export interface Servicios {
   comprobantes: ComprobanteService;
   certificados: CertificadoService;
   firma: FirmaService;
+  envioSri: EnvioSriService;
   mesas: MesaService;
   comandas: ComandaService;
   sesiones: SessionService;
 }
 
-export interface OpcionesSecretos {
+export interface OpcionesServicios {
   /**
    * Carpeta de secretos locales (clave maestra y certificados .p12): fuera de la BD y del repositorio.
    * Los certificados van en la subcarpeta `certificados`.
@@ -77,9 +82,11 @@ export interface OpcionesSecretos {
   directorioSecretos: string;
   /** Protección de la clave maestra con el almacén del sistema operativo (Electron safeStorage) */
   proteccionClave?: ProteccionClave;
+  /** Conexión con el SRI: opciones del cliente SOAP real o un cliente sustituto (pruebas) */
+  sri?: { cliente?: ClienteSri; soap?: OpcionesClienteSri; envio?: OpcionesEnvioSri };
 }
 
-export function crearServicios(prisma: PrismaClient, secretos: OpcionesSecretos, sesiones: SessionService = new SessionService()): Servicios {
+export function crearServicios(prisma: PrismaClient, secretos: OpcionesServicios, sesiones: SessionService = new SessionService()): Servicios {
   const kardexRepo = new KardexRepository();
   const kardex = new KardexService(kardexRepo);
   const giro = new GiroService(new ConfiguracionRepository());
@@ -98,6 +105,7 @@ export function crearServicios(prisma: PrismaClient, secretos: OpcionesSecretos,
   });
   const certificados = new CertificadoService(prisma, configuracionRepo, claveMaestra, path.join(secretos.directorioSecretos, "certificados"));
   const firma = new FirmaService(prisma, comprobanteRepo, certificados, xsd);
+  const envioSri = new EnvioSriService(prisma, new ColaSriRepository(), firma, secretos.sri?.cliente ?? new SriSoapClient(secretos.sri?.soap), secretos.sri?.envio);
   const ventas = new VentaService(prisma, new VentaRepository(), kardex, cuentasPorCobrar, comprobantes);
   const cuentasPorPagar = new CuentaPorPagarService(prisma, new CuentaPorPagarRepository(), turnoRepo);
 
@@ -117,6 +125,7 @@ export function crearServicios(prisma: PrismaClient, secretos: OpcionesSecretos,
     comprobantes,
     certificados,
     firma,
+    envioSri,
     lotes,
     presentaciones: new PresentacionService(prisma, new PresentacionRepository()),
     listasPrecio: new ListaPrecioService(prisma, new ListaPrecioRepository(), giro),

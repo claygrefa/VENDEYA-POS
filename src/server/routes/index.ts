@@ -146,12 +146,16 @@ export function registrarRutas(server: FastifyInstance, servicios: Servicios): v
   server.get("/api/cocina/pendientes", verRestaurante, restaurante.pendientesCocina);
 
   // ── Comprobantes electrónicos SRI ─────────────────────────
-  // El envío y la autorización llegan en la Semana 11; por ahora se generan, validan y consultan.
+  // Se generan, validan, firman y se envían al SRI en segundo plano (worker de la cola).
   server.get("/api/comprobantes", permiso("sri", "leer"), comprobantes.listar);
   server.get<{ Params: { id: string } }>("/api/comprobantes/:id", permiso("sri", "leer"), comprobantes.obtener);
   server.post<{ Params: { id: string } }>("/api/ventas/:id/comprobante", permiso("sri", "crear"), comprobantes.emitirFactura);
   // Firma XAdES-BES con el certificado de la empresa (no cambia el estado del comprobante)
   server.post<{ Params: { id: string } }>("/api/comprobantes/:id/firmar", permiso("sri", "crear"), certificado.firmar);
+
+  // Cola de envíos al SRI: la procesa el worker en segundo plano; aquí se consulta y se fuerza el reintento
+  server.get("/api/sri/cola", permiso("sri", "leer"), comprobantes.estadoCola);
+  server.post<{ Params: { id: string } }>("/api/comprobantes/:id/reintentar", permiso("sri", "crear"), comprobantes.reintentar);
 
   // ── Certificado digital de firma (.p12) ───────────────────
   // La contraseña y la clave privada nunca se devuelven: la consulta solo muestra titular, emisor, huella y vigencia.

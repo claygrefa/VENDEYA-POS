@@ -7,7 +7,7 @@ import os from "os";
 import path from "path";
 import type { Producto, PrismaClient, Proveedor, TurnoCaja } from "@prisma/client";
 import { runSeed, type SeedResult } from "../../../prisma/seed";
-import { iniciarBackend, type BackendHandle } from "../../../src/server";
+import { iniciarBackend, type BackendHandle, type BackendOptions } from "../../../src/server";
 import type { Servicios } from "../../../src/server/services/container.factory";
 import { AppError } from "../../../src/server/services/appError.util";
 import type { ActorCaja } from "../../../src/server/services/turno.service";
@@ -26,13 +26,20 @@ export interface Entorno {
 
 export const PASSWORD_ADMIN = "ClaveDePrueba1";
 
-export async function crearEntorno(): Promise<Entorno> {
+export interface OpcionesEntorno {
+  sri?: BackendOptions["sri"];
+  sriWorker?: BackendOptions["sriWorker"];
+}
+
+export async function crearEntorno(opciones: OpcionesEntorno = {}): Promise<Entorno> {
   const dir = mkdtempSync(path.join(os.tmpdir(), "vendeya-it-"));
   const backend = await iniciarBackend({
     dbPath: path.join(dir, "data", "vendeya.db"),
     migrationsDir: path.resolve(__dirname, "../../../prisma/migrations"),
     port: 0,
     logLevel: "silent",
+    ...(opciones.sri !== undefined ? { sri: opciones.sri } : {}),
+    ...(opciones.sriWorker !== undefined ? { sriWorker: opciones.sriWorker } : {}),
   });
   const seed = await runSeed(backend.prisma, { adminPassword: PASSWORD_ADMIN });
   const categoria = await backend.prisma.categoria.findFirstOrThrow({ where: { nombre: "General" } });

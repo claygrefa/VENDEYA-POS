@@ -20,5 +20,13 @@ export function crearComprobanteController(servicios: Servicios) {
       const r = await servicios.comprobantes.emitirFactura(req.params.id, req.body, actorDe(req));
       return reply.status(r.creado ? 201 : 200).send(r);
     },
+
+    /** Estado de la cola de envíos al SRI de la empresa. */
+    estadoCola: async (req: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> =>
+      reply.send(await servicios.envioSri.estadoCola(actorDe(req))),
+
+    /** Fuerza un nuevo envío al SRI del comprobante (PENDIENTE, RECHAZADO o DEVUELTO). */
+    reintentar: async (req: ConId, reply: FastifyReply): Promise<FastifyReply> =>
+      reply.send(await servicios.envioSri.reintentar(req.params.id, actorDe(req))),
   };
 }

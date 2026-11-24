@@ -86,6 +86,7 @@ async function arrancar(): Promise<void> {
           },
         }
       : {}),
+    sriWorker: { habilitado: process.env["SRI_WORKER"] !== "off" },
     port: PUERTO_PREFERIDO,
     logLevel: process.env["LOG_LEVEL"] ?? (isDev ? "info" : "warn"),
   });

@@ -3,10 +3,10 @@
 ## Estado General
 - **Proyecto:** VENDEYA POS (Sistema Punto de Venta Multi-Giro & Facturación Electrónica SRI Ecuador)
 - **Horizonte:** 6 Meses (24 Semanas)
-- **Fase Actual:** MES 3 — Semana 11: cliente SOAP del SRI (recepción y autorización) + worker de la cola offline
+- **Fase Actual:** MES 3 — Semana 12: retenciones, guías de remisión, liquidaciones de compra y ATS
 - **Estado de Compilación:** ✅ `tsc --noEmit` → 0 errores | ✅ `tsconfig.node.json` → 0 errores | ✅ `tsconfig.electron.json` → 0 errores
-- **Tests:** ✅ 573/573 passed (34 archivos de prueba)
-- **Último Commit:** `feat: Semana 10 - firma XAdES-BES y cifrado AES-256-GCM del certificado`
+- **Tests:** ✅ 603/603 passed (36 archivos de prueba)
+- **Último Commit:** `feat: Semana 11 - cliente SOAP del SRI y worker de la cola offline`
 
 ---
 
@@ -27,8 +27,8 @@
 ### MES 3: Motor Tributario SRI Ecuador (100% Offline-First)
 - [x] **Semana 9 (COMPLETADA):** Generador de Clave de Acceso (49 dígitos, Módulo 11) + Constructor de XML v2.10/v2.30 para Facturas y Notas de Crédito + validación contra esquemas XSD del SRI.
 - [x] **Semana 10 (COMPLETADA):** Firmador digital XAdES-BES en Node.js compatible con certificados `.p12` de Ecuador + encriptación AES-256-GCM de credenciales del certificado.
-- [ ] **Semana 11 (ACTUAL):** Cliente SOAP para Web Services del SRI (`RecepcionComprobantesOffline` y `AutorizacionComprobantesOffline` en Pruebas y Producción) + Worker en segundo plano para cola offline (`cola_sri`).
-- [ ] **Semana 12:** Soporte para Retenciones, Guías de Remisión, Liquidaciones de Compra y generador automático de archivo XML del Anexo Transaccional Simplificado (ATS).
+- [x] **Semana 11 (COMPLETADA):** Cliente SOAP para Web Services del SRI (`RecepcionComprobantesOffline` y `AutorizacionComprobantesOffline` en Pruebas y Producción) + Worker en segundo plano para cola offline (`cola_sri`).
+- [ ] **Semana 12 (ACTUAL):** Soporte para Retenciones, Guías de Remisión, Liquidaciones de Compra y generador automático de archivo XML del Anexo Transaccional Simplificado (ATS).
 
 ### MES 4: Hardware, Red Local (LAN) y Experiencia de Caja
 - [ ] **Semana 13:** Motor de impresión térmica directa ESC/POS (USB, Ethernet, 80mm/58mm), apertura automática de gaveta de dinero y generador de RIDE en PDF A4.
@@ -406,11 +406,53 @@ Las respuestas nunca incluyen la contraseña, la clave privada, la ruta del arch
 
 **Verificación:** `tsc --noEmit` (3 tsconfig) ✅ 0 errores | `npx vitest run` ✅ 573/573 (34 archivos).
 
+### Semana 11 — 2026-11-23 ✅ COMPLETADA
+**Fuentes:** *Ficha Técnica de Comprobantes Electrónicos — Esquema Offline v2.34* (servicios `RecepcionComprobantesOffline` y `AutorizacionComprobantesOffline`). ⚠️ El texto de la ficha **no estaba disponible** en esta sesión (la búsqueda web no devolvió el documento): los estados y códigos de mensaje se tomaron del comportamiento publicado de los servicios y están aislados en constantes para poder corregirse. **Verificar contra la ficha y contra `celcer` antes de producción** (ver limitaciones).
+
+**Contrato implementado:**
+- Recepción `validarComprobante` (XML firmado en base64) → `RECIBIDA` o `DEVUELTA` con mensajes (`identificador`, `mensaje`, `informacionAdicional`, `tipo`).
+- Autorización `autorizacionComprobante` (por clave de acceso) → lista de autorizaciones: `AUTORIZADO` (número, fecha, ambiente, comprobante), `NO AUTORIZADO` (mensajes), `EN PROCESAMIENTO` o lista vacía.
+- Identificadores con significado propio: **43** (clave de acceso registrada → no es un rechazo: se consulta la autorización) y **70** (en procesamiento → se reintenta). Cualquier otra `DEVUELTA` es definitiva (DEVUELTO).
+- URL de **Pruebas** (`celcer`) y **Producción** (`cel`) según el ambiente del comprobante (`ambiente` 1/2); las URL oficiales siguen en `shared/constants/sri.constants.ts`.
+
+**Archivos:**
+- `src/server/services/sri/ws/sriSoap.types.ts` — contrato (`ClienteSri`, respuestas, mensajes) y `SriTransporteError` (todo fallo de comunicación: **siempre reintentable, nunca un rechazo**).
+- `ws/sriSoap.client.ts` — `SriSoapClient`: sobre SOAP 1.1 armado a mano sobre `http`/`https` (no depende de descargar el WSDL con Internet inestable), timeout configurable (30 s), tope de 8 MB, SOAP Fault/HTTP ≠ 2xx/XML ininteligible → `SriTransporteError`. Endpoints sustituibles para pruebas.
+- `services/sri/envioSri.service.ts` — `EnvioSriService`: firma si falta, toma el comprobante (PENDIENTE → EN_PROCESO, atómico), envía, consulta, y guarda `xmlAutorizado` (`<autorizacion>` con el comprobante en CDATA), `numeroAutorizacion`, `fechaAutorizacion` y `mensajesRespuesta`; `reintentar`, `estadoCola`, `recuperarEnProceso`. **Backoff exponencial** 30 s → 1 min → 2 min … tope 30 min; nunca se abandona un comprobante (offline-first).
+- `repositories/colaSri.repository.ts` — cola ordenada por prioridad y **fecha de emisión (cronológico, ficha 9.18)**, reclamo atómico, liberación, cierre de estado, recuperación, estado.
+- `src/server/jobs/sriWorker.job.ts` — `SriWorker`: ciclo cada 15 s (inmediato si hubo trabajo), de uno en uno; al arrancar libera lo que quedó EN_PROCESO; durante la operación libera lo abandonado hace más de 10 min; `despertar()` ante un reintento manual; `detener()` espera el envío en curso; los errores inesperados se informan sin matar el worker.
+- Integración: `server/index.ts` (`sri`, `sriWorker`; `BackendHandle.worker`, se detiene en `close`), `container.factory.ts` (`OpcionesServicios.sri`, `servicios.envioSri`), `electron/main.ts` (worker activo; `SRI_WORKER=off` lo desactiva), `comprobante.controller.ts`, `routes/index.ts`. **El worker está desactivado por defecto**: solo arranca si se pide (las pruebas nunca llaman al SRI real).
+
+**Endpoints nuevos:**
+| Ruta | Permiso |
+|---|---|
+| `GET /api/sri/cola` — conteo por estado y comprobantes en cola (intentos, último error, próximo intento; sin XML) | `sri:leer` |
+| `POST /api/comprobantes/:id/reintentar` — deja PENDIENTE y sin espera (RECHAZADO/DEVUELTO descartan la firma para re-firmar) | `sri:crear` (ADMIN y SUPERVISOR) |
+
+**Reglas:**
+- **No bloquea ventas:** el worker corre aparte, sin transacciones abiertas durante las llamadas de red; hay una prueba con un SRI que no responde mientras se siguen emitiendo facturas.
+- **Sin certificado / vencido:** el comprobante queda PENDIENTE con el motivo en `ultimoError` y se reintenta con backoff; al cargar un certificado nuevo, `reintentar` evita la espera.
+- **Idempotencia:** un comprobante AUTORIZADO/ANULADO/fuera de cola nunca se reenvía; dos procesos sobre el mismo comprobante → solo uno lo envía (reclamo atómico).
+- **Recuperación:** un cierre a mitad de un envío deja EN_PROCESO; al arrancar se libera y, si el SRI ya lo había recibido, la respuesta 43 lleva a consultar la autorización (no se duplica).
+- Al salir de la cola (AUTORIZADO, RECHAZADO, DEVUELTO) se borra su registro de `ColaSRI`.
+
+**Pruebas nuevas (30):** `tests/unit/server/sri/ws/sriSoap.client.test.ts` (8: recepción, autorización, timeout, conexión cortada, Fault, HTTP 503, XML inválido, escala del backoff, CDATA) y `tests/integration/server/envio-sri.test.ts` (22: flujo completo con firma automática, cada estado de recepción y autorización, 43/70, reintentos con espera exponencial verificada, certificado ausente/vencido, recuperación tras cierre, concurrencia, orden cronológico, worker real, SRI colgado sin afectar ventas, error inesperado, API y RBAC). Helper `tests/helpers/sriSimulado.helper.ts` (servidor SOAP local programable). La matriz RBAC cubre las 2 rutas nuevas (79).
+
+**Limitaciones conocidas:**
+- Los códigos 43/70 y los textos de estado no se contrastaron con el texto de la ficha ni con `celcer` (no hubo acceso): es lo primero que hay que verificar con un certificado real de pruebas. Códigos como 45 (secuencial registrado) se tratan como DEVUELTO definitivo.
+- Solo se prioriza por tipo (prioridad de la cola) y fecha de emisión; no hay envío por lotes ni consulta masiva.
+- Un comprobante RECHAZADO/DEVUELTO no se corrige solo: hay que arreglar la causa y usar «reintentar» (la nota de crédito necesita que su factura esté AUTORIZADA).
+- No hay detección de conectividad: se confía en el fallo de red + backoff.
+- La prueba de concurrencia mixta de `nucleo-pos.test.ts` volvió a fallar una vez en la suite completa bajo carga (pasa sola y en las corridas siguientes, 603/603); misma intermitencia documentada en la Semana 9.
+- `AUDIT_REPORT.md` sigue obsoleto (Semana 9); hay que re-ejecutar la auditoría. Ambos archivos de auditoría quedan fuera del commit.
+
+**Verificación:** `tsc --noEmit` (3 tsconfig) ✅ 0 errores | `npx vitest run` ✅ 603/603 (36 archivos).
+
 ---
 
-## Próxima Tarea Exacta (Para ejecutar ahora — Semana 11)
-1. **Cliente SOAP del SRI** (`src/server/services/sri/ws/`): `RecepcionComprobantesOffline` (`validarComprobante`, envía el XML firmado en base64) y `AutorizacionComprobantesOffline` (`autorizacionComprobante` por clave de acceso) en **Pruebas** (`celcer`) y **Producción** (`cel`); URLs ya en `src/shared/constants/sri.constants.ts`. Antes de codificar, leer en la Ficha Técnica v2.34 los estados (`RECIBIDA`, `DEVUELTA`, `AUTORIZADO`, `NO AUTORIZADO`, `EN PROCESAMIENTO`), los mensajes/identificadores de error y el manejo de claves de acceso ya registradas (código 43) y secuenciales ya usados (45). Timeouts, errores de red y respuestas SOAP inesperadas deben tratarse como reintentables, no como rechazo.
-2. **Worker de la cola offline** (`ColaSRI`): tomar los comprobantes PENDIENTE (firmándolos si aún no tienen `xmlFirmado`), enviarlos, consultar la autorización, guardar `xmlAutorizado`, `numeroAutorizacion`, `fechaAutorizacion` y `mensajesRespuesta`, y pasar a AUTORIZADO / RECHAZADO / DEVUELTO; reintentos con *backoff* exponencial y `proximoIntento`; nunca debe bloquear ni retrasar una venta, debe tolerar cortes de Internet y de energía (estado EN_PROCESO recuperable al reiniciar) y respetar el orden cronológico de la ficha (9.18).
-3. **Integración:** arrancar/detener el worker con el backend (`iniciarBackend`); endpoints para consultar el estado de la cola y forzar el reintento de un comprobante (`sri:crear`); el SRI se simula en las pruebas con un servidor SOAP local (nunca llamar al SRI real desde los tests).
-4. **Pruebas:** respuestas de recepción y autorización de cada estado, errores de red/timeout con reintento, recuperación tras reinicio con EN_PROCESO, idempotencia (un comprobante ya autorizado no se reenvía), certificado vencido o ausente (el comprobante queda PENDIENTE con mensaje claro), orden cronológico, matriz RBAC actualizada.
-5. Verificar con `npx tsc --noEmit` y `npm test`; actualizar este archivo y commit `feat: Semana 11 - cliente SOAP del SRI y worker de la cola offline`.
+## Próxima Tarea Exacta (Para ejecutar ahora — Semana 12)
+1. **Retenciones (07), Guías de Remisión (06), Liquidaciones de Compra (03)** y, si cabe, Notas de Débito (05): descargar los XSD oficiales del SRI (como en la Semana 9; no escribirlos a mano) y registrarlos en `xsd/ORIGEN.md`; constructores XML puros en `comprobanteXml.builder.ts` (o archivos por tipo), mapeo desde compras (liquidación, retención sobre compras/gastos) y validación XSD con `XsdValidatorService`. Reutilizar clave de acceso, secuenciales, firma y la cola de la Semana 10–11 (prioridad 1 para retenciones). Respetar los flags `emitirRetenciones`, `emitirGuiasRemision` y `emitirLiquidaciones` de `ConfiguracionGiro`.
+2. **Anexo Transaccional Simplificado (ATS)**: generador del XML mensual (ventas por tipo de comprobante, compras con sus retenciones, anulados) y su validación contra el XSD oficial del ATS; endpoint de descarga por periodo (`reportes:exportar`).
+3. **Pruebas:** XML de cada comprobante válido contra su XSD, firma y envío por el SRI simulado, totales del ATS contra datos de ventas/compras reales del entorno de pruebas, matriz RBAC actualizada.
+4. Antes de empezar: contrastar con la ficha (y, si se consigue, con `celcer`) los códigos de respuesta de la Semana 11 y re-ejecutar la auditoría independiente (`REVIEWER_AGENT.md`).
+5. Verificar con `npx tsc --noEmit` y `npm test`; actualizar este archivo y commit `feat: Semana 12 - retenciones, guias, liquidaciones y ATS`.

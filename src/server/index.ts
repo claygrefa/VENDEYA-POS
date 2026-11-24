@@ -11,6 +11,8 @@ import { registrarRutas } from "./routes";
 import { AppError, type CodigoError } from "./services/appError.util";
 import { crearServicios, type Servicios } from "./services/container.factory";
 import type { ProteccionClave } from "./services/sri/firma/claveMaestra.provider";
+import { SriWorker, type OpcionesSriWorker } from "./jobs/sriWorker.job";
+import type { OpcionesServicios } from "./services/container.factory";
 import { MigrationService, type ResultadoMigracion } from "./services/migration.service";
 
 const HTTP_POR_CODIGO: Record<CodigoError, number> = {
@@ -72,6 +74,13 @@ export interface BackendOptions {
   directorioSecretos?: string;
   /** Protección de la clave maestra con el sistema operativo (Electron safeStorage); sin ella queda en el archivo */
   proteccionClave?: ProteccionClave;
+  /** Conexión con el SRI (cliente SOAP, endpoints y espera de cada llamada); por defecto los Web Services oficiales */
+  sri?: OpcionesServicios["sri"];
+  /**
+   * Worker en segundo plano que envía la cola al SRI. Desactivado por defecto: solo arranca si se indica
+   * (la aplicación de escritorio lo activa; las pruebas no deben llamar al SRI).
+   */
+  sriWorker?: (OpcionesSriWorker & { habilitado: boolean }) | undefined;
   /** Puerto preferido; si está ocupado se usa uno libre. 0 = libre directamente. */
   port: number;
   host?: string;
@@ -82,6 +91,8 @@ export interface BackendHandle {
   server: FastifyInstance;
   prisma: PrismaClient;
   servicios: Servicios;
+  /** Worker de la cola del SRI (null si no está habilitado) */
+  worker: SriWorker | null;
   host: string;
   port: number;
   url: string;
@@ -99,6 +110,7 @@ export async function iniciarBackend(opciones: BackendOptions): Promise<BackendH
   mkdirSync(path.dirname(opciones.dbPath), { recursive: true });
   const prisma = crearPrismaPara(opciones.dbPath);
   let server: FastifyInstance | null = null;
+  let worker: SriWorker | null = null;
 
   try {
     const migraciones = await new MigrationService(prisma, {
@@ -113,7 +125,9 @@ export async function iniciarBackend(opciones: BackendOptions): Promise<BackendH
     const servicios = crearServicios(prisma, {
       directorioSecretos: opciones.directorioSecretos ?? path.join(path.dirname(opciones.dbPath), "secretos"),
       ...(opciones.proteccionClave !== undefined ? { proteccionClave: opciones.proteccionClave } : {}),
+      ...(opciones.sri !== undefined ? { sri: opciones.sri } : {}),
     });
+    worker = opciones.sriWorker?.habilitado === true ? new SriWorker(servicios.envioSri, opciones.sriWorker) : null;
     server = await buildServer(servicios, opciones.logLevel ?? "info");
 
     try {
@@ -126,21 +140,25 @@ export async function iniciarBackend(opciones: BackendOptions): Promise<BackendH
     const direccion = server.server.address();
     const puerto = typeof direccion === "object" && direccion !== null ? direccion.port : opciones.port;
     const servidor = server;
+    await worker?.iniciar();
 
     return {
       server: servidor,
       prisma,
       servicios,
+      worker,
       host,
       port: puerto,
       url: `http://${host}:${puerto}`,
       migraciones,
       close: async () => {
+        await worker?.detener();
         await servidor.close();
         await prisma.$disconnect();
       },
     };
   } catch (e) {
+    await worker?.detener().catch(() => undefined);
     if (server !== null) await server.close().catch(() => undefined);
     await prisma.$disconnect().catch(() => undefined);
     throw e;
