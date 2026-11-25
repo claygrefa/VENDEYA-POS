@@ -7,7 +7,7 @@
 import { contextBridge, ipcRenderer } from "electron";
 
 /** Versión de la aplicación expuesta al renderer */
-const appVersion: string = process.env?.["npm_package_version"] ?? "0.1.0";
+const appVersion: string = process.env?.["npm_package_version"] ?? "1.0.0";
 
 /** API expuesta al renderer a través de contextBridge */
 export interface VendeyaAPI {

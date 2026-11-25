@@ -16,7 +16,7 @@ export function crearHealthController(servicios: Servicios) {
       return reply.status(db === "ok" ? 200 : 503).send({
         status: db === "ok" ? "ok" : "degraded",
         db,
-        version: process.env["npm_package_version"] ?? "0.1.0",
+        version: process.env["npm_package_version"] ?? "1.0.0",
         uptime: process.uptime(),
         ts: new Date().toISOString(),
       });

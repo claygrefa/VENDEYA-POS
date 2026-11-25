@@ -88,7 +88,7 @@ export async function buildServer(servicios: Servicios, logLevel = "info"): Prom
     }
     const status = (error as { statusCode?: number }).statusCode;
     if (status !== undefined && status >= 400 && status < 500) {
-      return reply.status(status).send({ error: "SOLICITUD_INVALIDA", mensaje: error.message });
+      return reply.status(status).send({ error: "SOLICITUD_INVALIDA", mensaje: error instanceof Error ? error.message : "Solicitud inválida" });
     }
     servicios.telemetria.registrarError(error); // solo guarda algo si el administrador dio su consentimiento
     req.log.error(error);

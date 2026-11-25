@@ -1,6 +1,6 @@
 {
   "name": "vendeya-pos",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Sistema POS empresarial multi-giro con facturación electrónica SRI Ecuador – Offline-First",
   "author": "VENDEYA",
   "license": "UNLICENSED",
@@ -29,13 +29,13 @@
     "prisma:seed": "ts-node --project tsconfig.node.json prisma/seed.ts"
   },
   "dependencies": {
-    "@fastify/cors": "^9.0.1",
-    "@fastify/websocket": "^10.0.1",
+    "@fastify/cors": "^10.1.0",
+    "@fastify/websocket": "^11.3.7",
     "@prisma/client": "^5.22.0",
     "@xmldom/xmldom": "^0.8.15",
     "bwip-js": "^4.11.4",
     "electron-updater": "^6.3.9",
-    "fastify": "^4.28.1",
+    "fastify": "^5.12.8",
     "iconv-lite": "^0.7.3",
     "node-forge": "^1.3.1",
     "pdfkit": "~0.20.1",
@@ -43,7 +43,7 @@
     "ws": "^8.23.0",
     "xml-crypto": "^6.4.0",
     "xml2js": "^0.6.2",
-    "xmlbuilder2": "^3.1.1",
+    "xmlbuilder2": "^4.0.3",
     "xmllint-wasm": "^5.3.0",
     "zod": "^3.23.8"
   },

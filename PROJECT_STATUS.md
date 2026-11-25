@@ -3,10 +3,10 @@
 ## Estado General
 - **Proyecto:** VENDEYA POS (Sistema Punto de Venta Multi-Giro & Facturación Electrónica SRI Ecuador)
 - **Horizonte:** 6 Meses (24 Semanas)
-- **Fase Actual:** MES 6 — Semana 24: corrección final y lanzamiento v1.0.0
+- **Fase Actual:** Plan de 24 semanas completado — candidata a v1.0.0 (NO publicada; ver «Próxima Tarea Exacta»)
 - **Estado de Compilación:** ✅ `tsc --noEmit` → 0 errores | ✅ `tsconfig.node.json` → 0 errores | ✅ `tsconfig.electron.json` → 0 errores
-- **Tests:** ✅ 1069/1069 passed (71 archivos de prueba)
-- **Último Commit:** `feat: Semana 23 - centro de ayuda y telemetria`
+- **Tests:** ✅ 71/71 archivos (≈ 1069 pruebas) passed
+- **Último Commit:** `feat: Semana 24 - release v1.0.0` (sin etiqueta `v1.0.0`: aún no se puede publicar)
 
 ---
 
@@ -46,7 +46,7 @@
 - [x] **Semana 21 (COMPLETADA):** Pruebas de estrés y rendimiento con bases de datos de 20,000+ productos y simulación de 1,500 ventas diarias en hardware de gama baja/media.
 - [x] **Semana 22 (COMPLETADA, parcial: ver «No resuelto»):** Auditoría de seguridad (protección de SQLite, sanitización de entradas, permisos RBAC por rol de cajero/supervisor/admin, respaldos automáticos locales y en nube).
 - [x] **Semana 23 (COMPLETADA, parcial: ver «No resuelto»):** Centro de ayuda integrado en la aplicación, guías rápidas para cajeros/contadores y telemetría opcional de errores.
-- [ ] **Semana 24 (ACTUAL):** Corrección final de detalles, congelamiento de código, pruebas en máquinas limpias (Windows 10/11 y macOS) y empaquetado oficial **v1.0.0 Comercial**.
+- [x] **Semana 24 (COMPLETADA como candidata; publicación pendiente, ver «No verificado»):** Corrección final de detalles, congelamiento de código, pruebas en máquinas limpias (Windows 10/11 y macOS) y empaquetado oficial **v1.0.0 Comercial**.
 
 ---
 
@@ -833,12 +833,43 @@ La matriz RBAC cubre las 4 rutas nuevas (77 entradas en la tabla; el recuento de
 
 ---
 
-## Próxima Tarea Exacta (Para ejecutar ahora — Semana 24)
-**Cierre del proyecto: corrección final, congelamiento de código, pruebas en máquinas limpias y empaquetado oficial v1.0.0 Comercial.**
+### Semana 24 — 2026-11-25 ✅ COMPLETADA como **candidata a v1.0.0** (NO publicada: ver «No verificado» y «Bloqueos para publicar»)
+Código congelado en la versión `1.0.0`; instalador de Windows generado; **no se creó la etiqueta `v1.0.0` ni se publicó nada**, porque no se cumplieron las condiciones fijadas para ello (equipo limpio sin probar, instalador sin firmar, sin repositorio de releases, Electron con vulnerabilidades conocidas).
 
-**Deudas que bloquean o condicionan el lanzamiento (resolver o declarar expresamente):** (a) repetir contra `celcer` una consulta real y una factura completa con certificado de pruebas del SRI (`ECONNRESET`); (b) re-ejecutar la auditoría independiente (`REVIEWER_AGENT.md`) y `npm audit`; (c) **probar en equipos reales**: ticket/RIDE, balanza, dos cajas en red, instalador en máquina limpia (procedimiento en la Semana 20), `npm run test:paquete`, rendimiento en gama baja, y el flujo de **restaurar** una copia en una computadora nueva; (d) nota de débito (05) y `ats.xsd` oficial; (e) gestión de usuarios (con cierre de sesiones al desactivar/cambiar rol) y de sucursales/puntos de emisión; pantallas de mesas/comandas y de retenciones/liquidaciones/guías (hoy solo API); (f) servidor de licencias real y `electron/licencia.config.json`; (g) certificados de firma de código (Windows/Apple), repositorio de releases en GitHub, CI/publicación y una actualización real de punta a punta; (h) íconos y marca definitivos; (i) endurecer el licenciamiento ante edición directa de la base; (j) ampliar márgenes de las pruebas sensibles al tiempo; (k) TLS en la LAN y cifrado en reposo de la base; (l) servidor de telemetría real o decidir no activarlo en v1.0.0.
+**Revisión y congelamiento**
+- Auditoría de estructura (AGENTS.md §5): sin `TODO`/`FIXME`/funciones vacías en `src/`, `electron/`, `prisma/` ni `tests/` (única coincidencia: la palabra «TODO» en el título de una prueba); la raíz solo contiene configuración estándar y carpetas (`out/`, `release/`, `dist*/` ignoradas por git); `AUDIT_REPORT.md` y `REVIEWER_AGENT.md` siguen sin versionar a propósito.
+- Versión `1.0.0` en `package.json`/`package-lock.json` y en los valores de respaldo de `health.controller.ts` y `preload.ts`.
+- **`npm audit`** (dependencias de producción): de 5 hallazgos altos se corrigieron 4 actualizando **Fastify 4 → 5.12.8** (con `@fastify/cors` 10 y `@fastify/websocket` 11; corrige 9 avisos de Fastify y de `find-my-way`) y **xmlbuilder2 3 → 4** (retira `js-yaml` 3.x vulnerable). El único cambio de código fue tipar `error` como `unknown` en el manejador de errores. Todas las pruebas, el empaquetado y el humo del paquete pasan con las versiones nuevas. **Queda `zod` 3.25 (aviso alto: agotamiento de memoria al validar colecciones enormes con restricciones)**: la corrección exige Zod 4 (cambio mayor que toca todos los esquemas); se acepta temporalmente porque el servidor limita el cuerpo a 5 MB y escucha solo en `127.0.0.1` salvo que el administrador active la red local. **Pendiente de decisión antes de publicar.**
+- **`npm audit` completo (incluye herramientas de desarrollo):** además aparecen avisos en `electron` (**la versión incluida, 33.4.x, está dentro del rango vulnerable `<=42.11.15`**), `app-builder-lib`/`builder-util-runtime`/`extract-zip`/`tar` (herramientas de empaquetado, no viajan en el instalador), `esbuild`/`vitest`/`tinypool`/`glob`/`minimatch` (solo desarrollo). **Subir Electron a una versión soportada es la tarea de seguridad más importante antes de publicar**; no se hizo porque el proceso de Electron no se puede ejecutar en esta sesión y un salto de varias versiones mayores (Chromium, Node, `safeStorage`, `electron-updater`) sin poder abrir la aplicación sería un riesgo ciego.
+- Pruebas frágiles por tiempo, endurecidas: la «ráfaga del escáner» usa un reloj controlado (el detector mide pausas entre teclas y fallaba con la máquina cargada), la búsqueda con *debounce* tiene margen de 8 s y el margen general de Testing Library pasó de 1 s a 6 s (`tests/helpers/renderer/entorno.tsx`). Antes de este ajuste fallaban 4 pruebas de interfaz en las corridas completas cargadas.
 
-1. **Congelamiento y revisión:** revisar el código en busca de `TODO`, funciones vacías, código muerto y archivos huérfanos (auditoría de estructura de AGENTS.md §5); `npm audit` y actualización/fijado de dependencias vulnerables; versión `1.0.0` en `package.json`; CHANGELOG de lo entregado.
-2. **Pruebas en máquinas limpias (Windows 10/11 y macOS):** seguir el procedimiento de la Semana 20 con el instalador **firmado** (si hay certificado) o declarar que se probó sin firmar; completar el asistente, vender, cerrar turno, respaldar y restaurar, actualizar encima, desinstalar conservando los datos. Registrar cada resultado (qué se probó y qué no) en PROJECT_STATUS.
-3. **Empaquetado oficial v1.0.0:** `electron-builder` para Windows (y macOS si hay un Mac), `npm run test:paquete`, `latest.yml`; etiqueta `v1.0.0` y publicación (GitHub Releases) **solo si están el repositorio y los secretos**; si no, dejar el procedimiento exacto y el instalador local.
-4. **Cierre:** `tsc --noEmit` (3 tsconfig) y `npm test` en verde; actualizar PROJECT_STATUS con el estado final, límites conocidos y lista de lo no verificado (sin ocultar nada); commit `feat: Semana 24 - release v1.0.0` (y etiqueta `v1.0.0` solo si todo lo anterior se cumplió).
+**Empaquetado**
+- `npm run build` (prisma generate, 3 compilaciones, Vite) ✅. `electron-builder --win` generó **`VENDEYA-POS-Setup-1.0.0.exe`** (≈ 100 MB, NSIS de un clic por usuario) con `latest.yml`, `.blockmap` y la carpeta `win-unpacked`, en `release/v1.0.0/` (ignorada por git). La carpeta `release/win-unpacked` de la Semana 20 estaba bloqueada por un proceso o filtro que no se pudo identificar (ningún proceso la tenía abierta), así que se usó otra carpeta de salida (`--config.directories.output=release/v1.0.0`). SHA-512 del instalador en `latest.yml`.
+- **Firma de código: omitida** (no hay certificado): el instalador es **sin firmar**, Windows SmartScreen mostrará el aviso. No se construyó el `.dmg` (hace falta un Mac).
+- `npm run test:paquete -- release/v1.0.0/win-unpacked` ✅ **13/13 comprobaciones** del contenido (12 migraciones desde `resources/`, alta, login con 60 permisos, licencia no requerida, XSD, Code128, PDF, `serialport`, respaldo verificado, el `app.asar` sin código fuente/bases de datos/certificados/`.env`, motor de Prisma desempaquetado) **con Fastify 5 dentro del paquete**.
+
+**No verificado (importante, sin ocultar nada)**
+- **El ejecutable empaquetado no arranca en esta sesión** (termina al instante con código 3 sin escribir nada, igual que en la Semana 20; los procesos de Electron no pueden escribir fuera de la carpeta del proyecto aquí). Es una restricción del entorno, pero **la aplicación completa (ventana, IPC, asistente, Electron 33 + Fastify 5) no se ha visto funcionando con esta versión**.
+- **Instalar, actualizar sobre una versión previa, desinstalar conservando datos y la máquina limpia (Windows 10/11 y macOS) NO se probaron** (SmartScreen bloqueó el instalador sin firmar en la Semana 20 y no se esquivó). Tampoco la restauración de una copia en un equipo nuevo.
+- Sin probar con equipos reales: impresora térmica/gaveta, balanza, lector de códigos, dos cajas en red, rendimiento en gama baja. Sin servidor real de licencias, de actualizaciones (GitHub Releases) ni de telemetría. El CI/publicación nunca se ejecutó.
+- Contra el SRI solo se probó con un cliente simulado; la prueba real contra `celcer` (con el `ECONNRESET` pendiente) **no se hizo**: ninguna factura de esta versión fue autorizada por el SRI real.
+
+**Notas de la versión 1.0.0 (lo entregado, por semana)**
+Cimientos y base de datos (S1–4) · núcleo POS, inventario y turnos con cierre ciego, cartera, retail, farmacia y restaurante (S5–8; la interfaz de mesas aún no existe) · motor tributario SRI: clave de acceso, XML v2.10/2.30 con XSD, firma XAdES-BES con `.p12` cifrado AES-256-GCM, cola offline con reintentos, retenciones/liquidaciones/guías/ATS (S9–12) · impresión térmica y RIDE, periféricos y red local con sincronización (S13–14) · interfaz POS y vistas de gestión (S15–16) · asistente inicial, auto-actualización con respaldo previo, licenciamiento con gracia sin conexión e instalador (S17–20) · rendimiento a 138 000 ventas con 8 cajas (S21) · auditoría de seguridad, freno a fuerza bruta, respaldos cifrados (S22) · centro de ayuda, restauración guiada y telemetría opcional (S23) · dependencias actualizadas y paquete 1.0.0 (S24).
+
+**Límites conocidos del producto** (acumulados): ver cada semana. Los principales: base SQLite sin cifrar en reposo; LAN sin TLS; sin gestión de usuarios ni de sucursales; sin pantallas de mesas/comandas ni de retenciones/liquidaciones/guías; sin nota de débito ni `ats.xsd` oficial; ATS y reportes de 90 días tardan segundos; licenciamiento e instalación son un estorbo, no una barrera.
+
+**Verificación:** `tsc --noEmit` (3 tsconfig) ✅ | `npx vitest run` ✅ 71/71 archivos (≈ 1069 pruebas) | `npm run build` ✅ | instalador `1.0.0` generado ✅ | `test:paquete` ✅ 13/13 (arranque del ejecutable ✗ por el entorno).
+
+---
+
+## Próxima Tarea Exacta (Antes de publicar v1.0.0 — fuera de esta sesión: requiere equipos y credenciales reales)
+El plan de 24 semanas está ejecutado; **el producto no debe publicarse todavía**. Lista de verificación en orden de prioridad:
+
+1. **Actualizar Electron** a una versión con soporte (hoy 33.x, con avisos altos) y volver a pasar `tsc`, `npm test`, `npm run build`, `test:paquete`; revisar `safeStorage`, `electron-updater` y `serialport`/`@prisma` nativos; arrancar la aplicación **en un equipo real** (aquí no se puede). Decidir sobre **Zod 4** (aviso alto).
+2. **Máquina limpia Windows 10/11 (y un Mac para el `.dmg`)** con el procedimiento de la Semana 20: instalar, asistente, vender, cerrar turno, respaldar y **restaurar**, actualizar encima, desinstalar conservando `%APPDATA%/vendeya-pos`. Anotar resultados aquí.
+3. **Certificado de firma de código** (Windows y Apple), `verifyUpdateCodeSignature: true`, repositorio de releases en GitHub con los secretos (`WIN_CSC_*`, `MAC_CSC_*`, `APPLE_*`), CI/`release.yml` y una **actualización real de punta a punta**; solo entonces etiqueta `v1.0.0` (`git tag v1.0.0`) y publicación.
+4. **SRI real:** consulta y factura completa en `celcer` con certificado de pruebas (`ECONNRESET`), luego producción; nota de débito y `ats.xsd` oficial.
+5. **Equipos reales:** ticket/RIDE, gaveta, balanza, lector, dos cajas en red, rendimiento en gama baja.
+6. Servidor de licencias real y `electron/licencia.config.json`; servidor de telemetría (o dejarla sin destino); íconos y marca definitivos.
+7. Re-ejecutar la auditoría independiente (`REVIEWER_AGENT.md`); funciones pendientes de producto: gestión de usuarios y sucursales (con cierre de sesiones), pantallas de mesas/retenciones/guías, TLS en la LAN y cifrado en reposo de la base.

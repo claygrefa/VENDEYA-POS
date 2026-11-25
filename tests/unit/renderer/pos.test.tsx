@@ -3,7 +3,7 @@
 // tests/unit/renderer/pos.test.tsx — Pantalla de venta: búsqueda, escáner, atajos, cobro y errores del servidor
 // ============================================================
 import { screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { VentaInputSchema } from "../../../src/shared/schemas/venta.schema";
 import { useCarrito } from "../../../src/renderer/store/carrito.store";
 import { useSesion } from "../../../src/renderer/store/sesion.store";
@@ -59,12 +59,13 @@ describe("Búsqueda y carrito", () => {
     const { usuario } = renderizarPos({ api, retardo: 0 });
     await screen.findByRole("button", { name: "Agregar Arroz 1kg" });
     await usuario.type(screen.getByLabelText("Buscar producto"), "queso");
-    await waitFor(() => expect(screen.queryByRole("button", { name: "Agregar Arroz 1kg" })).not.toBeInTheDocument());
+    // Margen amplio: la consulta es diferida y, con la máquina cargada, el dibujo puede tardar más de 1 s
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Agregar Arroz 1kg" })).not.toBeInTheDocument(), { timeout: 8_000 });
     expect(screen.getByRole("button", { name: "Agregar Queso fresco" })).toBeInTheDocument();
     expect(api.llamadas.some((l) => l.ruta === "/api/productos" && l.parametros.get("search") === "queso")).toBe(true);
     await usuario.clear(screen.getByLabelText("Buscar producto"));
     await usuario.type(screen.getByLabelText("Buscar producto"), "zzz");
-    expect(await screen.findByText(/Sin resultados/)).toBeInTheDocument();
+    expect(await screen.findByText(/Sin resultados/, undefined, { timeout: 8_000 })).toBeInTheDocument();
   });
 
   it("editar una línea: descuento en porcentaje y cantidad recalculan los totales; un descuento inválido se rechaza", async () => {
@@ -90,12 +91,19 @@ describe("Búsqueda y carrito", () => {
 });
 
 describe("Escáner y teclado", () => {
+  afterEach(() => vi.restoreAllMocks());
+
   it("una ráfaga rápida + Enter es un escaneo: se resuelve en el servidor y no queda texto en la búsqueda", async () => {
     const api = servidor();
     const { usuario } = renderizarPos({ api });
     await screen.findByRole("button", { name: "Agregar Arroz 1kg" });
     await usuario.click(screen.getByLabelText("Buscar producto"));
+    // El detector mide el tiempo entre teclas: con la máquina cargada, las teclas «instantáneas» de la prueba llegarían con pausas de
+    // cientos de ms y parecerían digitación. Reloj propio: cada lectura avanza 2 ms, como un lector real.
+    let t = performance.now();
+    vi.spyOn(performance, "now").mockImplementation(() => (t += 2));
     await usuario.keyboard("7861234567890{Enter}");
+    vi.restoreAllMocks();
     await waitFor(() => expect(screen.getByRole("list", { name: "Líneas de la venta" })).toHaveTextContent("Café molido 250g"));
     expect(api.llamadasA("GET /api/escaneo/7861234567890")).toHaveLength(1);
     expect(screen.getByLabelText("Buscar producto")).toHaveValue("");

@@ -3,7 +3,7 @@
 // ============================================================
 import "@testing-library/jest-dom/vitest";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { render } from "@testing-library/react";
+import { configure, render } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { WebSocketLike } from "../../../src/server/services/sync/syncCliente";
 import { AplicacionPos, crearQueryClient } from "../../../src/renderer/App";
@@ -14,6 +14,10 @@ import type { ProductoPos, PuntoEmisionPos, TurnoPos, UsuarioSesion } from "../.
 import { useCarrito } from "../../../src/renderer/store/carrito.store";
 import { useNavegacion } from "../../../src/renderer/store/navegacion.store";
 import { useSesion } from "../../../src/renderer/store/sesion.store";
+
+// Con la máquina cargada (suite completa, equipo modesto) el dibujo y el backend real pueden tardar más del segundo que da Testing Library
+// por omisión: un margen mayor no alarga las pruebas que pasan y evita fallos que no son del producto.
+configure({ asyncUtilTimeout: 6_000 });
 
 // ── API simulada ─────────────────────────────────────────────
 
