@@ -17,6 +17,9 @@ import type { EstadoActualizacion, ResultadoInstalacion } from "../../src/shared
 export interface AutoUpdaterLike {
   autoDownload: boolean;
   autoInstallOnAppQuit: boolean;
+  /** Canal de publicación: «latest» (estable) o «beta» */
+  channel?: string | null;
+  allowPrerelease?: boolean;
   checkForUpdates(): Promise<unknown>;
   quitAndInstall(esSilencioso?: boolean, ejecutarDespues?: boolean): void;
   on(evento: string, escucha: (...args: unknown[]) => void): unknown;
@@ -30,6 +33,8 @@ export interface OpcionesActualizador {
   respaldar: (version: string) => Promise<string | null>;
   habilitado: boolean;
   motivoDeshabilitado?: string;
+  /** «beta» recibe también las versiones de prueba (prerelease); cualquier otro valor o ninguno = estable */
+  canal?: string | undefined;
   /** Cada cuánto se busca (default 4 h) */
   intervaloMs?: number;
   /** Espera antes de la primera búsqueda (default 60 s) */
@@ -73,6 +78,7 @@ export class ActualizadorApp {
     const u = this.o.updater;
     u.autoDownload = true; // descarga silenciosa en segundo plano
     u.autoInstallOnAppQuit = true; // si no se pide el reinicio, se instala al cerrar
+    configurarCanal(u, this.o.canal);
 
     u.on("checking-for-update", () => {
       if (this.actual.tipo !== "descargando" && this.actual.tipo !== "lista") this.fijar({ tipo: "buscando" });
@@ -177,6 +183,14 @@ export class ActualizadorApp {
     this.actual = estado;
     this.o.publicar(estado);
   }
+}
+
+/** Estable por omisión; solo `beta` (sin importar mayúsculas) activa las versiones de prueba. Devuelve el canal aplicado. */
+export function configurarCanal(u: AutoUpdaterLike, canal: string | undefined): "latest" | "beta" {
+  const beta = canal?.trim().toLowerCase() === "beta";
+  u.channel = beta ? "beta" : "latest";
+  u.allowPrerelease = beta;
+  return beta ? "beta" : "latest";
 }
 
 function versionDe(info: unknown): string {

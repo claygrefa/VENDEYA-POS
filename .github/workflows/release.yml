@@ -1,0 +1,96 @@
+# Publicación de una versión: se dispara al crear una etiqueta vX.Y.Z (o vX.Y.Z-beta.N para el canal de pruebas).
+#   git tag v1.2.0 && git push origin v1.2.0
+# Verifica, construye los instaladores FIRMADOS y los publica como GitHub Release junto con latest.yml / latest-mac.yml (lo que lee electron-updater).
+#
+# Secretos del repositorio (Settings › Secrets and variables › Actions). Nada de esto va en el código:
+#   WIN_CSC_LINK, WIN_CSC_KEY_PASSWORD   certificado de firma de código de Windows (.pfx en base64) y su contraseña
+#   MAC_CSC_LINK, MAC_CSC_KEY_PASSWORD   certificado «Developer ID Application» (.p12 en base64) y su contraseña
+#   APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID   notarización de macOS
+# GITHUB_TOKEN lo aporta Actions. Sin los secretos, la compilación FALLA a propósito (forceCodeSigning): no se publica nada sin firmar.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  verificar:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: La etiqueta debe coincidir con la versión de package.json
+        shell: bash
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if [ "v${version}" != "${GITHUB_REF_NAME}" ]; then
+            echo "La etiqueta ${GITHUB_REF_NAME} no coincide con package.json (v${version})"; exit 1
+          fi
+      - run: npm ci
+      - run: npx prisma generate
+      - run: |
+          npx tsc --noEmit
+          npx tsc --noEmit -p tsconfig.node.json
+          npx tsc --noEmit -p tsconfig.electron.json
+      - run: npm test
+
+  windows:
+    needs: verificar
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: |
+          npm run prisma:generate
+          npm run build:main
+          npm run build:vite
+      - name: Instalador NSIS firmado y publicación
+        shell: bash
+        env:
+          CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tipo=release
+          case "${GITHUB_REF_NAME}" in *-*) tipo=prerelease ;; esac
+          npx electron-builder --win --x64 --publish always -c.forceCodeSigning=true "-c.publish.releaseType=${tipo}"
+
+  macos:
+    needs: verificar
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: |
+          npm run prisma:generate
+          npm run build:main
+          npm run build:vite
+      - name: DMG firmado, notarizado y publicación
+        env:
+          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tipo=release
+          case "${GITHUB_REF_NAME}" in *-*) tipo=prerelease ;; esac
+          npx electron-builder --mac --publish always -c.forceCodeSigning=true -c.mac.notarize=true "-c.publish.releaseType=${tipo}"

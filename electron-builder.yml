@@ -20,22 +20,23 @@ asarUnpack:
 # better-sqlite3 no se usa (SQLite se accede vía Prisma) y serialport usa N-API: no hay módulos que recompilar para Electron.
 npmRebuild: false
 
+# IMPORTANTE: electron-builder IGNORA esta lista global en una plataforma que defina sus propios `files` (win, mac): por eso la misma
+# lista común va repetida allí. Si se cambia una, cambiar la otra (tests/unit/electron/paquete.test.ts comprueba que coincidan).
 files:
   - dist/**/*
   - dist-electron/**/*
   # Servidor de licencias de esta compilación (URL y clave pública; opcional: sin él el licenciamiento queda desactivado)
   - electron/licencia.config.json
-  # El cliente de Prisma generado (con el motor nativo) vive en la carpeta oculta node_modules/.prisma, que el recolector de
-  # dependencias de electron-builder no incluye por sí solo (no es un paquete): se copia explícitamente.
-  - from: node_modules/.prisma/client
-    to: node_modules/.prisma/client
-  # serialport trae binarios de todas las plataformas: solo se necesita Windows x64
-  - "!node_modules/@serialport/bindings-cpp/prebuilds/{android-*,darwin-*,linux-*,win32-arm64,win32-ia32}"
   - "!node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}"
   - "!node_modules/*/{test,__tests__,tests,powered-test,example,examples}"
   - "!node_modules/*.d.ts"
   - "!node_modules/.bin"
   - "!dist-electron/**/*.map"
+  # Lo que es del equipo de desarrollo NUNCA viaja en un instalador: código fuente, pruebas, salidas de compilación, informes internos,
+  # variables de entorno y bases de datos de desarrollo. Las migraciones y el schema van aparte (extraResources). tests/unit/electron/paquete.test.ts lo vigila.
+  - "!{src,tests,prisma,release,out,dist-node,.github,.vscode,docs}/**"
+  - "!{.env,.env.*,.gitignore,AGENTS.md,AUDIT_REPORT.md,REVIEWER_AGENT.md,PROJECT_STATUS.md,tailwind.config.ts,postcss.config.cjs,vite.config.ts,vitest.config.ts,tsconfig*.json}"
+  - "!**/*.{db,db-journal,db-wal,db-shm,p12,pfx,pem,key}"
 
 extraResources:
   - from: prisma/migrations
@@ -43,12 +44,45 @@ extraResources:
   - from: prisma/schema.prisma
     to: prisma/schema.prisma
 
+# ── Windows: instalador NSIS de un clic, por usuario (no pide administrador) ──
+# Firma de código: electron-builder firma solo si encuentra el certificado en las variables de entorno CSC_LINK (archivo .pfx o su
+# contenido en base64) y CSC_KEY_PASSWORD. NUNCA se escribe aquí ni en el repositorio. El flujo de publicación (.github/workflows/release.yml)
+# exige la firma con -c.forceCodeSigning=true. Sin firma, Windows SmartScreen avisa y la actualización silenciosa pierde confianza.
 win:
   target:
     - target: nsis
       arch:
         - x64
   icon: icon.ico
+  files:
+    - dist/**/*
+    - dist-electron/**/*
+    # Servidor de licencias de esta compilación (URL y clave pública; opcional: sin él el licenciamiento queda desactivado)
+    - electron/licencia.config.json
+    - "!node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}"
+    - "!node_modules/*/{test,__tests__,tests,powered-test,example,examples}"
+    - "!node_modules/*.d.ts"
+    - "!node_modules/.bin"
+    - "!dist-electron/**/*.map"
+    # Lo que es del equipo de desarrollo NUNCA viaja en un instalador: código fuente, pruebas, salidas de compilación, informes internos,
+    # variables de entorno y bases de datos de desarrollo. Las migraciones y el schema van aparte (extraResources). tests/unit/electron/paquete.test.ts lo vigila.
+    - "!{src,tests,prisma,release,out,dist-node,.github,.vscode,docs}/**"
+    - "!{.env,.env.*,.gitignore,AGENTS.md,AUDIT_REPORT.md,REVIEWER_AGENT.md,PROJECT_STATUS.md,tailwind.config.ts,postcss.config.cjs,vite.config.ts,vitest.config.ts,tsconfig*.json}"
+    - "!**/*.{db,db-journal,db-wal,db-shm,p12,pfx,pem,key}"
+    # El cliente de Prisma generado (con el motor nativo) vive en la carpeta oculta node_modules/.prisma, que el recolector de dependencias
+    # de electron-builder no incluye por sí solo (no es un paquete): se copia explícitamente, solo con el motor de la plataforma.
+    - from: node_modules/.prisma/client
+      to: node_modules/.prisma/client
+      filter:
+        - "**/*"
+        - "!libquery_engine-*"
+    # serialport trae binarios de todas las plataformas: en Windows solo se necesita x64
+    - "!node_modules/@serialport/bindings-cpp/prebuilds/{android-*,darwin-*,linux-*,win32-arm64,win32-ia32}"
+  requestedExecutionLevel: asInvoker
+  signingHashAlgorithms:
+    - sha256
+  # Activar (true) cuando exista el certificado de firma: entonces electron-updater verifica que cada actualización venga firmada por el
+  # mismo editor (publisherName) antes de instalarla.
   verifyUpdateCodeSignature: false
 
 nsis:
@@ -59,16 +93,55 @@ nsis:
   createDesktopShortcut: always
   createStartMenuShortcut: true
   shortcutName: VENDEYA POS
-  installerLanguages:
-    - es_ES
+  runAfterFinish: true
+  # Desinstalar NO borra los datos del negocio (base de datos, respaldos, certificado y secretos viven en %APPDATA%/vendeya-pos)
+  deleteAppDataOnUninstall: false
+  language: "3082"
+  # Sin espacios: el nombre del archivo debe coincidir con el que escribe latest.yml y el que sirve GitHub
+  artifactName: VENDEYA-POS-Setup-${version}.${ext}
 
+# ── macOS: .dmg firmado con hardened runtime y notarizado ──
+# NO se pudo construir ni probar (hace falta un Mac). Requiere: certificado «Developer ID Application» (CSC_LINK/CSC_KEY_PASSWORD) y, para
+# notarizar (-c.mac.notarize=true), APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD y APPLE_TEAM_ID. Ver .github/workflows/release.yml.
 mac:
   target:
     - target: dmg
       arch:
         - x64
         - arm64
+  icon: icon.icns
+  files:
+    - dist/**/*
+    - dist-electron/**/*
+    # Servidor de licencias de esta compilación (URL y clave pública; opcional: sin él el licenciamiento queda desactivado)
+    - electron/licencia.config.json
+    - "!node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}"
+    - "!node_modules/*/{test,__tests__,tests,powered-test,example,examples}"
+    - "!node_modules/*.d.ts"
+    - "!node_modules/.bin"
+    - "!dist-electron/**/*.map"
+    # Lo que es del equipo de desarrollo NUNCA viaja en un instalador: código fuente, pruebas, salidas de compilación, informes internos,
+    # variables de entorno y bases de datos de desarrollo. Las migraciones y el schema van aparte (extraResources). tests/unit/electron/paquete.test.ts lo vigila.
+    - "!{src,tests,prisma,release,out,dist-node,.github,.vscode,docs}/**"
+    - "!{.env,.env.*,.gitignore,AGENTS.md,AUDIT_REPORT.md,REVIEWER_AGENT.md,PROJECT_STATUS.md,tailwind.config.ts,postcss.config.cjs,vite.config.ts,vitest.config.ts,tsconfig*.json}"
+    - "!**/*.{db,db-journal,db-wal,db-shm,p12,pfx,pem,key}"
+    # El cliente de Prisma generado (con el motor nativo) vive en la carpeta oculta node_modules/.prisma, que el recolector de dependencias
+    # de electron-builder no incluye por sí solo (no es un paquete): se copia explícitamente, solo con el motor de la plataforma.
+    - from: node_modules/.prisma/client
+      to: node_modules/.prisma/client
+      filter:
+        - "**/*"
+        - "!query_engine-windows.dll.node"
+    - "!node_modules/@serialport/bindings-cpp/prebuilds/{android-*,linux-*,win32-*}"
   category: public.app-category.business
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: entitlements.mac.plist
+  entitlementsInherit: entitlements.mac.plist
+  artifactName: VENDEYA-POS-${version}-${arch}.${ext}
+
+dmg:
+  title: VENDEYA POS ${version}
 
 linux:
   target:
@@ -78,6 +151,8 @@ linux:
   icon: icon.png
   category: Office
 
+# Las versiones se publican como GitHub Release junto con latest.yml (latest-mac.yml en macOS), que es lo que lee electron-updater.
+# Canal estable = «latest». Una versión con sufijo (1.2.0-beta.1) se publica como prerelease y la reciben solo las cajas con VENDEYA_CANAL=beta.
 publish:
   provider: github
   owner: vendeya

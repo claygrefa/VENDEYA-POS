@@ -5,6 +5,9 @@
 
 generator client {
   provider = "prisma-client-js"
+  // Motores de consulta que viajan en los instaladores: el del equipo que compila (Windows) y los dos de macOS (Intel y Apple Silicon).
+  // electron-builder deja en cada instalador solo los de su plataforma (ver electron-builder.yml).
+  binaryTargets = ["native", "darwin", "darwin-arm64"]
 }
 
 datasource db {

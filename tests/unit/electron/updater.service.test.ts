@@ -4,7 +4,7 @@
 // ============================================================
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { EstadoActualizacion } from "../../../src/shared/types/actualizacion.types";
-import { ActualizadorApp, type AutoUpdaterLike } from "../../../electron/updater/updater.service";
+import { ActualizadorApp, configurarCanal, type AutoUpdaterLike } from "../../../electron/updater/updater.service";
 import { liberarIpcUpdater, registrarIpcUpdater, type IpcMainLike } from "../../../electron/ipc/updater.ipc";
 
 class UpdaterFalso implements AutoUpdaterLike {
@@ -87,6 +87,24 @@ describe("Desactivado (modo desarrollo o apagado)", () => {
     expect(await m.a.buscar()).toMatchObject({ tipo: "desactivado" });
     expect(m.u.busquedas).toBe(0);
     expect(await m.a.instalar()).toMatchObject({ ok: false, motivo: "no-lista" });
+  });
+});
+
+describe("Canal de actualizaciones", () => {
+  it("es estable por omisión y solo «beta» recibe versiones de prueba", () => {
+    const u = new UpdaterFalso();
+    expect(configurarCanal(u, undefined)).toBe("latest");
+    expect(u).toMatchObject({ channel: "latest", allowPrerelease: false });
+    expect(configurarCanal(u, " BETA ")).toBe("beta");
+    expect(u).toMatchObject({ channel: "beta", allowPrerelease: true });
+    expect(configurarCanal(u, "alpha")).toBe("latest");
+    expect(u).toMatchObject({ channel: "latest", allowPrerelease: false });
+  });
+
+  it("el actualizador aplica el canal al iniciar", () => {
+    const u = new UpdaterFalso();
+    new ActualizadorApp({ updater: u, publicar: () => undefined, respaldar: async () => null, habilitado: true, canal: "beta" }).iniciar();
+    expect(u).toMatchObject({ channel: "beta", allowPrerelease: true });
   });
 });
 

@@ -42,7 +42,7 @@ export async function buildServer(servicios: Servicios, logLevel = "info"): Prom
   server.decorateRequest("token", null);
 
   await server.register(fastifyCors, {
-    origin: ["http://localhost:5173", "app://.", "file://", "null"],
+    origin: ["http://localhost:5173", "http://127.0.0.1:5173", "app://.", "file://", "null"],
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   });
 

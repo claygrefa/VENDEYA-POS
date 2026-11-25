@@ -40,6 +40,7 @@ function iniciarActualizador(): void {
     },
     respaldar: async (version) => (backend === null ? null : backend.respaldos.crear("pre-actualizacion", version)),
     habilitado,
+    canal: process.env["VENDEYA_CANAL"],
     motivoDeshabilitado: apagado ? "Desactivadas con VENDEYA_UPDATES=off" : "Solo se buscan actualizaciones en la aplicación instalada",
     registrar: (mensaje, error) => console.error(`[updater] ${mensaje}`, error ?? ""),
   });

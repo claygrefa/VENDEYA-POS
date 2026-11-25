@@ -1,0 +1,39 @@
+# Verificación de cada cambio: tipos (los 3 tsconfig), pruebas y compilación de la interfaz y del proceso principal.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verificar:
+    # El producto se instala en Windows y las pruebas se desarrollaron allí
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Tipos (renderer, servidor y Electron)
+        run: |
+          npx tsc --noEmit
+          npx tsc --noEmit -p tsconfig.node.json
+          npx tsc --noEmit -p tsconfig.electron.json
+      - name: Pruebas
+        run: npm test
+      - name: Compilación
+        run: |
+          npm run build:main
+          npm run build:vite
