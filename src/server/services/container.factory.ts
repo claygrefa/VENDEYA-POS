@@ -5,6 +5,9 @@ import path from "path";
 import type { PrismaClient } from "@prisma/client";
 import { ClienteRepository } from "../repositories/cliente.repository";
 import { CompraRepository } from "../repositories/compra.repository";
+import { ConsultaService } from "./consulta.service";
+import { ProveedorService } from "./proveedor.service";
+import { ReporteService } from "./reporte.service";
 import { SyncService, type OpcionesSync } from "./sync/sync.service";
 import { BalanzaService, type OpcionesBalanza } from "./hardware/balanza.service";
 import { EscaneoService } from "./hardware/escaneo.service";
@@ -84,6 +87,9 @@ export interface Servicios {
   balanza: BalanzaService;
   escaneo: EscaneoService;
   sync: SyncService;
+  proveedores: ProveedorService;
+  consultas: ConsultaService;
+  reportes: ReporteService;
   ride: RideService;
   mesas: MesaService;
   comandas: ComandaService;
@@ -165,6 +171,9 @@ export function crearServicios(prisma: PrismaClient, secretos: OpcionesServicios
     balanza: new BalanzaService(prisma, configuracionRepo, giro, secretos.balanza),
     escaneo: new EscaneoService(prisma, productos, configuracionRepo, giro),
     sync,
+    proveedores: new ProveedorService(prisma),
+    consultas: new ConsultaService(prisma),
+    reportes: new ReporteService(prisma),
     ride: new RideService(prisma, comprobanteRepo, secretos.ride),
     lotes,
     presentaciones: new PresentacionService(prisma, new PresentacionRepository()),

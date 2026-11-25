@@ -8,6 +8,7 @@ import { crearComprobanteController } from "../controllers/comprobante.controlle
 import { crearClienteController } from "../controllers/cliente.controller";
 import { crearCuentaController } from "../controllers/cuenta.controller";
 import { crearHealthController } from "../controllers/health.controller";
+import { crearGestionController } from "../controllers/gestion.controller";
 import { crearHardwareController } from "../controllers/hardware.controller";
 import { crearImpresionController } from "../controllers/impresion.controller";
 import { crearInventarioController } from "../controllers/inventario.controller";
@@ -32,6 +33,7 @@ export function registrarRutas(server: FastifyInstance, servicios: Servicios): v
   const certificado = crearCertificadoController(servicios);
   const impresion = crearImpresionController(servicios);
   const hardware = crearHardwareController(servicios);
+  const gestion = crearGestionController(servicios);
 
   // ── Públicas ──────────────────────────────────────────────
   server.get("/api/health", health.estado);
@@ -187,6 +189,17 @@ export function registrarRutas(server: FastifyInstance, servicios: Servicios): v
   server.get("/api/balanza/peso", permiso("ventas", "crear"), hardware.peso);
   server.get("/api/sync/cajas", permiso("caja", "leer"), hardware.cajasConectadas);
   server.get("/api/puntos-emision", permiso("caja", "leer"), hardware.puntosEmision);
+
+  // ── Vistas de gestión: clientes, proveedores, listados, catálogos y reportes ──
+  server.post("/api/clientes", permiso("clientes", "crear"), gestion.crearCliente);
+  server.patch<{ Params: { id: string } }>("/api/clientes/:id", permiso("clientes", "actualizar"), gestion.actualizarCliente);
+  server.get("/api/proveedores", permiso("proveedores", "leer"), gestion.buscarProveedores);
+  server.post("/api/proveedores", permiso("proveedores", "crear"), gestion.crearProveedor);
+  server.patch<{ Params: { id: string } }>("/api/proveedores/:id", permiso("proveedores", "actualizar"), gestion.actualizarProveedor);
+  server.get("/api/ventas", permiso("ventas", "leer"), gestion.listarVentas);
+  server.get("/api/compras", leerInventario, gestion.listarCompras);
+  server.get("/api/catalogos", leerInventario, gestion.catalogos);
+  server.get<{ Params: { tipo: string } }>("/api/reportes/:tipo", permiso("reportes", "leer"), gestion.reporte);
 
   // ── Certificado digital de firma (.p12) ───────────────────
   // La contraseña y la clave privada nunca se devuelven: la consulta solo muestra titular, emisor, huella y vigencia.

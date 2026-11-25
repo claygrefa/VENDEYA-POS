@@ -4,6 +4,7 @@
 import React, { createContext, useContext, useMemo } from "react";
 import type { WebSocketLike } from "../../server/services/sync/syncCliente";
 import { ApiCliente } from "./api";
+import { GestionApi } from "./gestion.api";
 import { PosApi } from "./pos.api";
 import { useSesion } from "../store/sesion.store";
 
@@ -25,6 +26,12 @@ export function usePos(): ContextoPos {
   const c = useContext(Contexto);
   if (c === null) throw new Error("Falta el ProveedorPos");
   return c;
+}
+
+/** API de las vistas de gestión, sobre el mismo cliente HTTP. */
+export function useGestion(): GestionApi {
+  const { api } = usePos();
+  return useMemo(() => new GestionApi(api.http), [api]);
 }
 
 /** Contexto real: cliente HTTP con el token de la sesión y WebSocket del navegador. */

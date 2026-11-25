@@ -12,6 +12,7 @@ import { ApiCliente } from "../../../src/renderer/services/api";
 import { PosApi } from "../../../src/renderer/services/pos.api";
 import type { ProductoPos, PuntoEmisionPos, TurnoPos, UsuarioSesion } from "../../../src/renderer/services/tipos";
 import { useCarrito } from "../../../src/renderer/store/carrito.store";
+import { useNavegacion } from "../../../src/renderer/store/navegacion.store";
 import { useSesion } from "../../../src/renderer/store/sesion.store";
 
 // ── API simulada ─────────────────────────────────────────────
@@ -27,6 +28,9 @@ export interface PeticionSimulada {
 export interface RespuestaSimulada {
   status?: number;
   cuerpo?: unknown;
+  /** Respuesta que no es JSON (CSV, PDF, XML) */
+  texto?: string;
+  cabeceras?: Record<string, string>;
 }
 
 export type Manejador = (p: PeticionSimulada) => RespuestaSimulada | Promise<RespuestaSimulada>;
@@ -58,6 +62,7 @@ export class ApiSimulada {
     const m = this.manejadores.get(`${metodo} ${url.pathname}`);
     const r = m === undefined ? { status: 404, cuerpo: { error: "NO_ENCONTRADO", mensaje: `Sin respuesta simulada para ${metodo} ${url.pathname}` } } : await m(peticion);
     const status = r.status ?? 200;
+    if (r.texto !== undefined) return new Response(r.texto, { status, headers: r.cabeceras ?? {} });
     return new Response(status === 204 ? null : JSON.stringify(r.cuerpo ?? {}), { status, headers: { "content-type": "application/json" } });
   };
 }
@@ -91,6 +96,16 @@ export class SocketSimulado implements WebSocketLike {
 // ── Datos de ejemplo ─────────────────────────────────────────
 
 export const USUARIO: UsuarioSesion = { id: "u1", empresaId: "e1", username: "caja1", nombre: "María", apellido: "Pérez", rol: "CAJERO", permisos: ["ventas:crear", "caja:leer", "caja:crear", "inventario:leer", "clientes:leer"] };
+/** Permisos de los roles tal como los siembra el sistema (solo los que usa la interfaz). */
+export const PERMISOS = {
+  CAJERO: ["ventas:crear", "ventas:leer", "caja:crear", "caja:leer", "clientes:crear", "clientes:leer", "inventario:leer"],
+  SUPERVISOR: ["ventas:crear", "ventas:leer", "ventas:anular", "ventas:actualizar", "caja:crear", "caja:leer", "caja:actualizar", "clientes:crear", "clientes:leer", "clientes:actualizar", "inventario:leer", "inventario:crear", "inventario:actualizar", "proveedores:leer", "proveedores:crear", "proveedores:actualizar", "reportes:leer", "reportes:exportar", "sri:leer", "sri:crear"],
+  BODEGUERO: ["inventario:leer", "inventario:crear", "inventario:actualizar", "proveedores:leer", "proveedores:crear", "proveedores:actualizar"],
+  CONTADOR: ["reportes:leer", "reportes:exportar", "sri:leer", "sri:exportar", "ventas:leer"],
+} as const;
+
+export const usuarioDe = (rol: keyof typeof PERMISOS): UsuarioSesion => ({ ...USUARIO, id: `u-${rol}`, username: rol.toLowerCase(), rol, permisos: [...PERMISOS[rol]] });
+
 export const PUNTO: PuntoEmisionPos = { id: "11111111-1111-4111-8111-111111111111", codigo: "001", descripcion: "Caja 1", sucursal: { id: "22222222-2222-4222-8222-222222222222", codigo: "001", nombre: "Matriz" } };
 export const TURNO: TurnoPos = { id: "33333333-3333-4333-8333-333333333333", sucursalId: PUNTO.sucursal.id, estado: "ABIERTO", montoApertura: 100 };
 
@@ -135,6 +150,8 @@ export interface OpcionesRender {
   conSesion?: boolean;
   /** Con sesión pero sin turno abierto (default: con turno) */
   sinTurno?: boolean;
+  /** Usuario de la sesión (default: un cajero) */
+  usuario?: UsuarioSesion;
   api?: ApiSimulada;
   baseUrl?: string;
   /** userEvent con pausa entre teclas en ms (null = lo más rápido posible, como un lector) */
@@ -148,8 +165,9 @@ export function renderizarPos(o: OpcionesRender = {}) {
   const noAutenticado = { veces: 0 };
 
   useCarrito.setState({ lineas: [], cliente: null });
+  useNavegacion.setState({ vista: null });
   useSesion.setState({ token: null, usuario: null, turno: null, puntoEmision: null, modoTactil: false });
-  if (o.conSesion !== false) useSesion.setState({ token: "token-prueba", usuario: USUARIO, turno: o.sinTurno === true ? null : TURNO, puntoEmision: o.sinTurno === true ? null : PUNTO });
+  if (o.conSesion !== false) useSesion.setState({ token: "token-prueba", usuario: o.usuario ?? USUARIO, turno: o.sinTurno === true ? null : TURNO, puntoEmision: o.sinTurno === true ? null : PUNTO });
 
   const contexto: ContextoPos = {
     api: new PosApi(

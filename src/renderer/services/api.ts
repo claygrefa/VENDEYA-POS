@@ -69,12 +69,41 @@ export class ApiCliente {
     return datos as T;
   }
 
+  /** Descarga un archivo (CSV, PDF, XML) con la sesión del cajero; el nombre sale de `Content-Disposition`. */
+  async archivo(ruta: string): Promise<{ blob: Blob; nombre: string }> {
+    const token = this.cfg.obtenerToken();
+    const cabeceras: Record<string, string> = { "x-caja-id": this.cfg.cajaId };
+    if (token !== null) cabeceras["authorization"] = `Bearer ${token}`;
+    let respuesta: Response;
+    try {
+      respuesta = await (this.cfg.fetchFn ?? fetch)(`${this.cfg.baseUrl}${ruta}`, { method: "GET", headers: cabeceras });
+    } catch {
+      throw new ApiError("SIN_CONEXION", "No se pudo comunicar con el servidor. Revise la conexión de la caja.", 0);
+    }
+    if (!respuesta.ok) {
+      let d: { error?: string; mensaje?: string } = {};
+      try {
+        d = (await respuesta.json()) as typeof d;
+      } catch {
+        /* sin cuerpo */
+      }
+      if (respuesta.status === 401 && token !== null) this.cfg.alNoAutenticado?.();
+      throw new ApiError(d.error ?? "ERROR_INTERNO", d.mensaje ?? `El servidor respondió ${respuesta.status}`, respuesta.status);
+    }
+    const nombre = /filename="([^"]+)"/.exec(respuesta.headers.get("content-disposition") ?? "")?.[1] ?? "archivo";
+    return { blob: await respuesta.blob(), nombre };
+  }
+
   get<T>(ruta: string): Promise<T> {
     return this.solicitar<T>("GET", ruta);
   }
 
   post<T>(ruta: string, cuerpo?: unknown): Promise<T> {
     return this.solicitar<T>("POST", ruta, cuerpo ?? {});
+  }
+
+  patch<T>(ruta: string, cuerpo: unknown): Promise<T> {
+    return this.solicitar<T>("PATCH", ruta, cuerpo);
   }
 }
 

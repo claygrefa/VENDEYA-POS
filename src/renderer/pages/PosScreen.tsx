@@ -8,7 +8,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { VentaInputSchema, type VentaInput } from "../../shared/schemas/venta.schema";
-import { BarraEstado } from "../components/BarraEstado";
 import { BuscadorProductos } from "../components/BuscadorProductos";
 import { CarritoPanel } from "../components/CarritoPanel";
 import { Aviso } from "../components/Modal";
@@ -18,7 +17,6 @@ import { ModalLinea, type ResultadoLinea } from "../components/ModalLinea";
 import { useBalanza } from "../hooks/consultas";
 import { useAtajos } from "../hooks/useAtajos";
 import { useEscaneo } from "../hooks/useEscaneo";
-import { useSincronizacion } from "../hooks/useSincronizacion";
 import { ApiError } from "../services/api";
 import { usePos } from "../services/contexto";
 import type { PresentacionPos, ProductoPos, VentaEmitidaPos } from "../services/tipos";
@@ -34,7 +32,7 @@ type Modal =
 
 const UNIDADES_DE_PESO = ["KG", "LB", "G"];
 
-export function PosScreen({ baseUrl, onSalir }: { baseUrl: string; onSalir: () => void }): React.JSX.Element {
+export function PosScreen(): React.JSX.Element {
   const { api } = usePos();
   const qc = useQueryClient();
   const tactil = useSesion((s) => s.modoTactil);
@@ -44,7 +42,6 @@ export function PosScreen({ baseUrl, onSalir }: { baseUrl: string; onSalir: () =
   const cliente = useCarrito((s) => s.cliente);
   const carrito = useCarrito;
   const calculo = useMemo(() => calcularCarrito(lineas), [lineas]);
-  const sync = useSincronizacion(baseUrl);
   const balanza = useBalanza();
 
   const [busqueda, setBusqueda] = useState("");
@@ -231,8 +228,7 @@ export function PosScreen({ baseUrl, onSalir }: { baseUrl: string; onSalir: () =
   };
 
   return (
-    <div className="flex h-screen flex-col bg-slate-900 text-white" data-tactil={tactil ? "si" : "no"}>
-      <BarraEstado sync={sync} onSalir={onSalir} />
+    <div className="flex h-full flex-col bg-slate-900 text-white" data-tactil={tactil ? "si" : "no"}>
       {aviso !== null ? (
         <div className="px-4 pt-2">
           <Aviso tipo={aviso.tipo}>{aviso.texto}</Aviso>

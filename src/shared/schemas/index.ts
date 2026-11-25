@@ -18,3 +18,4 @@ export * from "./certificado.schema";
 export * from "./documentosSri.schema";
 export * from "./impresora.schema";
 export * from "./balanza.schema";
+export * from "./gestion.schema";

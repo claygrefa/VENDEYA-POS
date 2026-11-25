@@ -3,10 +3,10 @@
 ## Estado General
 - **Proyecto:** VENDEYA POS (Sistema Punto de Venta Multi-Giro & Facturación Electrónica SRI Ecuador)
 - **Horizonte:** 6 Meses (24 Semanas)
-- **Fase Actual:** MES 4 — Semana 16: vistas de gestión (inventario, kardex, clientes), reportes y monitor SRI
+- **Fase Actual:** MES 5 — Semana 17: asistente de configuración inicial (SetupWizard) y ajustes
 - **Estado de Compilación:** ✅ `tsc --noEmit` → 0 errores | ✅ `tsconfig.node.json` → 0 errores | ✅ `tsconfig.electron.json` → 0 errores
-- **Tests:** ✅ 782/782 passed (48 archivos de prueba)
-- **Último Commit:** `feat: Semana 15 - pantalla POS principal`
+- **Tests:** ✅ 833/833 passed (51 archivos de prueba)
+- **Último Commit:** `feat: Semana 16 - vistas de gestion, reportes y monitor SRI`
 
 ---
 
@@ -34,10 +34,10 @@
 - [x] **Semana 13 (COMPLETADA):** Motor de impresión térmica directa ESC/POS (USB, Ethernet, 80mm/58mm), apertura automática de gaveta de dinero y generador de RIDE en PDF A4.
 - [x] **Semana 14 (COMPLETADA):** Integración de periféricos (lectores de códigos de barras, balanzas seriales) y sincronización multi-caja en red local (LAN) vía WebSockets sin depender de internet.
 - [x] **Semana 15 (COMPLETADA):** Frontend POS principal (`PosScreen`), búsqueda ultrarrápida, atajos de teclado (`F2`, `F4`, `F8`, `ESC`), modo táctil y modal de cobro.
-- [ ] **Semana 16 (ACTUAL):** Vistas de Inventario, Kardex, Clientes, Reportes Gerenciales y Monitor de Comprobantes SRI (`SriMonitor`).
+- [x] **Semana 16 (COMPLETADA):** Vistas de Inventario, Kardex, Clientes, Reportes Gerenciales y Monitor de Comprobantes SRI (`SriMonitor`).
 
 ### MES 5: Instalador Cero Fricción, Auto-Updater y Licenciamiento
-- [ ] **Semana 17:** Asistente de Configuración Inicial (`SetupWizard`) guiado en 3 pasos para clientes sin conocimientos técnicos (datos RUC, carga de `.p12`, selección de giro de negocio).
+- [ ] **Semana 17 (ACTUAL):** Asistente de Configuración Inicial (`SetupWizard`) guiado en 3 pasos para clientes sin conocimientos técnicos (datos RUC, carga de `.p12`, selección de giro de negocio).
 - [ ] **Semana 18:** Implementación de `electron-updater` con descarga silenciosa en segundo plano, respaldo automático de la base de datos SQLite antes de aplicar actualizaciones y banner de actualización.
 - [ ] **Semana 19:** Sistema de licenciamiento y suscripciones (activación online, validación periódica con período de gracia offline de 15 días, control de dispositivos).
 - [ ] **Semana 20:** Configuración de `electron-builder` + Inno Setup para generar instaladores nativos `.exe` (Windows) y `.dmg` (macOS) firmados y listos para distribución.
@@ -597,13 +597,38 @@ La matriz RBAC cubre las 4 rutas nuevas (77 entradas en la tabla; el recuento de
 
 **Verificación:** `tsc --noEmit` (3 tsconfig) ✅ 0 errores | `vite build` ✅ | `npx vitest run` ✅ 782/782 (48 archivos), 2 corridas consecutivas.
 
+### Semana 16 — 2026-11-24 ✅ COMPLETADA
+**Frontend** (`src/renderer/`): marco con menú lateral por permisos y las vistas de gestión sobre los endpoints del backend.
+- `components/Shell.tsx` — barra de estado (conexión LAN, cola del SRI, impresora, modo táctil, salir) + menú lateral + vista activa; **Ctrl+1…7** cambia de vista. El menú depende del rol (`store/navegacion.store.ts`): **Venta** `ventas:crear` · **Caja** `caja:leer` · **Clientes** `clientes:leer` · **Inventario** `inventario:actualizar` · **Compras** `inventario:crear` · **Reportes** `reportes:leer` · **Comprobantes SRI** `sri:leer`. El cajero ve Venta, Caja y Clientes (no Inventario, Compras, Reportes ni SRI); quien no opera caja (contador, bodeguero) entra directo a sus vistas sin abrir turno. El carrito se conserva al cambiar de vista.
+- `pages/InventarioPage.tsx` — productos con búsqueda y paginación, alta/edición (categoría, unidad, tarifa de IVA, lotes, vencimiento), **ajustes** de entrada/salida con motivo, **kardex** con existencia y costo promedio, y **alertas** de stock mínimo y de lotes vencidos/por vencer.
+- `pages/ClientesPage.tsx` — clientes (alta con `clientes:crear`, edición con `clientes:actualizar`; el Consumidor Final no se edita) y **cuentas por cobrar** con filtro de vencidas y **abonos** (valida contra el saldo).
+- `pages/ComprasPage.tsx` — compras (listado y registro: proveedor, documento FACTURA/NOTA_VENTA/LIQUIDACION, autorización, contado/crédito, líneas con costo), **proveedores** (alta/edición/desactivar) y **cuentas por pagar** con pagos (las dos últimas exigen `proveedores:leer`).
+- `pages/CajaPage.tsx` — resumen del turno con **cierre ciego** (el cajero no ve el efectivo esperado), ingreso/egreso, ventas del turno con **reimpresión** y **anulación con motivo** (solo `ventas:anular`), arqueo impreso y **cierre de turno** que muestra esperado, contado y diferencia y vuelve a la apertura.
+- `pages/ReportesPage.tsx` — ventas (por día, producto, forma de pago o cajero), utilidad, stock valorado y cartera; periodo, totales y **descarga CSV** (solo `reportes:exportar`).
+- `pages/SriMonitorPage.tsx` (**SriMonitor**) — resumen por estado, listado filtrable por estado y tipo, último mensaje, **detalle** con clave de acceso y mensajes de rechazo del SRI, **reintento** (`sri:crear`, solo en PENDIENTE/RECHAZADO/DEVUELTO), descarga del **RIDE** en PDF y del **ATS** del periodo.
+- Piezas comunes: `components/Gestion.tsx` (tabla, pestañas, paginador, campos), `services/gestion.api.ts` (cliente de las vistas) y `ApiCliente.archivo()` (descargas con la sesión).
+
+**Backend (nuevo, con sus pruebas y permisos):** `POST /api/clientes` (`clientes:crear`) y `PATCH /api/clientes/:id` (`clientes:actualizar`); `GET/POST/PATCH /api/proveedores` (`proveedores:*`); `GET /api/ventas` (`ventas:leer`; filtros por turno, estado, fecha y texto; **quien no es supervisor solo ve sus ventas**); `GET /api/compras` (`inventario:leer`); `GET /api/catalogos` (categorías y unidades); `GET /api/reportes/:tipo` (`reportes:leer`; `tipo` = ventas · utilidad · stock · cartera; `?formato=csv` exige además `reportes:exportar`). Reportes: solo ventas COMPLETADAS, días civiles de Ecuador, cobros netos del cambio, utilidad con el costo promedio al momento de cada venta; CSV con BOM y celdas a salvo de fórmulas de Excel. Tabla de permisos: 99 filas.
+
+**Pruebas nuevas (51):** `tests/integration/server/gestion.test.ts` (12: clientes, proveedores, listados con alcance por usuario, catálogos y reportes con cifras verificadas, CSV y su escape), `tests/unit/renderer/gestion.test.tsx` (33: menú por rol, atajos, y cada vista con su API simulada: validaciones, cargas útiles enviadas, errores del servidor, permisos, descargas, cierre ciego) y `tests/integration/renderer/gestion-backend.test.ts` (6: el cliente de gestión contra el **backend real**: las cargas útiles que arman los formularios las acepta el servidor y las respuestas tienen la forma que la interfaz espera). `PosScreen` ya no incluye la barra de estado (la aporta el marco).
+
+**Limitaciones conocidas:**
+- Igual que en la Semana 15: **no se vio la interfaz renderizada ni se probó en Electron** (jsdom y `vite build`). Las vistas son funcionales pero sobrias (sin gráficos, sin ordenar columnas ni impresión de reportes); habrá que pulir el diseño con uso real.
+- **Alcance parcial de lo pedido:** en Inventario no hay pantalla de presentaciones, listas de precios ni lotes (solo sus alertas; el backend sí los tiene); las notas de crédito/devoluciones parciales no existen; la compra no admite lotes ni fechas de vencimiento desde la pantalla (las compras de productos con lote se rechazan con el mensaje del servidor); no hay retenciones, liquidaciones, guías de remisión ni su emisión desde la interfaz (el backend sí).
+- Los reportes son los cuatro básicos: sin filtros por categoría o cliente, sin comparativos ni gráficos; la utilidad se calcula con el costo promedio vigente en cada venta y no incluye gastos. El CSV usa comas (Excel con configuración regional latina puede pedir «Importar»).
+- La anulación de una factura ya autorizada a Consumidor Final no es posible (regla del SRI ya existente): la pantalla muestra el motivo del servidor.
+- El listado de ventas de un cajero muestra solo sus ventas; el supervisor ve las de toda la empresa pero la vista de Caja solo trabaja con el turno propio.
+- Deudas de semanas anteriores abiertas (ver «Próxima Tarea»).
+
+**Verificación:** `tsc --noEmit` (3 tsconfig) ✅ 0 errores | `vite build` ✅ | `npx vitest run` ✅ 833/833 (51 archivos), 2 corridas consecutivas.
+
 ---
 
-## Próxima Tarea Exacta (Para ejecutar ahora — Semana 16)
-**Antes de empezar (deudas arrastradas):** (a) repetir contra `celcer` una consulta real desde la aplicación (el `ECONNRESET` del cliente SOAP) y, con un certificado de pruebas del SRI, confirmar firma, códigos 43/70 y una factura completa; (b) re-ejecutar la auditoría independiente (`REVIEWER_AGENT.md`); (c) probar en equipos reales: ticket/RIDE (S13), balanza y dos cajas en red (S14) y la pantalla POS dentro de Electron (S15); (d) decidir si se implementa la nota de débito (05) y conseguir el `ats.xsd` oficial.
+## Próxima Tarea Exacta (Para ejecutar ahora — Semana 17)
+**Antes de empezar (deudas arrastradas):** (a) repetir contra `celcer` una consulta real desde la aplicación (el `ECONNRESET` del cliente SOAP) y, con un certificado de pruebas del SRI, confirmar firma, códigos 43/70 y una factura completa; (b) re-ejecutar la auditoría independiente (`REVIEWER_AGENT.md`); (c) probar en equipos reales: ticket/RIDE (S13), balanza y dos cajas en red (S14), y la interfaz completa (venta y gestión, S15–S16) dentro de Electron; (d) decidir si se implementa la nota de débito (05) y conseguir el `ats.xsd` oficial.
 
-1. **Vistas de gestión** (`src/renderer/pages/`, navegación entre vistas con teclado y barra lateral según los permisos del rol): **Inventario** (productos con búsqueda y alta/edición, presentaciones, lotes y vencimientos, alertas de stock mínimo y de vencimiento, ajustes), **Kardex** (movimientos y costo promedio por producto), **Clientes** (alta y edición, cuentas por cobrar y abonos) y **Compras/Proveedores** (registro de compra, cuentas por pagar y pagos), todas sobre los endpoints que ya existen.
-2. **Caja:** cierre de turno con arqueo (cierre ciego), movimientos de ingreso y egreso, reporte del turno, reimpresión del ticket y **anulación de ventas** con motivo (permiso de supervisor) — lo que falta en la pantalla de venta.
-3. **Reportes gerenciales** (ventas por día/producto/forma de pago/cajero, utilidad con el costo promedio, stock valorado, cartera) con exportación a CSV, y el **monitor de comprobantes del SRI** (`SriMonitor`): lista filtrable por estado, mensajes de rechazo, reintento (`POST /api/comprobantes/:id/reintentar`), descarga del RIDE y del ATS por periodo. Si faltan endpoints de reportes, agregarlos en `src/server/` con sus pruebas y su permiso en la matriz RBAC.
-4. **Pruebas:** flujos de cada vista con Vitest + Testing Library y la API simulada (más pruebas contra el backend real para los endpoints nuevos); verificar permisos por rol (el cajero no ve Inventario ni Reportes), `vite build` y que las vistas sigan siendo accesibles por teclado.
-5. Verificar con `npx tsc --noEmit` y `npm test`; actualizar este archivo y commit `feat: Semana 16 - vistas de gestion, reportes y monitor SRI`.
+1. **Asistente de configuración inicial** (`SetupWizard`, `src/renderer/pages/`): se muestra la primera vez (sin empresa configurada) y guía en 3 pasos a un cliente sin conocimientos técnicos: **(1) datos de la empresa** (RUC con validación, razón social, direcciones, régimen —RIMPE, contribuyente especial, obligado a llevar contabilidad, agente de retención—, ambiente de pruebas/producción, sucursal y punto de emisión 001-001), **(2) certificado `.p12`** (cargar el archivo, contraseña, validación de titular y vigencia con los mensajes del backend, aviso de vencimiento; `PUT /api/configuracion/certificado`), **(3) giro del negocio** (retail, farmacia, restaurante…, que fija los módulos activos con `FEATURE_FLAGS_POR_GIRO`) y creación del usuario administrador. Backend: endpoint de **alta inicial** protegido (solo funciona mientras no exista empresa/administrador; hoy eso lo hace `prisma/seed.ts`) y endpoints para completar la configuración de la empresa y los flags del giro.
+2. **Ajustes:** pantalla de configuración (solo `configuracion:actualizar`) para lo que hoy solo se cambia por API: impresora, balanza, módulos del giro, ambiente SRI, certificado (estado y renovación), sincronización LAN y datos de la empresa.
+3. **Instalador (inicio):** revisar `electron-builder.yml` y `npm run build` completos; incluir en el paquete las migraciones, los XSD y los módulos nativos (`better-sqlite3`, `serialport`) reconstruidos para Electron; carpeta de datos y respaldos en `userData`; primer arranque que ejecute el asistente. Dejar documentado en PROJECT_STATUS qué se probó y qué falta en el empaquetado.
+4. **Pruebas:** el asistente de punta a punta (con la API simulada y contra el backend real con una BD vacía), validaciones (RUC, `.p12` inválido o de otro RUC), que el alta inicial se rechace si ya existe una empresa, matriz RBAC actualizada y `vite build`.
+5. Verificar con `npx tsc --noEmit` y `npm test`; actualizar este archivo y commit `feat: Semana 17 - asistente de configuracion inicial y ajustes`.

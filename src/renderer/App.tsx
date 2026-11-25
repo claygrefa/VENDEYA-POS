@@ -5,9 +5,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import React, { useEffect, useMemo, useState } from "react";
 import { AperturaTurnoPage } from "./pages/AperturaTurnoPage";
 import { LoginPage } from "./pages/LoginPage";
-import { PosScreen } from "./pages/PosScreen";
+import { Shell } from "./components/Shell";
 import { ProveedorPos, useContextoReal, usePos } from "./services/contexto";
 import { useCarrito } from "./store/carrito.store";
+import { useNavegacion } from "./store/navegacion.store";
 import { useSesion } from "./store/sesion.store";
 
 /** URL del backend: la que informa Electron (puerto libre o servidor de la red local); en desarrollo, la del entorno. */
@@ -47,16 +48,20 @@ export function AplicacionPos({ baseUrl }: { baseUrl: string }): React.JSX.Eleme
   const { api } = usePos();
   const token = useSesion((s) => s.token);
   const turno = useSesion((s) => s.turno);
+  const usuario = useSesion((s) => s.usuario);
+  // Quien no opera caja (contador, bodeguero) entra directo a sus vistas; los demás deben tener un turno abierto
+  const necesitaTurno = usuario?.permisos.includes("caja:crear") ?? false;
 
   const salir = (): void => {
     void api.logout().catch(() => undefined);
     useCarrito.getState().vaciar();
+    useNavegacion.getState().reiniciar();
     useSesion.getState().cerrar();
   };
 
   if (token === null) return <LoginPage />;
-  if (turno === null) return <AperturaTurnoPage onSalir={salir} />;
-  return <PosScreen baseUrl={baseUrl} onSalir={salir} />;
+  if (turno === null && necesitaTurno) return <AperturaTurnoPage onSalir={salir} />;
+  return <Shell baseUrl={baseUrl} onSalir={salir} />;
 }
 
 export default function App(): React.JSX.Element {
