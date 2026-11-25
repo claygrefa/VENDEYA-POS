@@ -136,6 +136,7 @@ export function servidorBasico(api: ApiSimulada, catalogo: ProductoPos[] = CATAL
       const items = catalogo.filter((x) => q === "" || [x.nombre, x.codigo, x.codigoBarras ?? ""].some((t) => t.toLowerCase().includes(q)));
       return { cuerpo: { items, total: items.length, page: 1, pageSize: 24 } };
     })
+    .en("GET /api/setup/estado", { cuerpo: { configurado: true } })
     .en("GET /api/puntos-emision", { cuerpo: { items: [PUNTO] } })
     .en("GET /api/balanza", { cuerpo: { habilitada: true, puerto: "COM3" } })
     .en("GET /api/impresora", { cuerpo: { conexion: "RED", impresionTermica: true } })

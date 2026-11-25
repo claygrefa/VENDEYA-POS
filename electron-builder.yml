@@ -4,17 +4,36 @@ copyright: Copyright © 2026 VENDEYA
 
 directories:
   output: release
-  buildResources: build-resources
+  buildResources: src/renderer/assets
+
+# Los binarios nativos no pueden ejecutarse desde dentro de app.asar: se desempaquetan junto a él.
+#  - Prisma: motor de consultas (query_engine-windows.dll.node) y motor de migraciones
+#  - serialport: binding N-API de la balanza (el paquete trae prebuilds para win32-x64; no requiere compilar)
+#  - xmllint-wasm: valida los XML contra los XSD del SRI en un worker, que no puede leerse desde el asar
+asar: true
+asarUnpack:
+  - node_modules/.prisma/**
+  - node_modules/@prisma/engines/**
+  - node_modules/@serialport/bindings-cpp/**
+  - node_modules/xmllint-wasm/**
+
+# better-sqlite3 no se usa (SQLite se accede vía Prisma) y serialport usa N-API: no hay módulos que recompilar para Electron.
+npmRebuild: false
 
 files:
   - dist/**/*
   - dist-electron/**/*
-  - node_modules/**/*
-  - prisma/schema.prisma
+  # El cliente de Prisma generado (con el motor nativo) vive en la carpeta oculta node_modules/.prisma, que el recolector de
+  # dependencias de electron-builder no incluye por sí solo (no es un paquete): se copia explícitamente.
+  - from: node_modules/.prisma/client
+    to: node_modules/.prisma/client
+  # serialport trae binarios de todas las plataformas: solo se necesita Windows x64
+  - "!node_modules/@serialport/bindings-cpp/prebuilds/{android-*,darwin-*,linux-*,win32-arm64,win32-ia32}"
   - "!node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}"
   - "!node_modules/*/{test,__tests__,tests,powered-test,example,examples}"
   - "!node_modules/*.d.ts"
   - "!node_modules/.bin"
+  - "!dist-electron/**/*.map"
 
 extraResources:
   - from: prisma/migrations
@@ -27,7 +46,7 @@ win:
     - target: nsis
       arch:
         - x64
-  icon: build-resources/icon.ico
+  icon: icon.ico
   verifyUpdateCodeSignature: false
 
 nsis:
@@ -47,7 +66,6 @@ mac:
       arch:
         - x64
         - arm64
-  icon: build-resources/icon.icns
   category: public.app-category.business
 
 linux:
@@ -55,7 +73,7 @@ linux:
     - target: AppImage
       arch:
         - x64
-  icon: build-resources/icon.png
+  icon: icon.png
   category: Office
 
 publish:

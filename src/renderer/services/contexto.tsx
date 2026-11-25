@@ -3,6 +3,7 @@
 // ============================================================
 import React, { createContext, useContext, useMemo } from "react";
 import type { WebSocketLike } from "../../server/services/sync/syncCliente";
+import { AjustesApi } from "./ajustes.api";
 import { ApiCliente } from "./api";
 import { GestionApi } from "./gestion.api";
 import { PosApi } from "./pos.api";
@@ -32,6 +33,12 @@ export function usePos(): ContextoPos {
 export function useGestion(): GestionApi {
   const { api } = usePos();
   return useMemo(() => new GestionApi(api.http), [api]);
+}
+
+/** API del asistente de configuración y de Ajustes. */
+export function useAjustes(): AjustesApi {
+  const { api } = usePos();
+  return useMemo(() => new AjustesApi(api.http), [api]);
 }
 
 /** Contexto real: cliente HTTP con el token de la sesión y WebSocket del navegador. */

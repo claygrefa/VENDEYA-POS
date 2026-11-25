@@ -8,6 +8,7 @@ import { crearComprobanteController } from "../controllers/comprobante.controlle
 import { crearClienteController } from "../controllers/cliente.controller";
 import { crearCuentaController } from "../controllers/cuenta.controller";
 import { crearHealthController } from "../controllers/health.controller";
+import { crearSetupController } from "../controllers/setup.controller";
 import { crearGestionController } from "../controllers/gestion.controller";
 import { crearHardwareController } from "../controllers/hardware.controller";
 import { crearImpresionController } from "../controllers/impresion.controller";
@@ -34,10 +35,15 @@ export function registrarRutas(server: FastifyInstance, servicios: Servicios): v
   const impresion = crearImpresionController(servicios);
   const hardware = crearHardwareController(servicios);
   const gestion = crearGestionController(servicios);
+  const setup = crearSetupController(servicios);
 
   // ── Públicas ──────────────────────────────────────────────
   server.get("/api/health", health.estado);
   server.post("/api/auth/login", auth.login);
+  // Asistente de configuración inicial: solo mientras no exista ninguna empresa y solo desde este equipo
+  server.get("/api/setup/estado", setup.estado);
+  server.post("/api/setup", setup.inicializar);
+  server.post("/api/setup/certificado", setup.validarCertificado);
 
   // ── Sesión ────────────────────────────────────────────────
   const sesion = { preHandler: requerirSesion(servicios) };
@@ -200,6 +206,12 @@ export function registrarRutas(server: FastifyInstance, servicios: Servicios): v
   server.get("/api/compras", leerInventario, gestion.listarCompras);
   server.get("/api/catalogos", leerInventario, gestion.catalogos);
   server.get<{ Params: { tipo: string } }>("/api/reportes/:tipo", permiso("reportes", "leer"), gestion.reporte);
+
+  // ── Ajustes del negocio (solo el administrador cambia; quien tiene configuracion:leer los consulta) ──
+  server.get("/api/configuracion", permiso("configuracion", "leer"), setup.ajustes);
+  server.patch("/api/configuracion/empresa", permiso("configuracion", "actualizar"), setup.actualizarEmpresa);
+  server.patch("/api/configuracion/modulos", permiso("configuracion", "actualizar"), setup.actualizarModulos);
+  server.post("/api/configuracion/giro", permiso("configuracion", "actualizar"), setup.aplicarGiro);
 
   // ── Certificado digital de firma (.p12) ───────────────────
   // La contraseña y la clave privada nunca se devuelven: la consulta solo muestra titular, emisor, huella y vigencia.

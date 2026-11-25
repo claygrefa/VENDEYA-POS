@@ -3,6 +3,7 @@
 // ============================================================
 import React, { useEffect } from "react";
 import { useSincronizacion } from "../hooks/useSincronizacion";
+import { AjustesPage } from "../pages/AjustesPage";
 import { CajaPage } from "../pages/CajaPage";
 import { ClientesPage } from "../pages/ClientesPage";
 import { ComprasPage } from "../pages/ComprasPage";
@@ -30,6 +31,8 @@ function Vista({ id }: { id: VistaId }): React.JSX.Element {
       return <ReportesPage />;
     case "sri":
       return <SriMonitorPage />;
+    case "ajustes":
+      return <AjustesPage />;
   }
 }
 
@@ -42,7 +45,7 @@ export function Shell({ baseUrl, onSalir }: { baseUrl: string; onSalir: () => vo
   // Si la vista guardada ya no corresponde (otro usuario, permisos distintos) se vuelve a la primera permitida
   const activa: VistaId | null = vista !== null && menu.some((m) => m.id === vista) ? vista : (menu[0]?.id ?? null);
 
-  // Ctrl+1…7 cambia de vista sin soltar el teclado
+  // Ctrl+1…8 cambia de vista sin soltar el teclado
   useEffect(() => {
     const manejar = (e: KeyboardEvent): void => {
       if (!e.ctrlKey || e.altKey || e.metaKey) return;

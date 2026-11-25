@@ -25,7 +25,7 @@ describe("Ingreso y apertura de turno", () => {
   it("credenciales incorrectas muestran el motivo y no entran; las correctas piden abrir turno y luego venden", async () => {
     const api = servidor();
     const { usuario } = renderizarPos({ api, conSesion: false });
-    const form = screen.getByRole("form", { name: "Ingreso" });
+    const form = await screen.findByRole("form", { name: "Ingreso" });
     expect(within(form).getByRole("button", { name: "Ingresar" })).toBeDisabled();
 
     await usuario.type(within(form).getByLabelText("Usuario"), "caja1");

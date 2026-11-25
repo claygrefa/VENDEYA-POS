@@ -1,12 +1,13 @@
 // ============================================================
 // src/renderer/App.tsx — Raíz de la aplicación: conexión con el backend y flujo Ingreso → Turno → Venta
 // ============================================================
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import React, { useEffect, useMemo, useState } from "react";
 import { AperturaTurnoPage } from "./pages/AperturaTurnoPage";
 import { LoginPage } from "./pages/LoginPage";
+import { SetupWizard } from "./pages/SetupWizard";
 import { Shell } from "./components/Shell";
-import { ProveedorPos, useContextoReal, usePos } from "./services/contexto";
+import { ProveedorPos, useAjustes, useContextoReal, usePos } from "./services/contexto";
 import { useCarrito } from "./store/carrito.store";
 import { useNavegacion } from "./store/navegacion.store";
 import { useSesion } from "./store/sesion.store";
@@ -46,6 +47,7 @@ export function crearQueryClient(): QueryClient {
 /** Flujo de pantallas (sin lógica de conexión): se prueba inyectando el contexto. */
 export function AplicacionPos({ baseUrl }: { baseUrl: string }): React.JSX.Element {
   const { api } = usePos();
+  const ajustes = useAjustes();
   const token = useSesion((s) => s.token);
   const turno = useSesion((s) => s.turno);
   const usuario = useSesion((s) => s.usuario);
@@ -59,7 +61,13 @@ export function AplicacionPos({ baseUrl }: { baseUrl: string }): React.JSX.Eleme
     useSesion.getState().cerrar();
   };
 
-  if (token === null) return <LoginPage />;
+  // Un equipo recién instalado no tiene empresa: se muestra el asistente. Si el servidor no responde se deja el ingreso normal.
+  const estado = useQuery({ queryKey: ["setup", "estado"], queryFn: () => ajustes.estadoSetup(), enabled: token === null, retry: false });
+
+  if (token === null) {
+    if (estado.isPending) return <p className="p-8 text-center text-slate-300">Verificando el sistema…</p>;
+    return estado.data?.configurado === false ? <SetupWizard /> : <LoginPage />;
+  }
   if (turno === null && necesitaTurno) return <AperturaTurnoPage onSalir={salir} />;
   return <Shell baseUrl={baseUrl} onSalir={salir} />;
 }

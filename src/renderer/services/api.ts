@@ -37,6 +37,11 @@ export class ApiCliente {
     return this.cfg.obtenerToken();
   }
 
+  /** Mismo cliente pero con la sesión indicada (por ejemplo, la que acaba de abrir el asistente de configuración). */
+  conSesion(token: string): ApiCliente {
+    return new ApiCliente({ ...this.cfg, obtenerToken: () => token });
+  }
+
   async solicitar<T>(metodo: Metodo, ruta: string, cuerpo?: unknown): Promise<T> {
     const token = this.cfg.obtenerToken();
     const cabeceras: Record<string, string> = { "x-caja-id": this.cfg.cajaId };
@@ -104,6 +109,14 @@ export class ApiCliente {
 
   patch<T>(ruta: string, cuerpo: unknown): Promise<T> {
     return this.solicitar<T>("PATCH", ruta, cuerpo);
+  }
+
+  put<T>(ruta: string, cuerpo: unknown): Promise<T> {
+    return this.solicitar<T>("PUT", ruta, cuerpo);
+  }
+
+  delete<T = void>(ruta: string): Promise<T> {
+    return this.solicitar<T>("DELETE", ruta);
   }
 }
 

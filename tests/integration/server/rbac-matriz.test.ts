@@ -18,6 +18,13 @@ const RUTAS: ReadonlyArray<readonly [Metodo, string, Requisito]> = [
   // ── Públicas y de sesión ──
   ["GET", "/api/health", "publica"],
   ["POST", "/api/auth/login", "publica"],
+  ["GET", "/api/setup/estado", "publica"],
+  ["POST", "/api/setup", "publica"],
+  ["POST", "/api/setup/certificado", "publica"],
+  ["GET", "/api/configuracion", "configuracion:leer"],
+  ["PATCH", "/api/configuracion/empresa", "configuracion:actualizar"],
+  ["PATCH", "/api/configuracion/modulos", "configuracion:actualizar"],
+  ["POST", "/api/configuracion/giro", "configuracion:actualizar"],
   ["POST", "/api/auth/logout", "sesion"],
   ["GET", "/api/auth/me", "sesion"],
   // ── Catálogo e inventario ──

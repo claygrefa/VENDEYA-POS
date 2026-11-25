@@ -4,7 +4,7 @@
 import { create } from "zustand";
 import type { UsuarioSesion } from "../services/tipos";
 
-export type VistaId = "venta" | "caja" | "clientes" | "inventario" | "compras" | "reportes" | "sri";
+export type VistaId = "venta" | "caja" | "clientes" | "inventario" | "compras" | "reportes" | "sri" | "ajustes";
 
 export interface ItemMenu {
   id: VistaId;
@@ -25,6 +25,7 @@ export const MENU: ReadonlyArray<ItemMenu> = [
   { id: "compras", titulo: "Compras", permiso: "inventario:crear" },
   { id: "reportes", titulo: "Reportes", permiso: "reportes:leer" },
   { id: "sri", titulo: "Comprobantes SRI", permiso: "sri:leer" },
+  { id: "ajustes", titulo: "Ajustes", permiso: "configuracion:actualizar" },
 ];
 
 export const menuPara = (usuario: UsuarioSesion | null): ItemMenu[] => MENU.filter((m) => usuario?.permisos.includes(m.permiso) ?? false);
