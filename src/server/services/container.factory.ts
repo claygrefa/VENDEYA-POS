@@ -7,6 +7,7 @@ import { ClienteRepository } from "../repositories/cliente.repository";
 import { CompraRepository } from "../repositories/compra.repository";
 import { ConfiguracionService } from "./configuracion.service";
 import { SetupService } from "./setup/setup.service";
+import { LicenciaService, type OpcionesLicencia } from "./licencia/licencia.service";
 import { ConsultaService } from "./consulta.service";
 import { ProveedorService } from "./proveedor.service";
 import { ReporteService } from "./reporte.service";
@@ -91,6 +92,7 @@ export interface Servicios {
   sync: SyncService;
   proveedores: ProveedorService;
   setup: SetupService;
+  licencia: LicenciaService;
   configuracion: ConfiguracionService;
   consultas: ConsultaService;
   reportes: ReporteService;
@@ -117,6 +119,8 @@ export interface OpcionesServicios {
   sync?: OpcionesSync;
   /** Opciones del PDF del RIDE */
   ride?: { comprimir?: boolean };
+  /** Licenciamiento: sin esta opción no se exige licencia (desarrollo y pruebas) */
+  licencia?: OpcionesLicencia;
   sri?: { cliente?: ClienteSri; soap?: OpcionesClienteSri; envio?: OpcionesEnvioSri };
 }
 
@@ -177,6 +181,7 @@ export function crearServicios(prisma: PrismaClient, secretos: OpcionesServicios
     sync,
     proveedores: new ProveedorService(prisma),
     setup: new SetupService(prisma),
+    licencia: new LicenciaService(prisma, secretos.licencia ?? { requerida: false, cliente: null, clavePublica: null, dispositivo: { id: "sin-licenciamiento", nombre: "local", plataforma: process.platform, version: "0" } }),
     configuracion: new ConfiguracionService(prisma, sync),
     consultas: new ConsultaService(prisma),
     reportes: new ReporteService(prisma),

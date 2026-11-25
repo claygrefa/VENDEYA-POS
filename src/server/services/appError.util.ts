@@ -13,7 +13,9 @@ export type CodigoError =
   | "ESTADO_INVALIDO"
   | "LIMITE_CREDITO_EXCEDIDO"
   | "SIN_PERMISO"
-  | "MODULO_DESHABILITADO";
+  | "MODULO_DESHABILITADO"
+  /** Sin licencia vigente: no se pueden registrar ventas ni abrir turnos (HTTP 402) */
+  | "LICENCIA_REQUERIDA";
 
 export class AppError extends Error {
   public readonly codigo: CodigoError;

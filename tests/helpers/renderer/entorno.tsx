@@ -137,6 +137,7 @@ export function servidorBasico(api: ApiSimulada, catalogo: ProductoPos[] = CATAL
       return { cuerpo: { items, total: items.length, page: 1, pageSize: 24 } };
     })
     .en("GET /api/setup/estado", { cuerpo: { configurado: true } })
+    .en("GET /api/licencia", { cuerpo: { tipo: "NO_REQUERIDA", permiteOperar: true, mensaje: "Licenciamiento no requerido en esta instalación", plan: null, vence: null, diasParaVencer: null, ultimaValidacion: null, diasGraciaRestantes: null, maxDispositivos: null, claveEnmascarada: null, dispositivoId: null } })
     .en("GET /api/puntos-emision", { cuerpo: { items: [PUNTO] } })
     .en("GET /api/balanza", { cuerpo: { habilitada: true, puerto: "COM3" } })
     .en("GET /api/impresora", { cuerpo: { conexion: "RED", impresionTermica: true } })
@@ -166,7 +167,7 @@ export function renderizarPos(o: OpcionesRender = {}) {
   const noAutenticado = { veces: 0 };
 
   useCarrito.setState({ lineas: [], cliente: null });
-  useNavegacion.setState({ vista: null });
+  useNavegacion.setState({ vista: null, seccionAjustes: null });
   useSesion.setState({ token: null, usuario: null, turno: null, puntoEmision: null, modoTactil: false });
   if (o.conSesion !== false) useSesion.setState({ token: "token-prueba", usuario: o.usuario ?? USUARIO, turno: o.sinTurno === true ? null : TURNO, puntoEmision: o.sinTurno === true ? null : PUNTO });
 

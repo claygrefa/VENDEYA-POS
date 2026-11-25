@@ -25,6 +25,16 @@ function rechazar(reply: FastifyReply, status: 401 | 403, error: string, mensaje
   return reply.status(status).send({ error, mensaje });
 }
 
+/**
+ * Debe ir DESPUÉS de `requerirSesion`: rechaza con 402 (LICENCIA_REQUERIDA) si la licencia no permite operar. Se pone solo en lo que
+ * registra ventas o abre turnos; cerrar un turno, consultar, reportar y respaldar nunca dependen de la licencia.
+ */
+export function exigirLicencia(servicios: Servicios): preHandlerAsyncHookHandler {
+  return async (req) => {
+    if (req.usuario !== null) await servicios.licencia.exigirVigente(req.usuario.empresaId);
+  };
+}
+
 /** Exige sesión válida y, si se indica, el permiso `modulo:accion`. */
 export function requerirSesion(
   servicios: Servicios,

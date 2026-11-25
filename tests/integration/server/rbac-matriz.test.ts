@@ -25,6 +25,12 @@ const RUTAS: ReadonlyArray<readonly [Metodo, string, Requisito]> = [
   ["PATCH", "/api/configuracion/empresa", "configuracion:actualizar"],
   ["PATCH", "/api/configuracion/modulos", "configuracion:actualizar"],
   ["POST", "/api/configuracion/giro", "configuracion:actualizar"],
+  ["GET", "/api/licencia", "sesion"],
+  ["POST", "/api/licencia/activar", "configuracion:actualizar"],
+  ["POST", "/api/licencia/validar", "configuracion:actualizar"],
+  ["DELETE", "/api/licencia", "configuracion:actualizar"],
+  ["GET", "/api/licencia/dispositivos", "configuracion:actualizar"],
+  ["POST", "/api/licencia/dispositivos/:id/liberar", "configuracion:actualizar"],
   ["POST", "/api/auth/logout", "sesion"],
   ["GET", "/api/auth/me", "sesion"],
   // ── Catálogo e inventario ──

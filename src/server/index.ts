@@ -16,6 +16,8 @@ import type { OpcionesServicios } from "./services/container.factory";
 import { registrarSync } from "./routes/sync.routes";
 import { MigracionFallidaError, MigrationService, type ResultadoMigracion } from "./services/migration.service";
 import { RespaldoService, restaurarRespaldo } from "./services/respaldo.service";
+import { LicenciaWorker, type OpcionesLicenciaWorker } from "./jobs/licencia.job";
+import type { OpcionesLicencia } from "./services/licencia/licencia.service";
 
 const HTTP_POR_CODIGO: Record<CodigoError, number> = {
   VALIDACION: 400,
@@ -29,6 +31,7 @@ const HTTP_POR_CODIGO: Record<CodigoError, number> = {
   LIMITE_CREDITO_EXCEDIDO: 409,
   SIN_PERMISO: 403,
   MODULO_DESHABILITADO: 403,
+  LICENCIA_REQUERIDA: 402,
 };
 
 /** Construye la instancia Fastify con CORS, manejo de errores y rutas. No abre el puerto. */
@@ -96,6 +99,10 @@ export interface BackendOptions {
    * (la aplicación de escritorio lo activa; las pruebas no deben llamar al SRI).
    */
   sriWorker?: (OpcionesSriWorker & { habilitado: boolean }) | undefined;
+  /**
+   * Licenciamiento (aplicación instalada). Sin esta opción no se exige licencia. `trabajo` ajusta la validación periódica en línea.
+   */
+  licencia?: (OpcionesLicencia & { trabajo?: OpcionesLicenciaWorker }) | undefined;
   /** Puerto preferido; si está ocupado se usa uno libre. 0 = libre directamente. */
   port: number;
   host?: string;
@@ -128,6 +135,7 @@ export async function iniciarBackend(opciones: BackendOptions): Promise<BackendH
   const prisma = crearPrismaPara(opciones.dbPath);
   let server: FastifyInstance | null = null;
   let worker: SriWorker | null = null;
+  let licenciaWorker: LicenciaWorker | null = null;
 
   const backupsDir = opciones.backupsDir ?? path.join(path.dirname(opciones.dbPath), "backups");
   const respaldos = new RespaldoService(prisma, backupsDir);
@@ -150,8 +158,10 @@ export async function iniciarBackend(opciones: BackendOptions): Promise<BackendH
       ...(opciones.balanza !== undefined ? { balanza: opciones.balanza } : {}),
       ...(opciones.sync !== undefined ? { sync: opciones.sync } : {}),
       ...(opciones.ride !== undefined ? { ride: opciones.ride } : {}),
+      ...(opciones.licencia !== undefined ? { licencia: opciones.licencia } : {}),
     });
     worker = opciones.sriWorker?.habilitado === true ? new SriWorker(servicios.envioSri, opciones.sriWorker) : null;
+    licenciaWorker = new LicenciaWorker(servicios.licencia, opciones.licencia?.trabajo);
     server = await buildServer(servicios, opciones.logLevel ?? "info");
 
     try {
@@ -165,6 +175,7 @@ export async function iniciarBackend(opciones: BackendOptions): Promise<BackendH
     const puerto = typeof direccion === "object" && direccion !== null ? direccion.port : opciones.port;
     const servidor = server;
     await worker?.iniciar();
+    licenciaWorker.iniciar();
     servicios.sync.iniciar();
 
     return {
@@ -178,6 +189,7 @@ export async function iniciarBackend(opciones: BackendOptions): Promise<BackendH
       migraciones,
       respaldos,
       close: async () => {
+        await licenciaWorker?.detener();
         await worker?.detener();
         await servidor.close();
         await prisma.$disconnect();
@@ -185,6 +197,7 @@ export async function iniciarBackend(opciones: BackendOptions): Promise<BackendH
     };
   } catch (e) {
     await worker?.detener().catch(() => undefined);
+    await licenciaWorker?.detener().catch(() => undefined);
     if (server !== null) await server.close().catch(() => undefined);
     await prisma.$disconnect().catch(() => undefined);
     // Una migración que falla a mitad puede dejar la base a medio cambiar: se vuelve a la copia tomada justo antes de migrar

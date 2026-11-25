@@ -23,6 +23,8 @@ npmRebuild: false
 files:
   - dist/**/*
   - dist-electron/**/*
+  # Servidor de licencias de esta compilación (URL y clave pública; opcional: sin él el licenciamiento queda desactivado)
+  - electron/licencia.config.json
   # El cliente de Prisma generado (con el motor nativo) vive en la carpeta oculta node_modules/.prisma, que el recolector de
   # dependencias de electron-builder no incluye por sí solo (no es un paquete): se copia explícitamente.
   - from: node_modules/.prisma/client

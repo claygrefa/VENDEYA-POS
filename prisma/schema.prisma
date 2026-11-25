@@ -42,6 +42,7 @@ model Empresa {
   tarifasImpuesto       TarifaImpuesto[]
   listasPrecio          ListaPrecio[]
   comprobantes          ComprobanteElectronico[]
+  licencia              Licencia?
 }
 
 model Sucursal {
@@ -876,4 +877,21 @@ model EventoSync {
   createdAt  DateTime @default(now())
 
   @@index([empresaId, seq])
+}
+
+/// Licencia de uso de la empresa en ESTE equipo (la firma el servidor de licencias; la aplicación solo la verifica)
+model Licencia {
+  id               String   @id @default(uuid())
+  empresaId        String   @unique
+  clave            String   // clave de activación (solo se muestra enmascarada)
+  token            String   // licencia firmada: payload.firma (Ed25519)
+  dispositivoId    String   // equipo en el que se activó
+  ultimaValidacion DateTime // última respuesta correcta del servidor (inicia el período de gracia offline)
+  ultimoRelojVisto DateTime // reloj más reciente observado: detecta que se atrasó la fecha del equipo
+  bloqueoServidor  String?  // REVOCADA | SUSCRIPCION_VENCIDA | DISPOSITIVO (lo que el servidor respondió en la última validación)
+  motivoBloqueo    String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  empresa          Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
 }

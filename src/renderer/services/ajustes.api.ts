@@ -1,6 +1,7 @@
 // ============================================================
 // src/renderer/services/ajustes.api.ts — Asistente de configuración inicial y pantalla de Ajustes
 // ============================================================
+import type { DispositivosLicencia, EstadoLicencia } from "../../shared/types/licencia.types";
 import type { ApiCliente } from "./api";
 
 export interface DatosEmpresa {
@@ -127,6 +128,27 @@ export class AjustesApi {
   }
   cajasConectadas(): Promise<{ cajas: CajaConectada[] }> {
     return this.http.get("/api/sync/cajas");
+  }
+
+  // Licencia
+  licencia(): Promise<EstadoLicencia> {
+    return this.http.get("/api/licencia");
+  }
+  activarLicencia(clave: string): Promise<EstadoLicencia> {
+    return this.http.post("/api/licencia/activar", { clave });
+  }
+  /** Valida en línea ahora; `error` explica por qué no se pudo (sin conexión…) */
+  validarLicencia(): Promise<{ estado: EstadoLicencia; error: string | null }> {
+    return this.http.post("/api/licencia/validar");
+  }
+  desactivarLicencia(): Promise<EstadoLicencia> {
+    return this.http.delete("/api/licencia");
+  }
+  dispositivosLicencia(): Promise<DispositivosLicencia> {
+    return this.http.get("/api/licencia/dispositivos");
+  }
+  liberarDispositivo(id: string): Promise<DispositivosLicencia> {
+    return this.http.post(`/api/licencia/dispositivos/${encodeURIComponent(id)}/liberar`);
   }
 }
 

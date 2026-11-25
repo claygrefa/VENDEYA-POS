@@ -11,9 +11,11 @@ import { archivoABase64, type AjustesNegocio, type ConfiguracionBalanza, type Co
 import { useActualizacion } from "../hooks/useActualizacion";
 import { useAjustes, usePos } from "../services/contexto";
 import type { EstadoActualizacion } from "../../shared/types/actualizacion.types";
+import { SeccionLicencia } from "./AjustesLicencia";
+import { useNavegacion } from "../store/navegacion.store";
 import { ETIQUETA_GIRO, ETIQUETA_REGIMEN, ETIQUETA_TIPO } from "./SetupWizard";
 
-type Seccion = "empresa" | "modulos" | "impresora" | "balanza" | "certificado" | "red" | "actualizaciones";
+type Seccion = "empresa" | "modulos" | "impresora" | "balanza" | "certificado" | "red" | "licencia" | "actualizaciones";
 const SECCIONES: ReadonlyArray<{ id: Seccion; titulo: string }> = [
   { id: "empresa", titulo: "Empresa" },
   { id: "modulos", titulo: "Giro y módulos" },
@@ -21,6 +23,7 @@ const SECCIONES: ReadonlyArray<{ id: Seccion; titulo: string }> = [
   { id: "balanza", titulo: "Balanza" },
   { id: "certificado", titulo: "Certificado de firma" },
   { id: "red", titulo: "Red local" },
+  { id: "licencia", titulo: "Licencia" },
   { id: "actualizaciones", titulo: "Actualizaciones" },
 ];
 
@@ -47,7 +50,15 @@ const opciones = (ids: ReadonlyArray<string>, etiquetas: Record<string, string>)
 type Mensaje = { tipo: "error" | "exito"; texto: string } | null;
 
 export function AjustesPage(): React.JSX.Element {
-  const [seccion, setSeccion] = useState<Seccion>("empresa");
+  const pedida = useNavegacion((s) => s.seccionAjustes);
+  const consumir = useNavegacion((s) => s.consumirSeccionAjustes);
+  const [seccion, setSeccion] = useState<Seccion>(() => (SECCIONES.some((s) => s.id === pedida) ? (pedida as Seccion) : "empresa"));
+  // Otra parte de la aplicación (el aviso de licencia) pide abrir una pestaña concreta
+  useEffect(() => {
+    if (pedida === null) return;
+    if (SECCIONES.some((s) => s.id === pedida)) setSeccion(pedida as Seccion);
+    consumir();
+  }, [pedida, consumir]);
   return (
     <section aria-label="Ajustes" className="space-y-2">
       <h1 className="text-xl font-semibold text-white">Ajustes</h1>
@@ -58,6 +69,7 @@ export function AjustesPage(): React.JSX.Element {
       {seccion === "balanza" ? <SeccionBalanza /> : null}
       {seccion === "certificado" ? <SeccionCertificado /> : null}
       {seccion === "red" ? <SeccionRed /> : null}
+      {seccion === "licencia" ? <SeccionLicencia /> : null}
       {seccion === "actualizaciones" ? <SeccionActualizaciones /> : null}
     </section>
   );

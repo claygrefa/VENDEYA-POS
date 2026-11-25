@@ -10,3 +10,4 @@ export * from "./sri.types";
 export * from "./feature-flags.types";
 export * from "./common.types";
 export * from "./actualizacion.types";
+export * from "./licencia.types";

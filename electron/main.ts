@@ -13,6 +13,9 @@ import { liberarIpcImpresoras, registrarIpcImpresoras } from "./ipc/printer.ipc"
 import { liberarIpcUpdater, registrarIpcUpdater } from "./ipc/updater.ipc";
 import { MigracionFallidaError } from "../src/server/services/migration.service";
 import { ActualizadorApp, type AutoUpdaterLike } from "./updater/updater.service";
+import { cargarConfigLicencia } from "./licencia.config";
+import { ClienteLicenciasHttp } from "../src/server/services/licencia/licencia.cliente";
+import { identificarDispositivo } from "../src/server/services/licencia/dispositivo.util";
 
 const isDev = process.env["NODE_ENV"] === "development";
 const PUERTO_PREFERIDO = parseInt(process.env["SERVER_PORT"] ?? "3001", 10);
@@ -56,6 +59,24 @@ function calcularRutas(): RutasApp {
     migraciones: app.isPackaged
       ? path.join(process.resourcesPath, "prisma", "migrations")
       : path.join(app.getAppPath(), "prisma", "migrations"),
+  };
+}
+
+/**
+ * Licenciamiento: se exige solo en la aplicación instalada (no en desarrollo) y se apaga con VENDEYA_LICENCIA=off. Los datos del servidor
+ * de licencias (URL y clave pública) vienen de la compilación; si faltan, el backend lo informa y no bloquea las cajas.
+ */
+function opcionesLicencia(rutas: RutasApp): NonNullable<Parameters<typeof iniciarBackend>[0]["licencia"]> {
+  const config = cargarConfigLicencia({
+    rutas: [path.join(process.resourcesPath ?? "", "licencia.config.json"), path.join(app.getAppPath(), "electron", "licencia.config.json")],
+    env: process.env,
+    registrar: (m) => console.warn(`[licencia] ${m}`),
+  });
+  return {
+    requerida: app.isPackaged && process.env["VENDEYA_LICENCIA"] !== "off",
+    cliente: config === null ? null : new ClienteLicenciasHttp(config.servidorUrl),
+    clavePublica: config?.clavePublica ?? null,
+    dispositivo: identificarDispositivo({ directorioSecretos: path.join(rutas.userData, "secretos"), version: app.getVersion() }),
   };
 }
 
@@ -140,6 +161,7 @@ async function arrancar(): Promise<void> {
         }
       : {}),
     sriWorker: { habilitado: process.env["SRI_WORKER"] !== "off" },
+    licencia: opcionesLicencia(rutas),
     // Servidor de la red local: escucha a las demás cajas solo si se pide (VENDEYA_LAN=1)
     redLocal: process.env["VENDEYA_LAN"] === "1",
     port: PUERTO_PREFERIDO,

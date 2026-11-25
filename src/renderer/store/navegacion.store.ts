@@ -32,12 +32,19 @@ export const menuPara = (usuario: UsuarioSesion | null): ItemMenu[] => MENU.filt
 
 interface EstadoNavegacion {
   vista: VistaId | null;
+  /** Pestaña de Ajustes que se debe abrir al llegar (la pide, por ejemplo, el aviso de licencia); Ajustes la consume */
+  seccionAjustes: string | null;
   ir: (v: VistaId) => void;
+  irAjustes: (seccion: string) => void;
+  consumirSeccionAjustes: () => void;
   reiniciar: () => void;
 }
 
 export const useNavegacion = create<EstadoNavegacion>()((set) => ({
   vista: null,
+  seccionAjustes: null,
   ir: (vista) => set({ vista }),
-  reiniciar: () => set({ vista: null }),
+  irAjustes: (seccionAjustes) => set({ vista: "ajustes", seccionAjustes }),
+  consumirSeccionAjustes: () => set({ seccionAjustes: null }),
+  reiniciar: () => set({ vista: null, seccionAjustes: null }),
 }));

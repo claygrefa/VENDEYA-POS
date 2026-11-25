@@ -3,6 +3,7 @@
 // ============================================================
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import React, { useEffect, useMemo, useState } from "react";
+import { useLicencia } from "./hooks/useLicencia";
 import { AperturaTurnoPage } from "./pages/AperturaTurnoPage";
 import { LoginPage } from "./pages/LoginPage";
 import { SetupWizard } from "./pages/SetupWizard";
@@ -64,11 +65,14 @@ export function AplicacionPos({ baseUrl }: { baseUrl: string }): React.JSX.Eleme
   // Un equipo recién instalado no tiene empresa: se muestra el asistente. Si el servidor no responde se deja el ingreso normal.
   const estado = useQuery({ queryKey: ["setup", "estado"], queryFn: () => ajustes.estadoSetup(), enabled: token === null, retry: false });
 
+  // Sin licencia vigente no se puede abrir turno: se entra al marco (con el aviso y Ajustes) para poder activarla
+  const licenciaBloquea = useLicencia(token !== null).data?.permiteOperar === false;
+
   if (token === null) {
     if (estado.isPending) return <p className="p-8 text-center text-slate-300">Verificando el sistema…</p>;
     return estado.data?.configurado === false ? <SetupWizard /> : <LoginPage />;
   }
-  if (turno === null && necesitaTurno) return <AperturaTurnoPage onSalir={salir} />;
+  if (turno === null && necesitaTurno && !licenciaBloquea) return <AperturaTurnoPage onSalir={salir} />;
   return <Shell baseUrl={baseUrl} onSalir={salir} />;
 }
 

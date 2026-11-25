@@ -33,6 +33,7 @@ export interface OpcionesEntorno {
   balanza?: BackendOptions["balanza"];
   sync?: BackendOptions["sync"];
   ride?: BackendOptions["ride"];
+  licencia?: BackendOptions["licencia"];
 }
 
 export async function crearEntorno(opciones: OpcionesEntorno = {}): Promise<Entorno> {
@@ -48,6 +49,7 @@ export async function crearEntorno(opciones: OpcionesEntorno = {}): Promise<Ento
     ...(opciones.balanza !== undefined ? { balanza: opciones.balanza } : {}),
     ...(opciones.sync !== undefined ? { sync: opciones.sync } : {}),
     ...(opciones.ride !== undefined ? { ride: opciones.ride } : {}),
+    ...(opciones.licencia !== undefined ? { licencia: opciones.licencia } : {}),
   });
   const seed = await runSeed(backend.prisma, { adminPassword: PASSWORD_ADMIN });
   const categoria = await backend.prisma.categoria.findFirstOrThrow({ where: { nombre: "General" } });
@@ -63,7 +65,11 @@ export async function crearEntorno(opciones: OpcionesEntorno = {}): Promise<Ento
     secretos: path.join(dir, "data", "secretos"),
     cerrar: async () => {
       await backend.close();
-      rmSync(dir, { recursive: true, force: true });
+      try {
+        rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+      } catch {
+        /* Windows (antivirus/indexador) a veces retiene un instante la base recién cerrada: dejar un temporal no invalida la prueba */
+      }
     },
   };
 }

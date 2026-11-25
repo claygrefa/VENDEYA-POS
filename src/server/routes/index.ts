@@ -18,7 +18,8 @@ import { crearProductoController } from "../controllers/producto.controller";
 import { crearTurnoController } from "../controllers/turno.controller";
 import { crearVentaController } from "../controllers/venta.controller";
 import type { Servicios } from "../services/container.factory";
-import { requerirSesion } from "./auth.guard";
+import { crearLicenciaController } from "../controllers/licencia.controller";
+import { exigirLicencia, requerirSesion } from "./auth.guard";
 
 export function registrarRutas(server: FastifyInstance, servicios: Servicios): void {
   const health = crearHealthController(servicios);
@@ -36,6 +37,7 @@ export function registrarRutas(server: FastifyInstance, servicios: Servicios): v
   const hardware = crearHardwareController(servicios);
   const gestion = crearGestionController(servicios);
   const setup = crearSetupController(servicios);
+  const licencia = crearLicenciaController(servicios);
 
   // ── Públicas ──────────────────────────────────────────────
   server.get("/api/health", health.estado);
@@ -63,7 +65,7 @@ export function registrarRutas(server: FastifyInstance, servicios: Servicios): v
   server.get<{ Params: { id: string } }>("/api/clientes/:id", leerClientes, clientes.obtener);
 
   // ── Ventas ────────────────────────────────────────────────
-  const crearVenta = { preHandler: requerirSesion(servicios, { modulo: "ventas", accion: "crear" }) };
+  const crearVenta = { preHandler: [requerirSesion(servicios, { modulo: "ventas", accion: "crear" }), exigirLicencia(servicios)] };
   const anularVenta = { preHandler: requerirSesion(servicios, { modulo: "ventas", accion: "anular" }) };
   const leerVentas = { preHandler: requerirSesion(servicios, { modulo: "ventas", accion: "leer" }) };
   server.post("/api/ventas", crearVenta, ventas.crear);
@@ -75,7 +77,8 @@ export function registrarRutas(server: FastifyInstance, servicios: Servicios): v
   // Operar/ver turnos ajenos exige además caja:actualizar (supervisor), validado en el servicio.
   const operarCaja = { preHandler: requerirSesion(servicios, { modulo: "caja", accion: "crear" }) };
   const leerCaja = { preHandler: requerirSesion(servicios, { modulo: "caja", accion: "leer" }) };
-  server.post("/api/turnos/abrir", operarCaja, turnos.abrir);
+  const abrirTurno = { preHandler: [requerirSesion(servicios, { modulo: "caja", accion: "crear" }), exigirLicencia(servicios)] };
+  server.post("/api/turnos/abrir", abrirTurno, turnos.abrir);
   server.get("/api/turnos/actual", leerCaja, turnos.actual);
   server.post<{ Params: { id: string } }>("/api/turnos/:id/movimientos", operarCaja, turnos.movimiento);
   server.post<{ Params: { id: string } }>("/api/turnos/:id/cerrar", operarCaja, turnos.cerrar);
@@ -135,7 +138,8 @@ export function registrarRutas(server: FastifyInstance, servicios: Servicios): v
   const verRestaurante = permiso("restaurante", "leer");
   const operarRestaurante = permiso("restaurante", "actualizar");
   const abrirCuentas = permiso("restaurante", "crear");
-  const cobrarCuentas = permiso("ventas", "crear"); // además, el servicio exige restaurante:actualizar
+  // Cobrar una cuenta de mesa crea una venta: igual que POST /api/ventas, exige licencia vigente. Además, el servicio exige restaurante:actualizar
+  const cobrarCuentas = { preHandler: [requerirSesion(servicios, { modulo: "ventas", accion: "crear" }), exigirLicencia(servicios)] };
 
   server.get("/api/mesas", verRestaurante, restaurante.listarMesas);
   server.post("/api/mesas", planoMesas, restaurante.crearMesa);
@@ -212,6 +216,15 @@ export function registrarRutas(server: FastifyInstance, servicios: Servicios): v
   server.patch("/api/configuracion/empresa", permiso("configuracion", "actualizar"), setup.actualizarEmpresa);
   server.patch("/api/configuracion/modulos", permiso("configuracion", "actualizar"), setup.actualizarModulos);
   server.post("/api/configuracion/giro", permiso("configuracion", "actualizar"), setup.aplicarGiro);
+
+  // ── Licencia (estado para cualquier usuario: el marco avisa al cajero; la gestión es del administrador) ──
+  const administrar = permiso("configuracion", "actualizar");
+  server.get("/api/licencia", { preHandler: requerirSesion(servicios) }, licencia.estado);
+  server.post("/api/licencia/activar", administrar, licencia.activar);
+  server.post("/api/licencia/validar", administrar, licencia.validar);
+  server.delete("/api/licencia", administrar, licencia.desactivar);
+  server.get("/api/licencia/dispositivos", administrar, licencia.dispositivos);
+  server.post<{ Params: { id: string } }>("/api/licencia/dispositivos/:id/liberar", administrar, licencia.liberar);
 
   // ── Certificado digital de firma (.p12) ───────────────────
   // La contraseña y la clave privada nunca se devuelven: la consulta solo muestra titular, emisor, huella y vigencia.

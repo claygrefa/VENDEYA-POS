@@ -3,6 +3,7 @@
 // ============================================================
 import React, { useEffect } from "react";
 import { useActualizacion } from "../hooks/useActualizacion";
+import { useLicencia } from "../hooks/useLicencia";
 import { useSincronizacion } from "../hooks/useSincronizacion";
 import { AjustesPage } from "../pages/AjustesPage";
 import { CajaPage } from "../pages/CajaPage";
@@ -16,6 +17,7 @@ import { useCarrito } from "../store/carrito.store";
 import { menuPara, useNavegacion, type VistaId } from "../store/navegacion.store";
 import { useSesion } from "../store/sesion.store";
 import { BannerActualizacion } from "./BannerActualizacion";
+import { BannerLicencia } from "./BannerLicencia";
 import { BarraEstado } from "./BarraEstado";
 
 function Vista({ id }: { id: VistaId }): React.JSX.Element {
@@ -49,7 +51,10 @@ export function Shell({ baseUrl, onSalir }: { baseUrl: string; onSalir: () => vo
   const ir = useNavegacion((s) => s.ir);
   const menu = menuPara(usuario);
   // Si la vista guardada ya no corresponde (otro usuario, permisos distintos) se vuelve a la primera permitida
-  const activa: VistaId | null = vista !== null && menu.some((m) => m.id === vista) ? vista : (menu[0]?.id ?? null);
+  // Sin licencia que permita operar, lo primero es poder activarla: se abre Ajustes (si el usuario tiene acceso)
+  const sinLicencia = useLicencia().data?.permiteOperar === false;
+  const inicial: VistaId | null = sinLicencia && menu.some((m) => m.id === "ajustes") ? "ajustes" : (menu[0]?.id ?? null);
+  const activa: VistaId | null = vista !== null && menu.some((m) => m.id === vista) ? vista : inicial;
 
   // Ctrl+1…8 cambia de vista sin soltar el teclado
   useEffect(() => {
@@ -67,6 +72,7 @@ export function Shell({ baseUrl, onSalir }: { baseUrl: string; onSalir: () => vo
 
   return (
     <div className="flex h-screen flex-col bg-slate-900 text-white">
+      <BannerLicencia />
       <BannerActualizacion actualizacion={actualizacion} ocupado={ventaEnCurso} />
       <BarraEstado sync={sync} onSalir={onSalir} />
       <div className="flex min-h-0 flex-1">
