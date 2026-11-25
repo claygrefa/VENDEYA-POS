@@ -64,6 +64,8 @@ import { XsdValidatorService } from "./sri/xsdValidator.service";
 import { VentaService } from "./venta.service";
 import { RespaldoService } from "./respaldo.service";
 import { RespaldoNubeService } from "./respaldoNube.service";
+import { RestauracionService } from "./restauracion.service";
+import { TelemetriaService, type TransporteTelemetria } from "./telemetria/telemetria.service";
 
 export interface Servicios {
   prisma: PrismaClient;
@@ -104,6 +106,8 @@ export interface Servicios {
   sesiones: SessionService;
   respaldos: RespaldoService;
   respaldoNube: RespaldoNubeService;
+  restauracion: RestauracionService;
+  telemetria: TelemetriaService;
 }
 
 export interface OpcionesServicios {
@@ -114,6 +118,10 @@ export interface OpcionesServicios {
   directorioSecretos: string;
   /** Carpeta de los respaldos locales (default: la hermana `backups` de la carpeta de secretos) */
   directorioRespaldos?: string;
+  /** Carpeta de la base de datos (donde se deja la restauración preparada); default: la carpeta que contiene `secretos` */
+  directorioDatos?: string;
+  /** Telemetría opcional de errores: versión de la aplicación y destino (sin transporte, los reportes solo se acumulan) */
+  telemetria?: { version?: string; transporte?: TransporteTelemetria | null; autoEnviar?: boolean };
   /** Protección de la clave maestra con el almacén del sistema operativo (Electron safeStorage) */
   proteccionClave?: ProteccionClave;
   /** Conexión con el SRI: opciones del cliente SOAP real o un cliente sustituto (pruebas) */
@@ -152,6 +160,13 @@ export function crearServicios(prisma: PrismaClient, secretos: OpcionesServicios
   const certificados = new CertificadoService(prisma, configuracionRepo, claveMaestra, path.join(secretos.directorioSecretos, "certificados"));
   const respaldos = new RespaldoService(prisma, secretos.directorioRespaldos ?? path.join(secretos.directorioSecretos, "..", "backups"));
   const respaldoNube = new RespaldoNubeService(respaldos, claveMaestra, secretos.directorioSecretos);
+  const restauracion = new RestauracionService(secretos.directorioDatos ?? path.join(secretos.directorioSecretos, ".."), respaldos, respaldoNube);
+  const telemetria = new TelemetriaService({
+    directorio: secretos.directorioSecretos,
+    version: secretos.telemetria?.version ?? "desconocida",
+    transporte: secretos.telemetria?.transporte ?? null,
+    ...(secretos.telemetria?.autoEnviar !== undefined ? { autoEnviar: secretos.telemetria.autoEnviar } : {}),
+  });
   const firma = new FirmaService(prisma, comprobanteRepo, certificados, xsd);
   const sync = new SyncService(prisma, sesiones, secretos.sync);
   const envioSri = new EnvioSriService(prisma, new ColaSriRepository(), firma, secretos.sri?.cliente ?? new SriSoapClient(secretos.sri?.soap), {
@@ -203,5 +218,7 @@ export function crearServicios(prisma: PrismaClient, secretos: OpcionesServicios
     sesiones,
     respaldos,
     respaldoNube,
+    restauracion,
+    telemetria,
   };
 }

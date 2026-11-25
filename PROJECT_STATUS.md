@@ -3,10 +3,10 @@
 ## Estado General
 - **Proyecto:** VENDEYA POS (Sistema Punto de Venta Multi-Giro & Facturación Electrónica SRI Ecuador)
 - **Horizonte:** 6 Meses (24 Semanas)
-- **Fase Actual:** MES 6 — Semana 23: centro de ayuda y telemetría opcional
+- **Fase Actual:** MES 6 — Semana 24: corrección final y lanzamiento v1.0.0
 - **Estado de Compilación:** ✅ `tsc --noEmit` → 0 errores | ✅ `tsconfig.node.json` → 0 errores | ✅ `tsconfig.electron.json` → 0 errores
-- **Tests:** ✅ 1025/1025 passed (68 archivos de prueba)
-- **Último Commit:** `feat: Semana 22 - auditoria de seguridad`
+- **Tests:** ✅ 1069/1069 passed (71 archivos de prueba)
+- **Último Commit:** `feat: Semana 23 - centro de ayuda y telemetria`
 
 ---
 
@@ -45,8 +45,8 @@
 ### MES 6: Auditoría, Seguridad, Estrés y Lanzamiento Comercial
 - [x] **Semana 21 (COMPLETADA):** Pruebas de estrés y rendimiento con bases de datos de 20,000+ productos y simulación de 1,500 ventas diarias en hardware de gama baja/media.
 - [x] **Semana 22 (COMPLETADA, parcial: ver «No resuelto»):** Auditoría de seguridad (protección de SQLite, sanitización de entradas, permisos RBAC por rol de cajero/supervisor/admin, respaldos automáticos locales y en nube).
-- [ ] **Semana 23 (ACTUAL):** Centro de ayuda integrado en la aplicación, guías rápidas para cajeros/contadores y telemetría opcional de errores.
-- [ ] **Semana 24:** Corrección final de detalles, congelamiento de código, pruebas en máquinas limpias (Windows 10/11 y macOS) y empaquetado oficial **v1.0.0 Comercial**.
+- [x] **Semana 23 (COMPLETADA, parcial: ver «No resuelto»):** Centro de ayuda integrado en la aplicación, guías rápidas para cajeros/contadores y telemetría opcional de errores.
+- [ ] **Semana 24 (ACTUAL):** Corrección final de detalles, congelamiento de código, pruebas en máquinas limpias (Windows 10/11 y macOS) y empaquetado oficial **v1.0.0 Comercial**.
 
 ---
 
@@ -804,10 +804,41 @@ La matriz RBAC cubre las 4 rutas nuevas (77 entradas en la tabla; el recuento de
 
 ---
 
-## Próxima Tarea Exacta (Para ejecutar ahora — Semana 23)
-**Antes de empezar (deudas arrastradas):** (a) repetir contra `celcer` una consulta real y una factura completa con certificado de pruebas del SRI (`ECONNRESET`); (b) re-ejecutar la auditoría independiente (`REVIEWER_AGENT.md`) y `npm audit`; (c) probar en equipos reales (ticket/RIDE, balanza, dos cajas en red, instalador en máquina limpia, `npm run test:paquete`, rendimiento en gama baja); (d) nota de débito (05) y `ats.xsd` oficial; (e) gestión de usuarios (con cierre de sesiones al desactivar/cambiar rol) y de sucursales/puntos de emisión; (f) servidor de licencias real; (g) certificados de firma de código, repositorio de releases y actualización real; (h) íconos definitivos; (i) endurecer el licenciamiento ante edición directa de la base; (j) ampliar márgenes de las pruebas de interfaz sensibles al tiempo; (k) TLS en la LAN y cifrado en reposo de la base.
+### Semana 23 — 2026-11-25 ✅ COMPLETADA (parcial: ver «No resuelto»)
+**1. Centro de ayuda integrado** (`pages/AyudaPage.tsx`, contenido en `pages/ayuda.contenido.ts`): vista «Ayuda» al final del menú para **todos** los roles (permiso especial `PARA_TODOS`; no mueve los atajos Ctrl+número). 16 guías **locales** (funcionan sin internet) agrupadas en primeros pasos, cajero, supervisor, contador y administrador: atajos, abrir turno, vender, anular, ingresos/egresos, cierre ciego, supervisión, clientes y crédito, inventario/compras/ajustes, comprobantes SRI, reportes y ATS, configuración, certificado, licencia, respaldos, **restaurar**, privacidad y solución de problemas. Muestra por defecto las de su rol («Mostrar las guías de todos los roles» amplía), búsqueda sin distinguir tildes/mayúsculas que exige todas las palabras, y artículo con pasos numerados y recuadro «Tenga en cuenta». Una prueba comprueba que los atajos y los nombres de botones que cita la ayuda existen en las pantallas. Se retiraron las guías de **mesas/comandas y de retenciones/liquidaciones/guías de remisión**: esas funciones existen en la API pero la interfaz todavía no tiene pantalla (ver «No resuelto»).
 
-1. **Centro de ayuda integrado** (página `AyudaPage` en `src/renderer/pages/`): búsqueda y artículos locales (sin internet) organizados por rol: guía rápida del cajero (abrir turno, vender, cobrar, anular, cerrar), del supervisor, del contador (comprobantes SRI, ATS, retenciones) y del administrador (configuración, certificado, licencia, **respaldos y restauración**).
-2. **Pantalla de respaldos en Ajustes** (consume `/api/respaldos`): lista, «Respaldar ahora», configurar/quitar la carpeta de nube y la frase (con aviso de que sin la frase no se puede restaurar), «Copiar a la nube ahora» y el estado; y el procedimiento de restauración guiado.
-3. **Telemetría opcional de errores**: desactivada por defecto, con consentimiento explícito en el asistente/Ajustes; solo errores técnicos (versión, SO, mensaje y pila sin datos de ventas, clientes ni claves), con vista previa de lo que se enviaría; sin servidor real aún, el envío va detrás de una interfaz sustituible y probada con un servidor simulado.
-4. Pruebas (jsdom con `ApiSimulada`), documentar en PROJECT_STATUS; `tsc --noEmit` (3 tsconfig) y `npm test`; commit `feat: Semana 23 - centro de ayuda y telemetria`.
+**2. Respaldos en Ajustes** (`pages/AjustesRespaldos.tsx`, pestaña «Respaldos»): lista de respaldos del equipo con su motivo, «Respaldar ahora», configuración de la **copia cifrada en la nube** (carpeta + frase ≥ 12 caracteres, con aviso destacado de que sin la frase no se recupera y casilla «Ya anoté la frase» obligatoria), «Copiar a la nube ahora» y «Dejar de copiar», y **restauración guiada**.
+- **Restauración en dos tiempos** (`services/restauracion.service.ts`): «Preparar restauración» exige la **contraseña del administrador** (con el mismo freno de intentos del login; un error de contraseña devuelve 400, no 401, para que la interfaz no cierre la sesión), la frase si es de la nube y marcar que entiende que se reemplazan todos los datos. El servidor descifra (si hace falta) y **verifica** el respaldo y lo deja como `restauracion-pendiente.db`; no toca la base en uso. **Al reabrir la aplicación**, antes de abrir la base, `aplicarRestauracionPendiente` guarda la base actual (y su WAL) como `vendeya.db.antes-de-restaurar-<fecha>`, pone la restaurada y continúa el arranque (que migra si hace falta, con su respaldo previo). «Cancelar restauración» descarta lo preparado. Solo se aceptan nombres que existan en la lista de respaldos o en la carpeta de la nube (probado contra `../`, rutas absolutas y `..\`); la frase no se guarda.
+- API nueva: `POST/DELETE /api/respaldos/restaurar`; `GET /api/respaldos` ahora incluye `restauracionPendiente` y las copias de la nube.
+
+**3. Telemetría opcional de errores** (`services/telemetria/`, `controllers/telemetria.controller.ts`, `pages/AjustesPrivacidad.tsx`, `hooks/useReporteErrores.ts`, `components/LimiteErrores.tsx`):
+- **Desactivada por defecto**; solo el administrador la activa (Ajustes › Privacidad, que lista qué se reúne y qué nunca). Sin consentimiento el servidor descarta los reportes (ni siquiera crea archivos) y la interfaz no envía la petición. Retirar el consentimiento **borra** la cola.
+- **Limpieza de datos personales en el servidor** (`telemetria.util.ts`) antes de guardar: RUC/cédula/claves de acceso y toda secuencia de ≥ 9 dígitos, correos, URL, IP, tokens y valores de `password=`/`Bearer`, rutas con el usuario del sistema (Windows/macOS/Linux); mensaje ≤ 300 y pila ≤ 2 000 caracteres. Un reporte solo contiene: id, fecha, versión, plataforma, origen (interfaz/servidor), nombre de la vista, mensaje y pila. El id de instalación es un UUID aleatorio (no se deriva de la empresa ni del equipo).
+- Cola local de 50 reportes (sin ráfagas repetidas); el administrador puede **ver exactamente lo que se enviaría**, descartarlo o enviarlo. El envío va detrás de `TransporteTelemetria` (sustituible); `TransporteHttp` solo acepta https (o este equipo) con espera de 10 s y conserva en la cola lo que el servidor no aceptó. **Sin servidor de destino configurado (`VENDEYA_TELEMETRIA_URL`, no hay ninguno real) los reportes solo se acumulan para revisarlos y «Enviar ahora» queda deshabilitado.**
+- Orígenes: errores 500 del servidor (manejador global) y errores no capturados / de dibujo de la interfaz. `LimiteErrores` evita la pantalla en blanco: muestra «Esta pantalla tuvo un problema» con «Volver a intentar» y se reinicia al cambiar de vista.
+- API (`/api/telemetria…`, añadida a la matriz RBAC, 86 rutas): estado y registrar errores para cualquier sesión; activar, ver, descartar y enviar solo `configuracion:actualizar`.
+
+**Pruebas nuevas (44):** `tests/integration/server/telemetria.test.ts` (19: 6 familias de datos personales eliminadas, consentimiento, ráfagas, tope, revocación, envío real a un servidor HTTP simulado con fallo 503 y reintento, id estable, destino https, API y 500 limpio), `restauracion.test.ts` (6: contraseña, rutas hostiles, cancelar, aplicar al reabrir con la base anterior conservada, rol, copia cifrada con frase equivocada/correcta), `tests/unit/renderer/ayuda-respaldos.test.tsx` (19: contenido, búsqueda, navegación, respaldos, nube, restauración, privacidad, límite de errores y reporte de `window.onerror` con/sin consentimiento); 4 expectativas del menú actualizadas («Ayuda»).
+
+**Hallazgo de la propia semana:** un 401 por contraseña incorrecta al confirmar la restauración habría cerrado la sesión del administrador (el cliente HTTP trata todo 401 como sesión caducada); se devuelve 400 `VALIDACION`.
+
+**No resuelto / límites:**
+- **La interfaz no tiene pantallas** para mesas/comandas, retenciones, liquidaciones ni guías de remisión (solo API): la ayuda no las describe. Tampoco hay gestión de usuarios ni de sucursales.
+- La restauración **no es en caliente**: hay que cerrar y reabrir la aplicación (no hay botón de reinicio). En una caja secundaria de la LAN no aplica (no tiene base propia). Restaurar a una base anterior descarta las ventas posteriores (la ayuda lo advierte).
+- La telemetría **no tiene servidor real**: lo enviado nunca se probó contra uno de producción; el envío automático (al registrar, máx. 1 por minuto) solo actúa si hay destino. La limpieza de datos personales es por patrones: un dato personal con formato inusual (p. ej. un nombre propio dentro de un mensaje de error) **podría no detectarse**; por eso existe la vista previa y el consentimiento. El asistente de configuración inicial no pregunta por la telemetría (solo Ajustes).
+- La ayuda está **solo en español** y es texto estático (sin capturas ni vídeo); la guía de restaurar en una computadora nueva no se probó en un equipo real. Las guías de rol no se validaron con cajeros/contadores reales.
+- Una prueba de licencia con intervalos reales (`Validación periódica en segundo plano`) falló una vez en una corrida completa con la máquina saturada y pasa sola 3 de 3 (mismo tipo de fragilidad de tiempo ya registrada).
+
+**Verificación:** `tsc --noEmit` (3 tsconfig) ✅ 0 errores | `npx vitest run` ✅ 1069/1069 (71 archivos; en la segunda corrida completa).
+
+---
+
+## Próxima Tarea Exacta (Para ejecutar ahora — Semana 24)
+**Cierre del proyecto: corrección final, congelamiento de código, pruebas en máquinas limpias y empaquetado oficial v1.0.0 Comercial.**
+
+**Deudas que bloquean o condicionan el lanzamiento (resolver o declarar expresamente):** (a) repetir contra `celcer` una consulta real y una factura completa con certificado de pruebas del SRI (`ECONNRESET`); (b) re-ejecutar la auditoría independiente (`REVIEWER_AGENT.md`) y `npm audit`; (c) **probar en equipos reales**: ticket/RIDE, balanza, dos cajas en red, instalador en máquina limpia (procedimiento en la Semana 20), `npm run test:paquete`, rendimiento en gama baja, y el flujo de **restaurar** una copia en una computadora nueva; (d) nota de débito (05) y `ats.xsd` oficial; (e) gestión de usuarios (con cierre de sesiones al desactivar/cambiar rol) y de sucursales/puntos de emisión; pantallas de mesas/comandas y de retenciones/liquidaciones/guías (hoy solo API); (f) servidor de licencias real y `electron/licencia.config.json`; (g) certificados de firma de código (Windows/Apple), repositorio de releases en GitHub, CI/publicación y una actualización real de punta a punta; (h) íconos y marca definitivos; (i) endurecer el licenciamiento ante edición directa de la base; (j) ampliar márgenes de las pruebas sensibles al tiempo; (k) TLS en la LAN y cifrado en reposo de la base; (l) servidor de telemetría real o decidir no activarlo en v1.0.0.
+
+1. **Congelamiento y revisión:** revisar el código en busca de `TODO`, funciones vacías, código muerto y archivos huérfanos (auditoría de estructura de AGENTS.md §5); `npm audit` y actualización/fijado de dependencias vulnerables; versión `1.0.0` en `package.json`; CHANGELOG de lo entregado.
+2. **Pruebas en máquinas limpias (Windows 10/11 y macOS):** seguir el procedimiento de la Semana 20 con el instalador **firmado** (si hay certificado) o declarar que se probó sin firmar; completar el asistente, vender, cerrar turno, respaldar y restaurar, actualizar encima, desinstalar conservando los datos. Registrar cada resultado (qué se probó y qué no) en PROJECT_STATUS.
+3. **Empaquetado oficial v1.0.0:** `electron-builder` para Windows (y macOS si hay un Mac), `npm run test:paquete`, `latest.yml`; etiqueta `v1.0.0` y publicación (GitHub Releases) **solo si están el repositorio y los secretos**; si no, dejar el procedimiento exacto y el instalador local.
+4. **Cierre:** `tsc --noEmit` (3 tsconfig) y `npm test` en verde; actualizar PROJECT_STATUS con el estado final, límites conocidos y lista de lo no verificado (sin ocultar nada); commit `feat: Semana 24 - release v1.0.0` (y etiqueta `v1.0.0` solo si todo lo anterior se cumplió).

@@ -15,6 +15,7 @@ import { MigracionFallidaError } from "../src/server/services/migration.service"
 import { ActualizadorApp, type AutoUpdaterLike } from "./updater/updater.service";
 import { cargarConfigLicencia } from "./licencia.config";
 import { ClienteLicenciasHttp } from "../src/server/services/licencia/licencia.cliente";
+import { TransporteHttp } from "../src/server/services/telemetria/telemetria.service";
 import { esEnlaceExternoSeguro, esNavegacionPermitida } from "./navegacion.seguridad";
 import { identificarDispositivo } from "../src/server/services/licencia/dispositivo.util";
 
@@ -80,6 +81,18 @@ function opcionesLicencia(rutas: RutasApp): NonNullable<Parameters<typeof inicia
     clavePublica: config?.clavePublica ?? null,
     dispositivo: identificarDispositivo({ directorioSecretos: path.join(rutas.userData, "secretos"), version: app.getVersion() }),
   };
+}
+
+/** Destino de la telemetría (https) si se configuró; una URL inválida se ignora en lugar de impedir el arranque */
+function transporteTelemetria(): TransporteHttp | null {
+  const url = process.env["VENDEYA_TELEMETRIA_URL"];
+  if (url === undefined || url === "") return null;
+  try {
+    return new TransporteHttp(url);
+  } catch (e) {
+    console.warn(`[telemetria] destino ignorado: ${e instanceof Error ? e.message : String(e)}`);
+    return null;
+  }
 }
 
 function createWindow(): BrowserWindow {
@@ -171,6 +184,8 @@ async function arrancar(): Promise<void> {
       : {}),
     sriWorker: { habilitado: process.env["SRI_WORKER"] !== "off" },
     // Respaldo diario automático (y copia cifrada en la nube si el administrador la configuró)
+    // Telemetría de errores: desactivada hasta que el administrador la active; sin VENDEYA_TELEMETRIA_URL los reportes solo se acumulan
+    telemetria: { version: app.getVersion(), transporte: transporteTelemetria() },
     respaldoAutomatico: { habilitado: process.env["RESPALDO_AUTOMATICO"] !== "off" },
     licencia: opcionesLicencia(rutas),
     // Servidor de la red local: escucha a las demás cajas solo si se pide (VENDEYA_LAN=1)

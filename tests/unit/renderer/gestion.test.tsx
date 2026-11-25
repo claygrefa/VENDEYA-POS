@@ -33,22 +33,22 @@ describe("Menú según el rol", () => {
   it("el cajero ve Venta, Caja y Clientes; no Inventario, Compras, Reportes ni Comprobantes", async () => {
     renderizarPos({ api: servidor() });
     const menu = await screen.findByRole("navigation", { name: "Menú principal" });
-    expect(within(menu).getAllByRole("button").map((b) => b.textContent)).toEqual(["Venta", "Caja", "Clientes"]);
+    expect(within(menu).getAllByRole("button").map((b) => b.textContent)).toEqual(["Venta", "Caja", "Clientes", "Ayuda"]);
   });
 
   it("el supervisor ve todas las vistas; el bodeguero y el contador entran sin turno directo a las suyas", async () => {
     const a = renderizarPos({ api: servidor(), usuario: usuarioDe("SUPERVISOR") });
-    expect(within(await screen.findByRole("navigation", { name: "Menú principal" })).getAllByRole("button").map((b) => b.textContent)).toEqual(["Venta", "Caja", "Clientes", "Inventario", "Compras", "Reportes", "Comprobantes SRI"]);
+    expect(within(await screen.findByRole("navigation", { name: "Menú principal" })).getAllByRole("button").map((b) => b.textContent)).toEqual(["Venta", "Caja", "Clientes", "Inventario", "Compras", "Reportes", "Comprobantes SRI", "Ayuda"]);
     a.unmount();
 
     const b = renderizarPos({ api: servidor(), usuario: usuarioDe("BODEGUERO"), sinTurno: true });
     expect(await screen.findByRole("region", { name: "Inventario" })).toBeInTheDocument(); // sin pedir apertura de turno
-    expect(within(screen.getByRole("navigation", { name: "Menú principal" })).getAllByRole("button").map((x) => x.textContent)).toEqual(["Inventario", "Compras"]);
+    expect(within(screen.getByRole("navigation", { name: "Menú principal" })).getAllByRole("button").map((x) => x.textContent)).toEqual(["Inventario", "Compras", "Ayuda"]);
     b.unmount();
 
     renderizarPos({ api: servidor(), usuario: usuarioDe("CONTADOR"), sinTurno: true });
     expect(await screen.findByRole("region", { name: "Reportes" })).toBeInTheDocument();
-    expect(within(screen.getByRole("navigation", { name: "Menú principal" })).getAllByRole("button").map((x) => x.textContent)).toEqual(["Reportes", "Comprobantes SRI"]);
+    expect(within(screen.getByRole("navigation", { name: "Menú principal" })).getAllByRole("button").map((x) => x.textContent)).toEqual(["Reportes", "Comprobantes SRI", "Ayuda"]);
   });
 
   it("Ctrl+número y los botones cambian de vista; un número fuera del menú no hace nada", async () => {

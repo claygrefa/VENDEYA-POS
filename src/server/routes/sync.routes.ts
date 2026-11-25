@@ -11,7 +11,7 @@ import { limpiarCajaId } from "../services/sync/sync.service";
 
 const METODOS_QUE_CAMBIAN = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 /** Módulos cuyas operaciones no cambian datos compartidos entre cajas. */
-const MODULOS_SIN_EVENTO = new Set(["auth", "sync", "impresora", "balanza", "escaneo", "reportes", "health"]);
+const MODULOS_SIN_EVENTO = new Set(["auth", "sync", "impresora", "balanza", "escaneo", "reportes", "health", "respaldos", "telemetria"]);
 
 export async function registrarSync(server: FastifyInstance, servicios: Servicios): Promise<void> {
   await server.register(fastifyWebsocket, { options: { maxPayload: 16 * 1024 } });

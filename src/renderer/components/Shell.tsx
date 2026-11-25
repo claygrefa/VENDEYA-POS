@@ -4,8 +4,10 @@
 import React, { useEffect } from "react";
 import { useActualizacion } from "../hooks/useActualizacion";
 import { useLicencia } from "../hooks/useLicencia";
+import { useReporteErrores } from "../hooks/useReporteErrores";
 import { useSincronizacion } from "../hooks/useSincronizacion";
 import { AjustesPage } from "../pages/AjustesPage";
+import { AyudaPage } from "../pages/AyudaPage";
 import { CajaPage } from "../pages/CajaPage";
 import { ClientesPage } from "../pages/ClientesPage";
 import { ComprasPage } from "../pages/ComprasPage";
@@ -19,6 +21,7 @@ import { useSesion } from "../store/sesion.store";
 import { BannerActualizacion } from "./BannerActualizacion";
 import { BannerLicencia } from "./BannerLicencia";
 import { BarraEstado } from "./BarraEstado";
+import { LimiteErrores } from "./LimiteErrores";
 
 function Vista({ id }: { id: VistaId }): React.JSX.Element {
   switch (id) {
@@ -38,12 +41,15 @@ function Vista({ id }: { id: VistaId }): React.JSX.Element {
       return <SriMonitorPage />;
     case "ajustes":
       return <AjustesPage />;
+    case "ayuda":
+      return <AyudaPage />;
   }
 }
 
 export function Shell({ baseUrl, onSalir }: { baseUrl: string; onSalir: () => void }): React.JSX.Element {
   const usuario = useSesion((s) => s.usuario);
   const sync = useSincronizacion(baseUrl);
+  const informarError = useReporteErrores(true);
   // Con líneas en el carrito hay una venta en curso (o un cobro abierto): no se reinicia para instalar una actualización
   const ventaEnCurso = useCarrito((s) => s.lineas.length > 0);
   const actualizacion = useActualizacion(ventaEnCurso);
@@ -83,7 +89,7 @@ export function Shell({ baseUrl, onSalir }: { baseUrl: string; onSalir: () => vo
             </button>
           ))}
         </nav>
-        <main className={`min-w-0 flex-1 ${activa === "venta" ? "" : "overflow-y-auto p-5"}`}>{activa === null ? <p className="p-6 text-slate-400">Su rol no tiene vistas disponibles.</p> : <Vista id={activa} />}</main>
+        <main className={`min-w-0 flex-1 ${activa === "venta" ? "" : "overflow-y-auto p-5"}`}>{activa === null ? <p className="p-6 text-slate-400">Su rol no tiene vistas disponibles.</p> : <LimiteErrores clave={activa} alError={informarError}><Vista id={activa} /></LimiteErrores>}</main>
       </div>
     </div>
   );

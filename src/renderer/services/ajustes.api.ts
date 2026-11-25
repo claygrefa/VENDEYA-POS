@@ -2,6 +2,7 @@
 // src/renderer/services/ajustes.api.ts — Asistente de configuración inicial y pantalla de Ajustes
 // ============================================================
 import type { DispositivosLicencia, EstadoLicencia } from "../../shared/types/licencia.types";
+import type { EstadoTelemetria, ReporteError } from "../../shared/types/telemetria.types";
 import type { ApiCliente } from "./api";
 
 export interface DatosEmpresa {
@@ -74,6 +75,29 @@ export interface CajaConectada {
   cajaId: string;
   [campo: string]: unknown;
 }
+
+export interface RespaldoLocal {
+  archivo: string;
+  motivo: "pre-migracion" | "pre-actualizacion" | "automatico" | "manual";
+  creado: string;
+  bytes: number;
+}
+
+export interface EstadoNube {
+  configurada: boolean;
+  carpeta: string | null;
+  requiereReconfigurar: boolean;
+  ultima: { archivo: string; creado: string; bytes: number } | null;
+  copias: string[];
+}
+
+export interface EstadoRespaldos {
+  locales: RespaldoLocal[];
+  nube: EstadoNube;
+  restauracionPendiente: { origen: "local" | "nube"; archivo: string; preparada: string } | null;
+}
+
+export type DatosRestauracion = { origen: "local"; archivo: string; password: string } | { origen: "nube"; archivo: string; frase: string; password: string };
 
 export class AjustesApi {
   constructor(readonly http: ApiCliente) {}
@@ -149,6 +173,50 @@ export class AjustesApi {
   }
   liberarDispositivo(id: string): Promise<DispositivosLicencia> {
     return this.http.post(`/api/licencia/dispositivos/${encodeURIComponent(id)}/liberar`);
+  }
+
+  // Respaldos y restauración
+  respaldos(): Promise<EstadoRespaldos> {
+    return this.http.get("/api/respaldos");
+  }
+  respaldarAhora(): Promise<EstadoRespaldos & { archivo: string }> {
+    return this.http.post("/api/respaldos");
+  }
+  configurarNube(datos: { carpeta: string; frase: string }): Promise<EstadoNube> {
+    return this.http.put("/api/respaldos/nube", datos);
+  }
+  quitarNube(): Promise<EstadoNube> {
+    return this.http.delete("/api/respaldos/nube");
+  }
+  copiarANube(): Promise<{ archivo: string; bytes: number; nube: EstadoNube }> {
+    return this.http.post("/api/respaldos/nube/exportar");
+  }
+  prepararRestauracion(datos: DatosRestauracion): Promise<EstadoRespaldos> {
+    return this.http.post("/api/respaldos/restaurar", datos);
+  }
+  cancelarRestauracion(): Promise<EstadoRespaldos> {
+    return this.http.delete("/api/respaldos/restaurar");
+  }
+
+  // Telemetría opcional de errores
+  telemetria(): Promise<EstadoTelemetria> {
+    return this.http.get("/api/telemetria");
+  }
+  configurarTelemetria(consentimiento: boolean): Promise<EstadoTelemetria> {
+    return this.http.put("/api/telemetria", { consentimiento });
+  }
+  reportesTelemetria(): Promise<{ reportes: ReporteError[]; estado: EstadoTelemetria }> {
+    return this.http.get("/api/telemetria/pendientes");
+  }
+  descartarTelemetria(): Promise<{ descartados: number; estado: EstadoTelemetria }> {
+    return this.http.delete("/api/telemetria/pendientes");
+  }
+  enviarTelemetria(): Promise<{ enviados: number; estado: EstadoTelemetria }> {
+    return this.http.post("/api/telemetria/enviar");
+  }
+  /** La interfaz informa un error técnico (el servidor lo descarta si no hay consentimiento) */
+  reportarError(datos: { mensaje: string; pila?: string | null; vista?: string | null }): Promise<void> {
+    return this.http.post("/api/telemetria/errores", { origen: "interfaz", ...datos });
   }
 }
 

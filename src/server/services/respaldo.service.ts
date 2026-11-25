@@ -7,6 +7,7 @@
 // ============================================================
 import { chmodSync, copyFileSync, existsSync, mkdirSync, readdirSync, rmSync, statSync } from "fs";
 import path from "path";
+import { AppError } from "./appError.util";
 import { crearPrismaPara } from "../config/database.config";
 
 /** `automatico` los toma el programador diario; `manual` los pide el administrador */
@@ -84,6 +85,13 @@ export class RespaldoService {
       resultado.push({ archivo, ruta, motivo, creado: info.mtime, bytes: info.size });
     }
     return resultado.sort((a, b) => b.archivo.localeCompare(a.archivo));
+  }
+
+  /** Ruta de un respaldo por su nombre EXACTO (nunca una ruta libre: solo lo que aparece en la lista). */
+  rutaDe(archivo: string): string {
+    const r = this.listar().find((x) => x.archivo === archivo);
+    if (r === undefined) throw new AppError("NO_ENCONTRADO", "No existe ese respaldo");
+    return r.ruta;
   }
 
   /** El respaldo más reciente de un motivo (o null). */

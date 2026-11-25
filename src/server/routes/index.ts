@@ -20,6 +20,7 @@ import { crearVentaController } from "../controllers/venta.controller";
 import type { Servicios } from "../services/container.factory";
 import { crearLicenciaController } from "../controllers/licencia.controller";
 import { crearRespaldoController } from "../controllers/respaldo.controller";
+import { crearTelemetriaController } from "../controllers/telemetria.controller";
 import { exigirLicencia, requerirSesion } from "./auth.guard";
 
 export function registrarRutas(server: FastifyInstance, servicios: Servicios): void {
@@ -40,6 +41,7 @@ export function registrarRutas(server: FastifyInstance, servicios: Servicios): v
   const setup = crearSetupController(servicios);
   const licencia = crearLicenciaController(servicios);
   const respaldo = crearRespaldoController(servicios);
+  const telemetria = crearTelemetriaController(servicios);
 
   // ── Públicas ──────────────────────────────────────────────
   server.get("/api/health", health.estado);
@@ -242,4 +244,15 @@ export function registrarRutas(server: FastifyInstance, servicios: Servicios): v
   server.put("/api/respaldos/nube", administrar, respaldo.configurarNube);
   server.delete("/api/respaldos/nube", administrar, respaldo.quitarNube);
   server.post("/api/respaldos/nube/exportar", administrar, respaldo.exportarNube);
+  // Restaurar es en dos tiempos: se prepara (pide la contraseña del administrador) y se aplica al reabrir la aplicación
+  server.post("/api/respaldos/restaurar", administrar, respaldo.prepararRestauracion);
+  server.delete("/api/respaldos/restaurar", administrar, respaldo.cancelarRestauracion);
+
+  // ── Telemetría opcional de errores (desactivada por defecto; la gestiona el administrador) ──
+  server.get("/api/telemetria", { preHandler: requerirSesion(servicios) }, telemetria.estado);
+  server.post("/api/telemetria/errores", { preHandler: requerirSesion(servicios) }, telemetria.registrar);
+  server.put("/api/telemetria", administrar, telemetria.configurar);
+  server.get("/api/telemetria/pendientes", administrar, telemetria.pendientes);
+  server.delete("/api/telemetria/pendientes", administrar, telemetria.descartar);
+  server.post("/api/telemetria/enviar", administrar, telemetria.enviar);
 }

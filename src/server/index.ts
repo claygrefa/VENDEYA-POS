@@ -17,6 +17,7 @@ import { registrarSync } from "./routes/sync.routes";
 import { MigracionFallidaError, MigrationService, type ResultadoMigracion } from "./services/migration.service";
 import { asegurarEstadisticas } from "./config/estadisticas.util";
 import { restaurarRespaldo, type RespaldoService } from "./services/respaldo.service";
+import { aplicarRestauracionPendiente } from "./services/restauracion.service";
 import { RespaldoWorker, type OpcionesRespaldoJob } from "./jobs/respaldo.job";
 import { LicenciaWorker, type OpcionesLicenciaWorker } from "./jobs/licencia.job";
 import type { OpcionesLicencia } from "./services/licencia/licencia.service";
@@ -89,6 +90,7 @@ export async function buildServer(servicios: Servicios, logLevel = "info"): Prom
     if (status !== undefined && status >= 400 && status < 500) {
       return reply.status(status).send({ error: "SOLICITUD_INVALIDA", mensaje: error.message });
     }
+    servicios.telemetria.registrarError(error); // solo guarda algo si el administrador dio su consentimiento
     req.log.error(error);
     return reply.status(500).send({ error: "ERROR_INTERNO", mensaje: "Error interno del servidor" });
   });
@@ -143,6 +145,8 @@ export interface BackendOptions {
    * indica (la aplicación de escritorio lo activa; las pruebas no deben escribir respaldos por su cuenta).
    */
   respaldoAutomatico?: (OpcionesRespaldoJob & { habilitado: boolean }) | undefined;
+  /** Telemetría opcional de errores (versión de la aplicación y servidor de destino, si lo hay) */
+  telemetria?: OpcionesServicios["telemetria"];
   /** Puerto preferido; si está ocupado se usa uno libre. 0 = libre directamente. */
   port: number;
   host?: string;
@@ -182,6 +186,10 @@ export async function iniciarBackend(opciones: BackendOptions): Promise<BackendH
   let respaldos: RespaldoService | null = null;
 
   try {
+    // Una restauración preparada desde Ajustes se aplica ahora, con la base cerrada y antes de migrar
+    const restaurada = aplicarRestauracionPendiente(opciones.dbPath);
+    if (restaurada !== null) console.warn(`[backend] base restaurada desde «${restaurada.archivo}»; la anterior se conserva en ${restaurada.copiaAnterior ?? "(no había)"}`);
+
     const migraciones = await new MigrationService(prisma, {
       migrationsDir: opciones.migrationsDir,
       backupsDir,
@@ -203,6 +211,8 @@ export async function iniciarBackend(opciones: BackendOptions): Promise<BackendH
     const servicios = crearServicios(prisma, {
       directorioSecretos: opciones.directorioSecretos ?? path.join(path.dirname(opciones.dbPath), "secretos"),
       directorioRespaldos: backupsDir,
+      directorioDatos: path.dirname(opciones.dbPath),
+      ...(opciones.telemetria !== undefined ? { telemetria: opciones.telemetria } : {}),
       ...(opciones.proteccionClave !== undefined ? { proteccionClave: opciones.proteccionClave } : {}),
       ...(opciones.sri !== undefined ? { sri: opciones.sri } : {}),
       ...(opciones.impresion !== undefined ? { impresion: opciones.impresion } : {}),

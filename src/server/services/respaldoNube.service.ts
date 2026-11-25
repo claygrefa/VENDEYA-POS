@@ -34,6 +34,8 @@ export interface EstadoNube {
   /** La frase guardada ya no se puede leer (se rotó la clave maestra): hay que configurarla de nuevo */
   requiereReconfigurar: boolean;
   ultima: { archivo: string; creado: string; bytes: number } | null;
+  /** Copias cifradas disponibles en la carpeta, de la más reciente a la más antigua */
+  copias: string[];
 }
 
 export class RespaldoNubeService {
@@ -92,14 +94,14 @@ export class RespaldoNubeService {
 
   estado(): EstadoNube {
     const config = this.leerConfig();
-    if (config === null) return { configurada: false, carpeta: null, requiereReconfigurar: false, ultima: null };
+    if (config === null) return { configurada: false, carpeta: null, requiereReconfigurar: false, ultima: null, copias: [] };
     let requiereReconfigurar = false;
     try {
       this.frase(config);
     } catch {
       requiereReconfigurar = true;
     }
-    return { configurada: true, carpeta: config.carpeta, requiereReconfigurar, ultima: this.ultimaEn(config.carpeta) };
+    return { configurada: true, carpeta: config.carpeta, requiereReconfigurar, ultima: this.ultimaEn(config.carpeta), copias: this.copiasEn(config.carpeta).reverse() };
   }
 
   /**
@@ -126,6 +128,14 @@ export class RespaldoNubeService {
     }
     this.rotar(config.carpeta);
     return { archivo, ruta: destino, bytes: statSync(destino).size };
+  }
+
+  /** Descifra una copia de la carpeta configurada (por nombre exacto) en `destino`. La frase la da quien restaura; no se guarda. */
+  async descifrarCopia(archivo: string, frase: string, destino: string): Promise<void> {
+    const config = this.leerConfig();
+    if (config === null) throw new AppError("ESTADO_INVALIDO", "La copia en la nube no está configurada: indique primero la carpeta");
+    if (!this.copiasEn(config.carpeta).includes(archivo)) throw new AppError("NO_ENCONTRADO", "Esa copia no está en la carpeta configurada");
+    await descifrarArchivo(path.join(config.carpeta, archivo), destino, frase);
   }
 
   private frase(config: ConfigNube): string {

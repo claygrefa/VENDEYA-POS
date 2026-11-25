@@ -12,10 +12,12 @@ import { useActualizacion } from "../hooks/useActualizacion";
 import { useAjustes, usePos } from "../services/contexto";
 import type { EstadoActualizacion } from "../../shared/types/actualizacion.types";
 import { SeccionLicencia } from "./AjustesLicencia";
+import { SeccionPrivacidad } from "./AjustesPrivacidad";
+import { SeccionRespaldos } from "./AjustesRespaldos";
 import { useNavegacion } from "../store/navegacion.store";
 import { ETIQUETA_GIRO, ETIQUETA_REGIMEN, ETIQUETA_TIPO } from "./SetupWizard";
 
-type Seccion = "empresa" | "modulos" | "impresora" | "balanza" | "certificado" | "red" | "licencia" | "actualizaciones";
+type Seccion = "empresa" | "modulos" | "impresora" | "balanza" | "certificado" | "red" | "licencia" | "actualizaciones" | "respaldos" | "privacidad";
 const SECCIONES: ReadonlyArray<{ id: Seccion; titulo: string }> = [
   { id: "empresa", titulo: "Empresa" },
   { id: "modulos", titulo: "Giro y módulos" },
@@ -25,6 +27,8 @@ const SECCIONES: ReadonlyArray<{ id: Seccion; titulo: string }> = [
   { id: "red", titulo: "Red local" },
   { id: "licencia", titulo: "Licencia" },
   { id: "actualizaciones", titulo: "Actualizaciones" },
+  { id: "respaldos", titulo: "Respaldos" },
+  { id: "privacidad", titulo: "Privacidad" },
 ];
 
 export const ETIQUETA_MODULO: Record<string, string> = {
@@ -71,6 +75,8 @@ export function AjustesPage(): React.JSX.Element {
       {seccion === "red" ? <SeccionRed /> : null}
       {seccion === "licencia" ? <SeccionLicencia /> : null}
       {seccion === "actualizaciones" ? <SeccionActualizaciones /> : null}
+      {seccion === "respaldos" ? <SeccionRespaldos /> : null}
+      {seccion === "privacidad" ? <SeccionPrivacidad /> : null}
     </section>
   );
 }

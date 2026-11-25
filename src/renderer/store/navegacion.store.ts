@@ -4,7 +4,10 @@
 import { create } from "zustand";
 import type { UsuarioSesion } from "../services/tipos";
 
-export type VistaId = "venta" | "caja" | "clientes" | "inventario" | "compras" | "reportes" | "sri" | "ajustes";
+export type VistaId = "venta" | "caja" | "clientes" | "inventario" | "compras" | "reportes" | "sri" | "ajustes" | "ayuda";
+
+/** Permiso especial: la vista la ve cualquier usuario con sesión */
+export const PARA_TODOS = "*";
 
 export interface ItemMenu {
   id: VistaId;
@@ -26,9 +29,11 @@ export const MENU: ReadonlyArray<ItemMenu> = [
   { id: "reportes", titulo: "Reportes", permiso: "reportes:leer" },
   { id: "sri", titulo: "Comprobantes SRI", permiso: "sri:leer" },
   { id: "ajustes", titulo: "Ajustes", permiso: "configuracion:actualizar" },
+  // La ayuda es para todos los roles: va al final para no mover los atajos Ctrl+número de las demás vistas
+  { id: "ayuda", titulo: "Ayuda", permiso: PARA_TODOS },
 ];
 
-export const menuPara = (usuario: UsuarioSesion | null): ItemMenu[] => MENU.filter((m) => usuario?.permisos.includes(m.permiso) ?? false);
+export const menuPara = (usuario: UsuarioSesion | null): ItemMenu[] => MENU.filter((m) => usuario !== null && (m.permiso === PARA_TODOS || usuario.permisos.includes(m.permiso)));
 
 interface EstadoNavegacion {
   vista: VistaId | null;
