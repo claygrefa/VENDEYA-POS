@@ -37,6 +37,9 @@ const allowedInvokeChannels = [
   "sri:check-connectivity",
   "printer:list",
   "updater:check",
+  "updater:get-status",
+  "updater:install",
+  "updater:set-busy",
 ] as const;
 
 const allowedListenChannels = [

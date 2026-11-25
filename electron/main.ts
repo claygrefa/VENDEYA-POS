@@ -6,15 +6,43 @@
 
 import path from "path";
 import { app, BrowserWindow, dialog, safeStorage, shell } from "electron";
+import { autoUpdater } from "electron-updater";
 import { iniciarBackend, type BackendHandle } from "../src/server";
 import { liberarIpcApp, registrarIpcApp, type RutasApp } from "./ipc/app.ipc";
 import { liberarIpcImpresoras, registrarIpcImpresoras } from "./ipc/printer.ipc";
+import { liberarIpcUpdater, registrarIpcUpdater } from "./ipc/updater.ipc";
+import { MigracionFallidaError } from "../src/server/services/migration.service";
+import { ActualizadorApp, type AutoUpdaterLike } from "./updater/updater.service";
 
 const isDev = process.env["NODE_ENV"] === "development";
 const PUERTO_PREFERIDO = parseInt(process.env["SERVER_PORT"] ?? "3001", 10);
 
 let backend: BackendHandle | null = null;
+let actualizador: ActualizadorApp | null = null;
 let cerrando = false;
+
+/**
+ * Auto-actualización: solo en la aplicación instalada (en desarrollo no hay a dónde buscar) y apagable con VENDEYA_UPDATES=off.
+ * El respaldo previo usa la base local; una caja secundaria de la red no tiene base propia y no respalda nada.
+ */
+function iniciarActualizador(): void {
+  const apagado = process.env["VENDEYA_UPDATES"] === "off";
+  const habilitado = app.isPackaged && !apagado;
+  actualizador = new ActualizadorApp({
+    updater: autoUpdater as unknown as AutoUpdaterLike,
+    publicar: (estado) => {
+      for (const ventana of BrowserWindow.getAllWindows()) {
+        if (!ventana.isDestroyed()) ventana.webContents.send("updater:status", estado);
+      }
+    },
+    respaldar: async (version) => (backend === null ? null : backend.respaldos.crear("pre-actualizacion", version)),
+    habilitado,
+    motivoDeshabilitado: apagado ? "Desactivadas con VENDEYA_UPDATES=off" : "Solo se buscan actualizaciones en la aplicación instalada",
+    registrar: (mensaje, error) => console.error(`[updater] ${mensaje}`, error ?? ""),
+  });
+  registrarIpcUpdater(actualizador);
+  actualizador.iniciar();
+}
 
 function calcularRutas(): RutasApp {
   const userData = app.getPath("userData");
@@ -92,6 +120,7 @@ async function arrancar(): Promise<void> {
     console.log(`[caja secundaria] servidor: ${servidor}`);
     registrarIpcImpresoras();
     registrarIpcApp({ version: app.getVersion(), rutas, obtenerBackend: () => null, urlServidor: servidor });
+    iniciarActualizador();
     createWindow();
     return;
   }
@@ -127,6 +156,7 @@ async function arrancar(): Promise<void> {
     rutas,
     obtenerBackend: () => backend,
   });
+  iniciarActualizador();
 
   createWindow();
 }
@@ -149,7 +179,19 @@ if (!app.requestSingleInstanceLock()) {
     .catch((error: unknown) => {
       const mensaje = error instanceof Error ? error.message : String(error);
       console.error("[backend] fallo de arranque:", error);
-      dialog.showErrorBox("VENDEYA POS no pudo iniciar", mensaje);
+      if (error instanceof MigracionFallidaError) {
+        const estado = error.restaurado
+          ? "Sus datos están intactos: se volvió a la copia de seguridad tomada justo antes de actualizar."
+          : error.respaldo !== null
+            ? `Se conserva una copia de seguridad en ${error.respaldo}.`
+            : "";
+        dialog.showErrorBox("VENDEYA POS no pudo actualizar su base de datos", `${mensaje}
+
+${estado}
+Instale de nuevo la versión anterior o contacte a soporte.`);
+      } else {
+        dialog.showErrorBox("VENDEYA POS no pudo iniciar", mensaje);
+      }
       app.exit(1);
     });
 
@@ -172,10 +214,14 @@ if (!app.requestSingleInstanceLock()) {
     cerrando = true;
     liberarIpcApp();
     liberarIpcImpresoras();
+    liberarIpcUpdater();
     const actual = backend;
+    // Si hay una actualización lista se respalda la base de datos ANTES de cerrarla (el instalador corre al terminar el proceso)
+    const previo = actualizador === null ? Promise.resolve() : actualizador.antesDeCerrar().catch(() => undefined);
+    actualizador?.detener();
     backend = null;
-    actual
-      .close()
+    previo
+      .then(() => actual.close())
       .catch((e: unknown) => console.error("[backend] error al cerrar:", e))
       .finally(() => {
         console.log("[backend] cerrado");

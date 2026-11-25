@@ -2,6 +2,7 @@
 // src/renderer/components/Shell.tsx — Marco de la aplicación: barra de estado, menú por permisos y la vista activa
 // ============================================================
 import React, { useEffect } from "react";
+import { useActualizacion } from "../hooks/useActualizacion";
 import { useSincronizacion } from "../hooks/useSincronizacion";
 import { AjustesPage } from "../pages/AjustesPage";
 import { CajaPage } from "../pages/CajaPage";
@@ -11,8 +12,10 @@ import { InventarioPage } from "../pages/InventarioPage";
 import { PosScreen } from "../pages/PosScreen";
 import { ReportesPage } from "../pages/ReportesPage";
 import { SriMonitorPage } from "../pages/SriMonitorPage";
+import { useCarrito } from "../store/carrito.store";
 import { menuPara, useNavegacion, type VistaId } from "../store/navegacion.store";
 import { useSesion } from "../store/sesion.store";
+import { BannerActualizacion } from "./BannerActualizacion";
 import { BarraEstado } from "./BarraEstado";
 
 function Vista({ id }: { id: VistaId }): React.JSX.Element {
@@ -39,6 +42,9 @@ function Vista({ id }: { id: VistaId }): React.JSX.Element {
 export function Shell({ baseUrl, onSalir }: { baseUrl: string; onSalir: () => void }): React.JSX.Element {
   const usuario = useSesion((s) => s.usuario);
   const sync = useSincronizacion(baseUrl);
+  // Con líneas en el carrito hay una venta en curso (o un cobro abierto): no se reinicia para instalar una actualización
+  const ventaEnCurso = useCarrito((s) => s.lineas.length > 0);
+  const actualizacion = useActualizacion(ventaEnCurso);
   const vista = useNavegacion((s) => s.vista);
   const ir = useNavegacion((s) => s.ir);
   const menu = menuPara(usuario);
@@ -61,6 +67,7 @@ export function Shell({ baseUrl, onSalir }: { baseUrl: string; onSalir: () => vo
 
   return (
     <div className="flex h-screen flex-col bg-slate-900 text-white">
+      <BannerActualizacion actualizacion={actualizacion} ocupado={ventaEnCurso} />
       <BarraEstado sync={sync} onSalir={onSalir} />
       <div className="flex min-h-0 flex-1">
         <nav aria-label="Menú principal" className="flex w-44 shrink-0 flex-col gap-1 border-r border-slate-700 bg-slate-800/60 p-2">

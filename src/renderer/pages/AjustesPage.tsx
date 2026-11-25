@@ -8,10 +8,12 @@ import { GIROS, REGIMENES, TIPOS_CONTRIBUYENTE } from "../../shared/schemas/setu
 import { Boton, Campo, Casilla, Pestanas, Seleccion, aNumero, mensajeDeError } from "../components/Gestion";
 import { Aviso } from "../components/Modal";
 import { archivoABase64, type AjustesNegocio, type ConfiguracionBalanza, type ConfiguracionImpresora, type InformacionCertificado } from "../services/ajustes.api";
+import { useActualizacion } from "../hooks/useActualizacion";
 import { useAjustes, usePos } from "../services/contexto";
+import type { EstadoActualizacion } from "../../shared/types/actualizacion.types";
 import { ETIQUETA_GIRO, ETIQUETA_REGIMEN, ETIQUETA_TIPO } from "./SetupWizard";
 
-type Seccion = "empresa" | "modulos" | "impresora" | "balanza" | "certificado" | "red";
+type Seccion = "empresa" | "modulos" | "impresora" | "balanza" | "certificado" | "red" | "actualizaciones";
 const SECCIONES: ReadonlyArray<{ id: Seccion; titulo: string }> = [
   { id: "empresa", titulo: "Empresa" },
   { id: "modulos", titulo: "Giro y módulos" },
@@ -19,6 +21,7 @@ const SECCIONES: ReadonlyArray<{ id: Seccion; titulo: string }> = [
   { id: "balanza", titulo: "Balanza" },
   { id: "certificado", titulo: "Certificado de firma" },
   { id: "red", titulo: "Red local" },
+  { id: "actualizaciones", titulo: "Actualizaciones" },
 ];
 
 export const ETIQUETA_MODULO: Record<string, string> = {
@@ -55,6 +58,7 @@ export function AjustesPage(): React.JSX.Element {
       {seccion === "balanza" ? <SeccionBalanza /> : null}
       {seccion === "certificado" ? <SeccionCertificado /> : null}
       {seccion === "red" ? <SeccionRed /> : null}
+      {seccion === "actualizaciones" ? <SeccionActualizaciones /> : null}
     </section>
   );
 }
@@ -369,6 +373,44 @@ function SeccionRed(): React.JSX.Element {
           </ul>
         )}
       </div>
+    </div>
+  );
+}
+
+// ── Actualizaciones ──────────────────────────────────────────
+
+export function textoDeEstado(e: EstadoActualizacion | null): string {
+  if (e === null) return "Sin información todavía";
+  switch (e.tipo) {
+    case "desactivado": return e.motivo;
+    case "inactivo": return "Todavía no se ha buscado";
+    case "buscando": return "Buscando actualizaciones…";
+    case "al-dia": return `Tiene la última versión (revisado el ${new Date(e.revisado).toLocaleString("es-EC")})`;
+    case "descargando": return `Descargando la versión ${e.version}… ${e.porcentaje}%`;
+    case "lista": return e.aviso ?? `La versión ${e.version} está lista: se instalará al cerrar la aplicación`;
+    case "error": return e.mensaje;
+  }
+}
+
+function SeccionActualizaciones(): React.JSX.Element {
+  const a = useActualizacion();
+  const version = useQuery({
+    queryKey: ["ajustes", "version"],
+    queryFn: () => (window as Partial<Window>).vendeya?.invoke<string>("app:get-version") ?? Promise.resolve(null),
+  });
+  const ocupada = a.estado?.tipo === "buscando" || a.estado?.tipo === "descargando";
+  return (
+    <div className="max-w-xl space-y-4">
+      <p className="text-sm text-slate-300">
+        Versión instalada: <strong className="text-white">{version.data ?? (a.disponible ? "…" : "solo disponible en la aplicación instalada")}</strong>
+      </p>
+      <p aria-label="Estado de las actualizaciones" className="rounded-xl border border-slate-700 bg-slate-800 p-4 text-sm text-slate-200">
+        {a.disponible ? textoDeEstado(a.estado) : "Las actualizaciones automáticas funcionan en la aplicación instalada."}
+      </p>
+      <p className="text-xs text-slate-400">Las actualizaciones se descargan en segundo plano y se instalan al cerrar la aplicación. Antes de instalar se hace una copia de seguridad de la base de datos y nunca se reinicia con una venta en curso.</p>
+      <Boton variante="primario" deshabilitado={!a.disponible || ocupada || a.estado?.tipo === "desactivado" || a.estado?.tipo === "lista"} onClick={() => void a.buscar()}>
+        Buscar actualizaciones
+      </Boton>
     </div>
   );
 }

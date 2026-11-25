@@ -8,9 +8,10 @@
 //   respaldo consistente con `VACUUM INTO`.
 // ============================================================
 import { createHash, randomUUID } from "crypto";
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync } from "fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "fs";
 import path from "path";
 import type { Prisma, PrismaClient } from "@prisma/client";
+import { RespaldoService } from "./respaldo.service";
 
 export interface MigrationOptions {
   /** Carpeta con subcarpetas `<timestamp>_<nombre>/migration.sql` */
@@ -36,7 +37,17 @@ interface MigracionEnDisco {
   checksum: string;
 }
 
-const PREFIJO_RESPALDO = "vendeya-pre-migracion-";
+/**
+ * Una migración falló al actualizar. `respaldo` es la copia verificada tomada justo antes (null si la base era nueva y no había
+ * nada que proteger); `restaurado` lo marca quien la devolvió a la base. Los datos del cliente nunca deben quedar a medio migrar.
+ */
+export class MigracionFallidaError extends Error {
+  restaurado = false;
+  constructor(readonly migracion: string, causa: unknown, readonly respaldo: string | null) {
+    super(`La migración "${migracion}" falló: ${causa instanceof Error ? causa.message : String(causa)}`);
+    this.name = "MigracionFallidaError";
+  }
+}
 
 const CREAR_TABLA_MIGRACIONES = `CREATE TABLE IF NOT EXISTS "_prisma_migrations" (
   "id" TEXT PRIMARY KEY NOT NULL,
@@ -77,13 +88,13 @@ function checksumDe(contenido: string): string {
 }
 
 export class MigrationService {
-  private readonly maxRespaldos: number;
+  private readonly respaldos: RespaldoService;
 
   constructor(
     private readonly prisma: PrismaClient,
     private readonly opciones: MigrationOptions
   ) {
-    this.maxRespaldos = opciones.maxRespaldos ?? 5;
+    this.respaldos = new RespaldoService(prisma, opciones.backupsDir, opciones.maxRespaldos ?? 5);
   }
 
   /** Lee las migraciones de disco ordenadas por nombre (el timestamp ordena cronológicamente). */
@@ -133,10 +144,14 @@ export class MigrationService {
       return { aplicadas: [], respaldo: null };
     }
 
-    const respaldo = existiaConDatos ? await this.respaldar() : null;
+    const respaldo = existiaConDatos ? await this.respaldos.crear("pre-migracion") : null;
 
     for (const m of pendientes) {
-      await this.aplicar(m);
+      try {
+        await this.aplicar(m);
+      } catch (e) {
+        throw new MigracionFallidaError(m.nombre, e, respaldo);
+      }
     }
     return { aplicadas: pendientes.map((m) => m.nombre), respaldo };
   }
@@ -172,25 +187,5 @@ export class MigrationService {
       },
       { timeout: 120_000, maxWait: 30_000 }
     );
-  }
-
-  /** Copia consistente de la BD (incluye WAL) con VACUUM INTO. */
-  private async respaldar(): Promise<string> {
-    const { backupsDir } = this.opciones;
-    mkdirSync(backupsDir, { recursive: true });
-    const sello = new Date().toISOString().replace(/[:.]/g, "-");
-    const destino = path.join(backupsDir, `${PREFIJO_RESPALDO}${sello}.db`);
-    await this.prisma.$executeRawUnsafe(`VACUUM INTO '${destino.replace(/\\/g, "/").replace(/'/g, "''")}'`);
-    this.limpiarRespaldosAntiguos();
-    return destino;
-  }
-
-  private limpiarRespaldosAntiguos(): void {
-    const { backupsDir } = this.opciones;
-    const archivos = readdirSync(backupsDir)
-      .filter((f) => f.startsWith(PREFIJO_RESPALDO) && f.endsWith(".db"))
-      .sort(); // el sello ISO ordena cronológicamente
-    const sobrantes = archivos.slice(0, Math.max(0, archivos.length - this.maxRespaldos));
-    for (const f of sobrantes) rmSync(path.join(backupsDir, f), { force: true });
   }
 }

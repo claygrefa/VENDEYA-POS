@@ -14,7 +14,8 @@ import type { ProteccionClave } from "./services/sri/firma/claveMaestra.provider
 import { SriWorker, type OpcionesSriWorker } from "./jobs/sriWorker.job";
 import type { OpcionesServicios } from "./services/container.factory";
 import { registrarSync } from "./routes/sync.routes";
-import { MigrationService, type ResultadoMigracion } from "./services/migration.service";
+import { MigracionFallidaError, MigrationService, type ResultadoMigracion } from "./services/migration.service";
+import { RespaldoService, restaurarRespaldo } from "./services/respaldo.service";
 
 const HTTP_POR_CODIGO: Record<CodigoError, number> = {
   VALIDACION: 400,
@@ -111,6 +112,8 @@ export interface BackendHandle {
   port: number;
   url: string;
   migraciones: ResultadoMigracion;
+  /** Respaldos de la base de datos (previos a migrar y a actualizar la aplicación) */
+  respaldos: RespaldoService;
   /** Cierra servidor HTTP y conexión a la BD */
   close: () => Promise<void>;
 }
@@ -126,10 +129,13 @@ export async function iniciarBackend(opciones: BackendOptions): Promise<BackendH
   let server: FastifyInstance | null = null;
   let worker: SriWorker | null = null;
 
+  const backupsDir = opciones.backupsDir ?? path.join(path.dirname(opciones.dbPath), "backups");
+  const respaldos = new RespaldoService(prisma, backupsDir);
+
   try {
     const migraciones = await new MigrationService(prisma, {
       migrationsDir: opciones.migrationsDir,
-      backupsDir: opciones.backupsDir ?? path.join(path.dirname(opciones.dbPath), "backups"),
+      backupsDir,
       dbPath: opciones.dbPath,
     }).migrar();
 
@@ -170,6 +176,7 @@ export async function iniciarBackend(opciones: BackendOptions): Promise<BackendH
       port: puerto,
       url: `http://${host}:${puerto}`,
       migraciones,
+      respaldos,
       close: async () => {
         await worker?.detener();
         await servidor.close();
@@ -180,6 +187,11 @@ export async function iniciarBackend(opciones: BackendOptions): Promise<BackendH
     await worker?.detener().catch(() => undefined);
     if (server !== null) await server.close().catch(() => undefined);
     await prisma.$disconnect().catch(() => undefined);
+    // Una migración que falla a mitad puede dejar la base a medio cambiar: se vuelve a la copia tomada justo antes de migrar
+    if (e instanceof MigracionFallidaError && e.respaldo !== null) {
+      restaurarRespaldo(opciones.dbPath, e.respaldo);
+      e.restaurado = true;
+    }
     throw e;
   }
 }

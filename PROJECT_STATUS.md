@@ -3,10 +3,10 @@
 ## Estado General
 - **Proyecto:** VENDEYA POS (Sistema Punto de Venta Multi-Giro & Facturación Electrónica SRI Ecuador)
 - **Horizonte:** 6 Meses (24 Semanas)
-- **Fase Actual:** MES 5 — Semana 18: auto-actualización (`electron-updater`) y respaldo previo de la base de datos
+- **Fase Actual:** MES 5 — Semana 19: licenciamiento y suscripciones
 - **Estado de Compilación:** ✅ `tsc --noEmit` → 0 errores | ✅ `tsconfig.node.json` → 0 errores | ✅ `tsconfig.electron.json` → 0 errores
-- **Tests:** ✅ 869/869 passed (54 archivos de prueba)
-- **Último Commit:** `feat: Semana 17 - asistente de configuracion inicial y ajustes`
+- **Tests:** ✅ 905/905 passed (57 archivos de prueba)
+- **Último Commit:** `feat: Semana 18 - auto-actualizacion y respaldo previo`
 
 ---
 
@@ -38,8 +38,8 @@
 
 ### MES 5: Instalador Cero Fricción, Auto-Updater y Licenciamiento
 - [x] **Semana 17 (COMPLETADA):** Asistente de Configuración Inicial (`SetupWizard`) guiado en 3 pasos para clientes sin conocimientos técnicos (datos RUC, carga de `.p12`, selección de giro de negocio).
-- [ ] **Semana 18 (ACTUAL):** Implementación de `electron-updater` con descarga silenciosa en segundo plano, respaldo automático de la base de datos SQLite antes de aplicar actualizaciones y banner de actualización.
-- [ ] **Semana 19:** Sistema de licenciamiento y suscripciones (activación online, validación periódica con período de gracia offline de 15 días, control de dispositivos).
+- [x] **Semana 18 (COMPLETADA):** Implementación de `electron-updater` con descarga silenciosa en segundo plano, respaldo automático de la base de datos SQLite antes de aplicar actualizaciones y banner de actualización.
+- [ ] **Semana 19 (ACTUAL):** Sistema de licenciamiento y suscripciones (activación online, validación periódica con período de gracia offline de 15 días, control de dispositivos).
 - [ ] **Semana 20:** Configuración de `electron-builder` + Inno Setup para generar instaladores nativos `.exe` (Windows) y `.dmg` (macOS) firmados y listos para distribución.
 
 ### MES 6: Auditoría, Seguridad, Estrés y Lanzamiento Comercial
@@ -660,11 +660,36 @@ La matriz RBAC cubre las 4 rutas nuevas (77 entradas en la tabla; el recuento de
 
 ---
 
-## Próxima Tarea Exacta (Para ejecutar ahora — Semana 18)
-**Antes de empezar (deudas arrastradas):** (a) repetir contra `celcer` una consulta real desde la aplicación (el `ECONNRESET` del cliente SOAP) y, con un certificado de pruebas del SRI, confirmar firma, códigos 43/70 y una factura completa; (b) re-ejecutar la auditoría independiente (`REVIEWER_AGENT.md`); (c) probar en equipos reales: ticket/RIDE (S13), balanza y dos cajas en red (S14), y la interfaz completa (venta, gestión y asistente, S15–S17) dentro de Electron; (d) decidir si se implementa la nota de débito (05) y conseguir el `ats.xsd` oficial; (e) **gestión de usuarios** (crear/desactivar cajeros y supervisores, cambiar contraseñas) y de sucursales/puntos de emisión adicionales: hoy solo existe el administrador del asistente (ver Semana 17); (f) **generar el instalador NSIS** en un equipo con Modo desarrollador/administrador (o en CI) y revisar ícono, metadatos e instalación limpia.
+### Semana 18 — 2026-11-24 ✅ COMPLETADA
+**Auto-actualización** (`electron/updater/`, `electron/ipc/updater.ipc.ts`; la lógica no importa `electron` ni `electron-updater`, recibe el actualizador y las funciones del sistema, así que se prueba sin red ni ventanas):
+- `ActualizadorApp` — busca a los 60 s de arrancar y cada 4 h; **descarga silenciosa** (`autoDownload`) y se **instala al cerrar** la aplicación (`autoInstallOnAppQuit`). Estados (`src/shared/types/actualizacion.types.ts`): desactivado · inactivo · buscando · al día · descargando (con %) · lista · error. Un fallo de red se informa y se reintenta en la siguiente búsqueda (no lanza); un error posterior no descarta una actualización ya descargada y respaldada.
+- **Respaldo previo:** al terminar de descargar se respalda la base de datos; **si el respaldo falla, la actualización NO se instala sola** (`autoInstallOnAppQuit=false` y aviso) — se prefiere seguir en la versión actual a arriesgar los datos. Al cerrar la aplicación se vuelve a respaldar (los datos cambiaron desde la descarga) **antes de cerrar la base de datos** (`before-quit` en `main.ts`).
+- **Nunca interrumpe una venta:** «Reiniciar e instalar» se rechaza si la interfaz informa venta en curso (carrito con líneas, que incluye el cobro abierto), también si empieza durante el propio respaldo; ante un valor raro del IPC se considera «ocupado». Un turno abierto sin carrito no bloquea (no se interrumpe nada). Solo en la aplicación instalada (`app.isPackaged`) y apagable con `VENDEYA_UPDATES=off`; una caja secundaria de la red no respalda (no tiene base propia).
+- IPC: `updater:check`, `updater:get-status`, `updater:install`, `updater:set-busy` y el evento `updater:status` (allowlist del preload actualizada).
 
-1. **Auto-actualización** (`electron/updater/`, `electron-updater` ya es dependencia): comprobar actualizaciones al iniciar y cada cierto tiempo, **descarga silenciosa en segundo plano**, e instalar al cerrar o cuando el usuario lo pida; canal y repositorio de publicación según `electron-builder.yml` (`publish`). Nunca debe interrumpir una venta en curso ni un turno abierto: ofrecer el reinicio solo sin carrito/cobro activo.
-2. **Respaldo automático de la base de datos SQLite antes de aplicar una actualización** (reutilizar el respaldo previo a migraciones de `iniciarBackend`/`migration.service.ts`), con rotación y verificación; si la actualización trae migraciones y fallan, conservar el respaldo y poder volver atrás.
-3. **Banner de actualización en la interfaz** (en la barra de estado o el marco): «Hay una versión nueva» / «Descargando» / «Lista: se instalará al cerrar», con IPC en `electron/ipc/` y el puente `window.vendeya` (`electron/preload.ts`); estado de error legible. Mostrar la versión instalada en Ajustes.
-4. **Pruebas:** el actualizador con un proveedor simulado (sin red): comprobación, descarga, instalación diferida, error de red, no interrumpir venta/turno; el respaldo previo (se crea, se verifica, rotación); el banner (jsdom) y su IPC. `vite build`.
-5. Verificar con `npx tsc --noEmit` (3 tsconfig) y `npm test`; actualizar este archivo y commit `feat: Semana 18 - auto-actualizacion y respaldo previo`.
+**Respaldos y vuelta atrás** (`src/server/services/respaldo.service.ts`): `RespaldoService` — copia con `VACUUM INTO` y **verificación** (`PRAGMA integrity_check` + que traiga el esquema; una copia que no pasa se borra y se lanza el error: no se conserva un respaldo inservible), nombre con versión (`vendeya-pre-actualizacion-<sello>-v1.2.0.db`, etiqueta saneada), **rotación independiente por motivo** (pre-migración / pre-actualización, 5 de cada uno), `listar()` y `restaurarRespaldo()` (descarta los `-wal`/`-shm` de la base anterior). `MigrationService` usa este servicio y ahora lanza `MigracionFallidaError` (migración, causa y respaldo); `iniciarBackend` **restaura automáticamente la copia tomada justo antes de migrar** si una migración falla (probado con una migración que falla a medias dejando una tabla creada) y `main.ts` explica al usuario que sus datos están intactos y qué hacer. `BackendHandle.respaldos` expone el servicio.
+
+**Interfaz:** `BannerActualizacion` en el marco (descargando con %, «lista» con «Reiniciar e instalar» —deshabilitado y explicado si hay venta en curso—, error con «Reintentar»; no aparece si no hay nada que decir), hook `useActualizacion` (puente `window.vendeya`; fuera de Electron no hace nada) y pestaña **Ajustes › Actualizaciones** (versión instalada, estado y «Buscar actualizaciones»).
+
+**Pruebas nuevas (36):** `tests/unit/electron/updater.service.test.ts` (16: desactivado, programación 60 s/4 h, flujo completo con porcentaje, al día, error de red y reintento, no buscar dos veces, respaldo que falla → no se instala sola, respaldo previo al reiniciar y orden respaldo→reinicio, venta en curso, venta que empieza durante el respaldo, IPC), `tests/integration/server/respaldo.test.ts` (10: copia con datos, foto del momento, etiqueta que no escapa de la carpeta, listado, rotación por motivo, verificación de archivos vacíos/corruptos/ajenos, copia mala que se borra, restauración, migración que falla a medias → vuelta a la copia, base nueva sin respaldo) y `tests/unit/renderer/actualizacion.test.tsx` (10: banner por estado, rechazo explicado, error con reintento, venta en curso, salida de sesión, pestaña de Ajustes).
+
+**Verificación del paquete:** `electron-builder --dir` ✅ incluye `electron-updater` y el actualizador; el ejecutable empaquetado arranca (backend, 10 migraciones, estado `configurado:false`).
+
+**Limitaciones conocidas:**
+- **No se probó una actualización real**: no existe todavía una versión publicada ni el repositorio de releases (`publish` apunta a `vendeya/vendeya-pos` en GitHub, que hay que crear con sus releases y `latest.yml`); `electron-updater` solo se ejercitó con un actualizador simulado. El instalador NSIS sigue sin generarse (ver Semana 17), y las actualizaciones silenciosas en Windows exigen instalador NSIS **firmado** para no mostrar advertencias de SmartScreen.
+- Los respaldos viven en la misma carpeta (`userData/data/backups`) que la base: no protegen de la pérdida del disco (respaldo en nube: Semana 22). No hay pantalla para listar/restaurar respaldos manualmente (la restauración automática solo ocurre ante una migración fallida).
+- Una caja secundaria de la red se actualiza sola pero sin respaldo ni coordinación con el servidor: si el servidor queda en una versión con otro esquema, no hay aviso de incompatibilidad.
+- En macOS/Linux no se probó nada del actualizador.
+
+**Verificación:** `tsc --noEmit` (3 tsconfig) ✅ 0 errores | `vite build` ✅ | `npm run build:main` ✅ | `npx vitest run` ✅ 905/905 (57 archivos), 2 corridas consecutivas.
+
+---
+
+## Próxima Tarea Exacta (Para ejecutar ahora — Semana 19)
+**Antes de empezar (deudas arrastradas):** (a) repetir contra `celcer` una consulta real y una factura completa con certificado de pruebas del SRI; (b) re-ejecutar la auditoría independiente (`REVIEWER_AGENT.md`); (c) probar en equipos reales (ticket/RIDE, balanza, dos cajas en red, interfaz y asistente dentro de Electron); (d) nota de débito (05) y `ats.xsd` oficial; (e) gestión de usuarios y de sucursales/puntos de emisión adicionales; (f) generar el instalador NSIS firmado y probar una actualización real (ver Semanas 17–18).
+
+1. **Licenciamiento** (backend, `src/server/services/licencia/`): licencia **firmada por el servidor de licencias** (Ed25519; la clave pública va en la aplicación) con RUC, plan, máximo de dispositivos, dispositivo y vencimiento de la suscripción; se guarda en la base de datos (migración nueva). **Activación online** con clave, **validación periódica** (al arrancar y cada 24 h) y **período de gracia offline de 15 días** desde la última validación correcta; protección contra reloj atrasado; **control de dispositivos** (identificador estable del equipo, límite del plan, liberar un dispositivo). Cliente HTTP del servidor de licencias inyectable (contrato documentado en el código).
+2. **Aplicación de la licencia:** sin licencia vigente no se registran ventas ni se abren turnos (`LICENCIA_REQUERIDA`, 402), pero **siempre** se puede cerrar el turno, consultar reportes, exportar datos y respaldar (los datos del cliente nunca quedan retenidos). Solo exigida en la aplicación instalada y con servidor configurado (nunca en pruebas/desarrollo).
+3. **Interfaz:** pestaña «Licencia» en Ajustes (activar con clave, estado, vencimiento, días de gracia, dispositivos, liberar, desactivar este equipo) y aviso en el marco cuando falten pocos días, esté en gracia o bloqueada.
+4. **Pruebas:** estado de la licencia en todos los casos (activa, por vencer, gracia, bloqueada por gracia, vencida, revocada, otro dispositivo, otro RUC, firma inválida, reloj atrasado) con un servidor de licencias simulado; activación/validación/desactivación contra el backend real; que las ventas se bloqueen y el cierre de turno no; interfaz (jsdom). RBAC y `vite build`.
+5. Verificar con `npx tsc --noEmit` (3 tsconfig) y `npm test`; actualizar este archivo y commit `feat: Semana 19 - licenciamiento y suscripciones`.
