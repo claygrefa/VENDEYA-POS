@@ -5,7 +5,7 @@ import { mkdirSync } from "fs";
 import path from "path";
 import fastifyCors from "@fastify/cors";
 import type { PrismaClient } from "@prisma/client";
-import Fastify, { type FastifyInstance } from "fastify";
+import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import { crearPrismaPara } from "./config/database.config";
 import { registrarRutas } from "./routes";
 import { AppError, type CodigoError } from "./services/appError.util";
@@ -16,7 +16,8 @@ import type { OpcionesServicios } from "./services/container.factory";
 import { registrarSync } from "./routes/sync.routes";
 import { MigracionFallidaError, MigrationService, type ResultadoMigracion } from "./services/migration.service";
 import { asegurarEstadisticas } from "./config/estadisticas.util";
-import { RespaldoService, restaurarRespaldo } from "./services/respaldo.service";
+import { restaurarRespaldo, type RespaldoService } from "./services/respaldo.service";
+import { RespaldoWorker, type OpcionesRespaldoJob } from "./jobs/respaldo.job";
 import { LicenciaWorker, type OpcionesLicenciaWorker } from "./jobs/licencia.job";
 import type { OpcionesLicencia } from "./services/licencia/licencia.service";
 
@@ -36,11 +37,41 @@ const HTTP_POR_CODIGO: Record<CodigoError, number> = {
   SIN_PERMISO: 403,
   MODULO_DESHABILITADO: 403,
   LICENCIA_REQUERIDA: 402,
+  DEMASIADOS_INTENTOS: 429,
 };
+
+/** Tamaño máximo de un cuerpo de petición (el certificado .p12 en base64 es lo más grande que se envía) */
+const LIMITE_CUERPO_BYTES = 5 * 1024 * 1024;
+
+/** El token de la sincronización LAN viaja en la URL del WebSocket: nunca debe quedar escrito en los registros. */
+export function urlSinToken(url: string): string {
+  return url.replace(/([?&](?:token|access_token)=)[^&#]*/gi, "$1[oculto]");
+}
 
 /** Construye la instancia Fastify con CORS, manejo de errores y rutas. No abre el puerto. */
 export async function buildServer(servicios: Servicios, logLevel = "info"): Promise<FastifyInstance> {
-  const server = Fastify({ logger: logLevel === "silent" ? false : { level: logLevel } });
+  const server = Fastify({
+    bodyLimit: LIMITE_CUERPO_BYTES,
+    // Sin esto, "x-forwarded-for" falsificado haría pasar a un equipo remoto por local (asistente de configuración) o evadiría el bloqueo de intentos
+    trustProxy: false,
+    logger:
+      logLevel === "silent"
+        ? false
+        : {
+            level: logLevel,
+            serializers: {
+              req: (req: FastifyRequest) => ({ method: req.method, url: urlSinToken(req.url), hostname: req.hostname, remoteAddress: req.ip }),
+            },
+          },
+  });
+
+  // Cabeceras de seguridad: la API devuelve datos del negocio (nada se guarda en cachés intermedias) y JSON/PDF/CSV que no deben interpretarse como otra cosa
+  server.addHook("onSend", async (_req, reply) => {
+    reply.header("Cache-Control", "no-store");
+    reply.header("X-Content-Type-Options", "nosniff");
+    reply.header("X-Frame-Options", "DENY");
+    reply.header("Referrer-Policy", "no-referrer");
+  });
 
   server.decorateRequest("usuario", null);
   server.decorateRequest("token", null);
@@ -107,6 +138,11 @@ export interface BackendOptions {
    * Licenciamiento (aplicación instalada). Sin esta opción no se exige licencia. `trabajo` ajusta la validación periódica en línea.
    */
   licencia?: (OpcionesLicencia & { trabajo?: OpcionesLicenciaWorker }) | undefined;
+  /**
+   * Respaldo automático diario (local y copia cifrada en la nube si está configurada). Desactivado por defecto: solo arranca si se
+   * indica (la aplicación de escritorio lo activa; las pruebas no deben escribir respaldos por su cuenta).
+   */
+  respaldoAutomatico?: (OpcionesRespaldoJob & { habilitado: boolean }) | undefined;
   /** Puerto preferido; si está ocupado se usa uno libre. 0 = libre directamente. */
   port: number;
   host?: string;
@@ -140,9 +176,10 @@ export async function iniciarBackend(opciones: BackendOptions): Promise<BackendH
   let server: FastifyInstance | null = null;
   let worker: SriWorker | null = null;
   let licenciaWorker: LicenciaWorker | null = null;
+  let respaldoWorker: RespaldoWorker | null = null;
 
   const backupsDir = opciones.backupsDir ?? path.join(path.dirname(opciones.dbPath), "backups");
-  const respaldos = new RespaldoService(prisma, backupsDir);
+  let respaldos: RespaldoService | null = null;
 
   try {
     const migraciones = await new MigrationService(prisma, {
@@ -165,6 +202,7 @@ export async function iniciarBackend(opciones: BackendOptions): Promise<BackendH
 
     const servicios = crearServicios(prisma, {
       directorioSecretos: opciones.directorioSecretos ?? path.join(path.dirname(opciones.dbPath), "secretos"),
+      directorioRespaldos: backupsDir,
       ...(opciones.proteccionClave !== undefined ? { proteccionClave: opciones.proteccionClave } : {}),
       ...(opciones.sri !== undefined ? { sri: opciones.sri } : {}),
       ...(opciones.impresion !== undefined ? { impresion: opciones.impresion } : {}),
@@ -173,6 +211,8 @@ export async function iniciarBackend(opciones: BackendOptions): Promise<BackendH
       ...(opciones.ride !== undefined ? { ride: opciones.ride } : {}),
       ...(opciones.licencia !== undefined ? { licencia: opciones.licencia } : {}),
     });
+    respaldos = servicios.respaldos;
+    respaldoWorker = opciones.respaldoAutomatico?.habilitado === true ? new RespaldoWorker(servicios.respaldos, servicios.respaldoNube, opciones.respaldoAutomatico) : null;
     worker = opciones.sriWorker?.habilitado === true ? new SriWorker(servicios.envioSri, opciones.sriWorker) : null;
     licenciaWorker = new LicenciaWorker(servicios.licencia, opciones.licencia?.trabajo);
     server = await buildServer(servicios, opciones.logLevel ?? "info");
@@ -189,6 +229,7 @@ export async function iniciarBackend(opciones: BackendOptions): Promise<BackendH
     const servidor = server;
     await worker?.iniciar();
     licenciaWorker.iniciar();
+    respaldoWorker?.iniciar();
     servicios.sync.iniciar();
 
     return {
@@ -203,6 +244,7 @@ export async function iniciarBackend(opciones: BackendOptions): Promise<BackendH
       respaldos,
       close: async () => {
         await licenciaWorker?.detener();
+        await respaldoWorker?.detener();
         await worker?.detener();
         await servidor.close();
         await prisma.$queryRawUnsafe("PRAGMA optimize").catch(() => undefined); // recomendado por SQLite antes de cerrar una conexión larga
@@ -212,6 +254,7 @@ export async function iniciarBackend(opciones: BackendOptions): Promise<BackendH
   } catch (e) {
     await worker?.detener().catch(() => undefined);
     await licenciaWorker?.detener().catch(() => undefined);
+    await respaldoWorker?.detener().catch(() => undefined);
     if (server !== null) await server.close().catch(() => undefined);
     await prisma.$disconnect().catch(() => undefined);
     // Una migración que falla a mitad puede dejar la base a medio cambiar: se vuelve a la copia tomada justo antes de migrar

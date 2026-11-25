@@ -62,6 +62,8 @@ import { SriSoapClient, type OpcionesClienteSri } from "./sri/ws/sriSoap.client"
 import type { ClienteSri } from "./sri/ws/sriSoap.types";
 import { XsdValidatorService } from "./sri/xsdValidator.service";
 import { VentaService } from "./venta.service";
+import { RespaldoService } from "./respaldo.service";
+import { RespaldoNubeService } from "./respaldoNube.service";
 
 export interface Servicios {
   prisma: PrismaClient;
@@ -100,6 +102,8 @@ export interface Servicios {
   mesas: MesaService;
   comandas: ComandaService;
   sesiones: SessionService;
+  respaldos: RespaldoService;
+  respaldoNube: RespaldoNubeService;
 }
 
 export interface OpcionesServicios {
@@ -108,6 +112,8 @@ export interface OpcionesServicios {
    * Los certificados van en la subcarpeta `certificados`.
    */
   directorioSecretos: string;
+  /** Carpeta de los respaldos locales (default: la hermana `backups` de la carpeta de secretos) */
+  directorioRespaldos?: string;
   /** Protección de la clave maestra con el almacén del sistema operativo (Electron safeStorage) */
   proteccionClave?: ProteccionClave;
   /** Conexión con el SRI: opciones del cliente SOAP real o un cliente sustituto (pruebas) */
@@ -144,6 +150,8 @@ export function crearServicios(prisma: PrismaClient, secretos: OpcionesServicios
     ...(secretos.proteccionClave !== undefined ? { proteccion: secretos.proteccionClave } : {}),
   });
   const certificados = new CertificadoService(prisma, configuracionRepo, claveMaestra, path.join(secretos.directorioSecretos, "certificados"));
+  const respaldos = new RespaldoService(prisma, secretos.directorioRespaldos ?? path.join(secretos.directorioSecretos, "..", "backups"));
+  const respaldoNube = new RespaldoNubeService(respaldos, claveMaestra, secretos.directorioSecretos);
   const firma = new FirmaService(prisma, comprobanteRepo, certificados, xsd);
   const sync = new SyncService(prisma, sesiones, secretos.sync);
   const envioSri = new EnvioSriService(prisma, new ColaSriRepository(), firma, secretos.sri?.cliente ?? new SriSoapClient(secretos.sri?.soap), {
@@ -193,5 +201,7 @@ export function crearServicios(prisma: PrismaClient, secretos: OpcionesServicios
     mesas: new MesaService(prisma, new MesaRepository(), giro),
     comandas: new ComandaService(prisma, new ComandaRepository(), giro, ventas),
     sesiones,
+    respaldos,
+    respaldoNube,
   };
 }

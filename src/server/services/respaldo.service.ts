@@ -5,11 +5,12 @@
 // darla por buena, y rotación independiente por motivo (los de migración no desplazan a los de actualización).
 // Se usan antes de aplicar migraciones y antes de instalar una actualización de la aplicación.
 // ============================================================
-import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync, statSync } from "fs";
+import { chmodSync, copyFileSync, existsSync, mkdirSync, readdirSync, rmSync, statSync } from "fs";
 import path from "path";
 import { crearPrismaPara } from "../config/database.config";
 
-export type MotivoRespaldo = "pre-migracion" | "pre-actualizacion";
+/** `automatico` los toma el programador diario; `manual` los pide el administrador */
+export type MotivoRespaldo = "pre-migracion" | "pre-actualizacion" | "automatico" | "manual";
 
 export interface Respaldo {
   archivo: string;
@@ -19,7 +20,22 @@ export interface Respaldo {
   bytes: number;
 }
 
-const MOTIVOS: ReadonlyArray<MotivoRespaldo> = ["pre-migracion", "pre-actualizacion"];
+const MOTIVOS: ReadonlyArray<MotivoRespaldo> = ["pre-migracion", "pre-actualizacion", "automatico", "manual"];
+/** Cuántos se conservan por motivo: los automáticos cubren una semana */
+const MAXIMO_POR_MOTIVO: Record<MotivoRespaldo, number> = { "pre-migracion": 5, "pre-actualizacion": 5, automatico: 7, manual: 10 };
+
+/**
+ * Solo el dueño del equipo debe leer la base de datos y sus copias. En Windows los permisos de la carpeta del perfil del usuario
+ * (`%APPDATA%`) ya lo garantizan y `chmod` no tiene efecto; en macOS/Linux se restringe a 700/600.
+ */
+export function protegerRuta(ruta: string, esCarpeta: boolean): void {
+  if (process.platform === "win32") return;
+  try {
+    chmodSync(ruta, esCarpeta ? 0o700 : 0o600);
+  } catch {
+    /* sistema de archivos sin permisos POSIX (p. ej. unidad externa FAT): no hay nada que restringir */
+  }
+}
 const prefijoDe = (motivo: MotivoRespaldo): string => `vendeya-${motivo}-`;
 
 /** Lo único que se necesita de la base de datos: ejecutar `VACUUM INTO` */
@@ -31,7 +47,7 @@ export class RespaldoService {
   constructor(
     private readonly prisma: EjecutorSql,
     private readonly carpeta: string,
-    private readonly maxPorMotivo = 5
+    private readonly maxPorMotivo?: number
   ) {}
 
   /**
@@ -40,6 +56,7 @@ export class RespaldoService {
    */
   async crear(motivo: MotivoRespaldo, etiqueta?: string): Promise<string> {
     mkdirSync(this.carpeta, { recursive: true });
+    protegerRuta(this.carpeta, true);
     const sello = new Date().toISOString().replace(/[:.]/g, "-");
     const sufijo = etiqueta === undefined ? "" : `-v${etiqueta.replace(/[^0-9A-Za-z.+-]/g, "_")}`;
     const destino = path.join(this.carpeta, `${prefijoDe(motivo)}${sello}${sufijo}.db`);
@@ -50,6 +67,7 @@ export class RespaldoService {
       rmSync(destino, { force: true });
       throw e;
     }
+    protegerRuta(destino, false);
     this.rotar(motivo);
     return destino;
   }
@@ -68,12 +86,17 @@ export class RespaldoService {
     return resultado.sort((a, b) => b.archivo.localeCompare(a.archivo));
   }
 
+  /** El respaldo más reciente de un motivo (o null). */
+  ultimo(motivo: MotivoRespaldo): Respaldo | null {
+    return this.listar().find((r) => r.motivo === motivo) ?? null;
+  }
+
   private rotar(motivo: MotivoRespaldo): void {
     const prefijo = prefijoDe(motivo);
     const archivos = readdirSync(this.carpeta)
       .filter((f) => f.startsWith(prefijo) && f.endsWith(".db"))
       .sort(); // el sello ISO ordena cronológicamente
-    for (const f of archivos.slice(0, Math.max(0, archivos.length - this.maxPorMotivo))) rmSync(path.join(this.carpeta, f), { force: true });
+    for (const f of archivos.slice(0, Math.max(0, archivos.length - (this.maxPorMotivo ?? MAXIMO_POR_MOTIVO[motivo])))) rmSync(path.join(this.carpeta, f), { force: true });
   }
 }
 

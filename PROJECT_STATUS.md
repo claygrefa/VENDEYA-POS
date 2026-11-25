@@ -3,10 +3,10 @@
 ## Estado General
 - **Proyecto:** VENDEYA POS (Sistema Punto de Venta Multi-Giro & Facturación Electrónica SRI Ecuador)
 - **Horizonte:** 6 Meses (24 Semanas)
-- **Fase Actual:** MES 6 — Semana 22: auditoría de seguridad
+- **Fase Actual:** MES 6 — Semana 23: centro de ayuda y telemetría opcional
 - **Estado de Compilación:** ✅ `tsc --noEmit` → 0 errores | ✅ `tsconfig.node.json` → 0 errores | ✅ `tsconfig.electron.json` → 0 errores
-- **Tests:** ✅ ≈997 (985 + 12 nuevos de la Semana 21). En una corrida completa muy cargada fallaron 4 pruebas de interfaz sensibles al tiempo (escáner «ráfaga rápida», asistente y Ajustes con backend real); los 8 archivos del renderer pasan 138/138 al ejecutarse solos (ver Semana 21)
-- **Último Commit:** `feat: Semana 21 - pruebas de estres y rendimiento`
+- **Tests:** ✅ 1025/1025 passed (68 archivos de prueba)
+- **Último Commit:** `feat: Semana 22 - auditoria de seguridad`
 
 ---
 
@@ -44,8 +44,8 @@
 
 ### MES 6: Auditoría, Seguridad, Estrés y Lanzamiento Comercial
 - [x] **Semana 21 (COMPLETADA):** Pruebas de estrés y rendimiento con bases de datos de 20,000+ productos y simulación de 1,500 ventas diarias en hardware de gama baja/media.
-- [ ] **Semana 22 (ACTUAL):** Auditoría de seguridad (protección de SQLite, sanitización de entradas, permisos RBAC por rol de cajero/supervisor/admin, respaldos automáticos locales y en nube).
-- [ ] **Semana 23:** Centro de ayuda integrado en la aplicación, guías rápidas para cajeros/contadores y telemetría opcional de errores.
+- [x] **Semana 22 (COMPLETADA, parcial: ver «No resuelto»):** Auditoría de seguridad (protección de SQLite, sanitización de entradas, permisos RBAC por rol de cajero/supervisor/admin, respaldos automáticos locales y en nube).
+- [ ] **Semana 23 (ACTUAL):** Centro de ayuda integrado en la aplicación, guías rápidas para cajeros/contadores y telemetría opcional de errores.
 - [ ] **Semana 24:** Corrección final de detalles, congelamiento de código, pruebas en máquinas limpias (Windows 10/11 y macOS) y empaquetado oficial **v1.0.0 Comercial**.
 
 ---
@@ -774,9 +774,40 @@ La matriz RBAC cubre las 4 rutas nuevas (77 entradas en la tabla; el recuento de
 
 ---
 
-## Próxima Tarea Exacta (Para ejecutar ahora — Semana 22)
-**Antes de empezar (deudas arrastradas):** (a) repetir contra `celcer` una consulta real y una factura completa con certificado de pruebas del SRI (`ECONNRESET`); (b) re-ejecutar la auditoría independiente (`REVIEWER_AGENT.md`); (c) probar en equipos reales (ticket/RIDE, balanza, dos cajas en red, instalador en máquina limpia, `npm run test:paquete`, y el rendimiento en un equipo de gama baja real); (d) nota de débito (05) y `ats.xsd` oficial; (e) gestión de usuarios y de sucursales/puntos de emisión; (f) servidor de licencias real; (g) certificados de firma de código (Windows/Apple), repositorio de releases y actualización real; (h) íconos definitivos; (i) endurecer el licenciamiento ante edición directa de la base de datos; (j) ampliar márgenes de las pruebas de interfaz sensibles al tiempo.
+### Semana 22 — 2026-11-25 ✅ COMPLETADA (parcial: ver «No resuelto»)
+**Auditoría de seguridad** del backend, los respaldos y el contenedor Electron. Se revisó: autenticación y sesiones, matriz RBAC (ya cubría todas las rutas), SQL crudo, validación de entradas, cabeceras/CORS/registros, asistente de configuración, almacenamiento de secretos y respaldos, y la configuración de la ventana de Electron.
 
-1. **Auditoría de seguridad:** protección de SQLite (permisos del archivo, cifrado o al menos protección de respaldos y certificados), sanitización/validación de todas las entradas (Zod en cada ruta, SQL crudo con `Prisma.sql`, XML/HTML), permisos RBAC por rol de cajero/supervisor/admin (revisar la matriz de 72+ rutas), sesiones/tokens, y respaldos automáticos locales y en nube (cifrados, verificados, con retención).
-2. Pruebas que demuestren cada control (intentos de inyección, escalada de privilegios, acceso sin sesión, respaldo restaurable).
-3. Documentar hallazgos y límites en PROJECT_STATUS; `tsc --noEmit` (3 tsconfig) y `npm test`; commit `feat: Semana 22 - auditoria de seguridad`.
+**Hallazgos y correcciones:**
+1. **Sin freno a la fuerza bruta en `/api/auth/login`** (intentos ilimitados). → `LimitadorIntentos` (`services/limitadorIntentos.util.ts`): 5 fallos por usuario+dirección en 15 min bloquean ese par 15 min (HTTP 429 `DEMASIADOS_INTENTOS`, también con la contraseña correcta); un acierto reinicia; la tabla tiene tope de 10 000 claves. `trustProxy: false` explícito (un `X-Forwarded-For` falsificado no evade el bloqueo ni hace pasar por local al asistente de configuración).
+2. **Enumeración de usuarios por tiempo** (con usuario inexistente no se calculaba el hash). → se verifica contra un hash señuelo: mismo tiempo y misma respuesta.
+3. **El token de la sincronización LAN viajaba en la URL del WebSocket y el registro de Fastify la escribía.** → serializador que lo oculta (`urlSinToken`).
+4. **Sin cabeceras de seguridad ni límite de cuerpo.** → `Cache-Control: no-store`, `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`; `bodyLimit` de 5 MB.
+5. **Respaldos:** solo existían los previos a migrar/actualizar. → motivos nuevos `automatico` (se conservan 7) y `manual` (10); **programador diario** (`jobs/respaldo.job.ts`: a los 2 min de abrir y cada 6 h; toma uno si el último tiene > 24 h; activo en la app de escritorio, `RESPALDO_AUTOMATICO=off` lo desactiva); permisos 700/600 en macOS/Linux (`protegerRuta`).
+6. **Copia «en la nube»** (`services/respaldoNube.service.ts`, `respaldoCifrado.util.ts`): no usa APIs de proveedores; copia el respaldo **cifrado con AES-256-GCM** (frase ≥ 12 caracteres → scrypt N=2^15; sal e IV aleatorios; la cabecera va como AAD; por bloques, sin cargar la base en memoria; formato `.vdbk`) a una carpeta que el cliente ya sincroniza (OneDrive, Google Drive, Dropbox), un disco externo o de red. El proveedor solo ve texto cifrado. La frase se guarda cifrada con la clave maestra en `secretos/respaldos.json` (nunca en claro ni en la respuesta de la API); se escribe a un temporal y se renombra; se conservan 14 copias. `restaurarRespaldoCifrado()` descifra a un temporal, verifica que sea una base válida y solo entonces reemplaza la base (con frase equivocada o archivo alterado no se toca nada; se conserva `…antes-de-restaurar`).
+7. **API de respaldos** (solo `configuracion:actualizar`, es decir administrador): `GET/POST /api/respaldos`, `PUT/DELETE /api/respaldos/nube`, `POST /api/respaldos/nube/exportar`; añadidas a la matriz RBAC.
+8. **Electron:** bloqueo de navegación fuera de la interfaz (`will-navigate`), de `webview` y de todos los permisos del navegador; enlaces externos solo http(s) sin credenciales (`electron/navegacion.seguridad.ts`). CSP con `object-src 'none'; base-uri 'none'; form-action 'none'`.
+
+**Revisado y sin hallazgos:** el SQL crudo (`$queryRawUnsafe`/`$executeRawUnsafe`) usa texto fijo o valores escapados (el único con ruta interpolada es `VACUUM INTO`, que la genera el programa y escapa comillas); las consultas del usuario van por Prisma parametrizado; aislamiento por empresa en los servicios revisados; contraseñas con scrypt + `timingSafeEqual`; tokens de 256 bits aleatorios con vencimiento; certificado `.p12` y su clave cifrados (Semana 10); `contextIsolation`/`sandbox` activos; el XML escapa los datos del usuario (pruebas de la Semana 9).
+
+**Pruebas nuevas (28):** `tests/integration/server/seguridad.test.ts` (21: bloqueo y desbloqueo por tiempo, misma respuesta para usuario inexistente, cabeceras, cuerpo de 6 MB → 413, token fuera de los registros, asistente solo local aun con `X-Forwarded-For` falso, 401 sin sesión/token inventado/esquema Basic, 7 cargas de inyección en 7 rutas + login sin 5xx y sin alterar la base, cuerpos con tipos equivocados, cifrado y descifrado sin pérdida, frase errónea y 6 alteraciones de bytes sin dejar archivo, copia en carpeta externa verificada, frase ausente de la API y del disco, restauración, rotación a 14, carpeta no disponible → 409, programador diario y retención de 7) y `tests/unit/electron/navegacion.seguridad.test.ts` (7, incluida la revisión estática de `main.ts`, la CSP y el preload).
+
+**No resuelto / límites (importante):**
+- **La base de datos SQLite y los respaldos locales NO están cifrados en reposo**: se apoyan en los permisos del usuario del sistema operativo. Recomendar BitLocker/FileVault. En Windows `chmod` no tiene efecto (se confía en la ACL de `%APPDATA%`, no verificada). La copia en la nube sí va cifrada.
+- **No hay pantalla en la interfaz** para respaldos ni para restaurar (solo API y la función `restaurarRespaldoCifrado`, que debe usarse con la aplicación cerrada). Queda para la Semana 23 junto al centro de ayuda.
+- Rotar la clave maestra deja ilegible la frase guardada de la nube: el estado lo indica (`requiereReconfigurar`) y hay que configurarla de nuevo.
+- La sesión guarda una copia de los permisos del usuario: no hay gestión de usuarios, así que desactivar a alguien o cambiar su rol no cierra sus sesiones abiertas (hasta 12 h). Se resuelve junto con la gestión de usuarios.
+- El tráfico entre cajas de la LAN es **HTTP/WS sin TLS**: el token y los datos viajan en claro por la red local; usar solo redes de confianza. Sin bitácora de auditoría de accesos.
+- CORS acepta el origen `null`/`file://` (necesario para la interfaz empaquetada). El bloqueo de intentos es en memoria (se reinicia al reiniciar la app).
+- La configuración de la ventana de Electron se verifica solo de forma estática (los procesos de Electron no pueden ejecutarse en esta sesión). **No se ejecutó `npm audit`** ni una prueba de penetración externa; el informe independiente (`REVIEWER_AGENT.md`) sigue sin re-ejecutarse.
+
+**Verificación:** `tsc --noEmit` (3 tsconfig) ✅ 0 errores | `npx vitest run` ✅ 1025/1025 (68 archivos).
+
+---
+
+## Próxima Tarea Exacta (Para ejecutar ahora — Semana 23)
+**Antes de empezar (deudas arrastradas):** (a) repetir contra `celcer` una consulta real y una factura completa con certificado de pruebas del SRI (`ECONNRESET`); (b) re-ejecutar la auditoría independiente (`REVIEWER_AGENT.md`) y `npm audit`; (c) probar en equipos reales (ticket/RIDE, balanza, dos cajas en red, instalador en máquina limpia, `npm run test:paquete`, rendimiento en gama baja); (d) nota de débito (05) y `ats.xsd` oficial; (e) gestión de usuarios (con cierre de sesiones al desactivar/cambiar rol) y de sucursales/puntos de emisión; (f) servidor de licencias real; (g) certificados de firma de código, repositorio de releases y actualización real; (h) íconos definitivos; (i) endurecer el licenciamiento ante edición directa de la base; (j) ampliar márgenes de las pruebas de interfaz sensibles al tiempo; (k) TLS en la LAN y cifrado en reposo de la base.
+
+1. **Centro de ayuda integrado** (página `AyudaPage` en `src/renderer/pages/`): búsqueda y artículos locales (sin internet) organizados por rol: guía rápida del cajero (abrir turno, vender, cobrar, anular, cerrar), del supervisor, del contador (comprobantes SRI, ATS, retenciones) y del administrador (configuración, certificado, licencia, **respaldos y restauración**).
+2. **Pantalla de respaldos en Ajustes** (consume `/api/respaldos`): lista, «Respaldar ahora», configurar/quitar la carpeta de nube y la frase (con aviso de que sin la frase no se puede restaurar), «Copiar a la nube ahora» y el estado; y el procedimiento de restauración guiado.
+3. **Telemetría opcional de errores**: desactivada por defecto, con consentimiento explícito en el asistente/Ajustes; solo errores técnicos (versión, SO, mensaje y pila sin datos de ventas, clientes ni claves), con vista previa de lo que se enviaría; sin servidor real aún, el envío va detrás de una interfaz sustituible y probada con un servidor simulado.
+4. Pruebas (jsdom con `ApiSimulada`), documentar en PROJECT_STATUS; `tsc --noEmit` (3 tsconfig) y `npm test`; commit `feat: Semana 23 - centro de ayuda y telemetria`.

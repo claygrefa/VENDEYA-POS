@@ -15,6 +15,7 @@ import { MigracionFallidaError } from "../src/server/services/migration.service"
 import { ActualizadorApp, type AutoUpdaterLike } from "./updater/updater.service";
 import { cargarConfigLicencia } from "./licencia.config";
 import { ClienteLicenciasHttp } from "../src/server/services/licencia/licencia.cliente";
+import { esEnlaceExternoSeguro, esNavegacionPermitida } from "./navegacion.seguridad";
 import { identificarDispositivo } from "../src/server/services/licencia/dispositivo.util";
 
 const isDev = process.env["NODE_ENV"] === "development";
@@ -100,11 +101,18 @@ function createWindow(): BrowserWindow {
 
   // Abrir enlaces externos en el navegador del sistema, no en Electron
   win.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith("https://") || url.startsWith("http://")) {
+    if (esEnlaceExternoSeguro(url)) {
       void shell.openExternal(url);
     }
     return { action: "deny" };
   });
+
+  // La ventana no sale de la interfaz de la aplicación, no incrusta otras páginas y no pide cámara, micrófono, ubicación ni notificaciones
+  win.webContents.on("will-navigate", (evento, url) => {
+    if (!esNavegacionPermitida(url, isDev)) evento.preventDefault();
+  });
+  win.webContents.on("will-attach-webview", (evento) => evento.preventDefault());
+  win.webContents.session.setPermissionRequestHandler((_contenido, _permiso, responder) => responder(false));
 
   win.once("ready-to-show", () => {
     win.show();
@@ -162,6 +170,8 @@ async function arrancar(): Promise<void> {
         }
       : {}),
     sriWorker: { habilitado: process.env["SRI_WORKER"] !== "off" },
+    // Respaldo diario automático (y copia cifrada en la nube si el administrador la configuró)
+    respaldoAutomatico: { habilitado: process.env["RESPALDO_AUTOMATICO"] !== "off" },
     licencia: opcionesLicencia(rutas),
     // Servidor de la red local: escucha a las demás cajas solo si se pide (VENDEYA_LAN=1)
     redLocal: process.env["VENDEYA_LAN"] === "1",

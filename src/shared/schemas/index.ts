@@ -20,3 +20,4 @@ export * from "./impresora.schema";
 export * from "./balanza.schema";
 export * from "./gestion.schema";
 export * from "./setup.schema";
+export * from "./respaldo.schema";

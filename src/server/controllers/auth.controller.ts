@@ -7,7 +7,7 @@ import type { Servicios } from "../services/container.factory";
 export function crearAuthController(servicios: Servicios) {
   return {
     login: async (req: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> => {
-      const usuario = await servicios.usuarios.autenticar(req.body);
+      const usuario = await servicios.usuarios.autenticar(req.body, req.ip);
       const token = servicios.sesiones.crear(usuario);
       return reply.send({ token, usuario });
     },

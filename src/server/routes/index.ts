@@ -19,6 +19,7 @@ import { crearTurnoController } from "../controllers/turno.controller";
 import { crearVentaController } from "../controllers/venta.controller";
 import type { Servicios } from "../services/container.factory";
 import { crearLicenciaController } from "../controllers/licencia.controller";
+import { crearRespaldoController } from "../controllers/respaldo.controller";
 import { exigirLicencia, requerirSesion } from "./auth.guard";
 
 export function registrarRutas(server: FastifyInstance, servicios: Servicios): void {
@@ -38,6 +39,7 @@ export function registrarRutas(server: FastifyInstance, servicios: Servicios): v
   const gestion = crearGestionController(servicios);
   const setup = crearSetupController(servicios);
   const licencia = crearLicenciaController(servicios);
+  const respaldo = crearRespaldoController(servicios);
 
   // ── Públicas ──────────────────────────────────────────────
   server.get("/api/health", health.estado);
@@ -233,4 +235,11 @@ export function registrarRutas(server: FastifyInstance, servicios: Servicios): v
   server.get("/api/configuracion/certificado", permiso("configuracion", "leer"), certificado.informacion);
   server.delete("/api/configuracion/certificado", configurar, certificado.eliminar);
   server.post("/api/configuracion/certificado/rotar-clave", configurar, certificado.rotarClave);
+
+  // ── Respaldos (solo administrador): locales y copia cifrada en una carpeta de nube/externa ──
+  server.get("/api/respaldos", administrar, respaldo.estado);
+  server.post("/api/respaldos", administrar, respaldo.crear);
+  server.put("/api/respaldos/nube", administrar, respaldo.configurarNube);
+  server.delete("/api/respaldos/nube", administrar, respaldo.quitarNube);
+  server.post("/api/respaldos/nube/exportar", administrar, respaldo.exportarNube);
 }

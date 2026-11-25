@@ -31,6 +31,11 @@ const RUTAS: ReadonlyArray<readonly [Metodo, string, Requisito]> = [
   ["DELETE", "/api/licencia", "configuracion:actualizar"],
   ["GET", "/api/licencia/dispositivos", "configuracion:actualizar"],
   ["POST", "/api/licencia/dispositivos/:id/liberar", "configuracion:actualizar"],
+  ["GET", "/api/respaldos", "configuracion:actualizar"],
+  ["POST", "/api/respaldos", "configuracion:actualizar"],
+  ["PUT", "/api/respaldos/nube", "configuracion:actualizar"],
+  ["DELETE", "/api/respaldos/nube", "configuracion:actualizar"],
+  ["POST", "/api/respaldos/nube/exportar", "configuracion:actualizar"],
   ["POST", "/api/auth/logout", "sesion"],
   ["GET", "/api/auth/me", "sesion"],
   // ── Catálogo e inventario ──
