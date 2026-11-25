@@ -1,7 +1,7 @@
 // ============================================================
 // src/server/services/respaldo.service.ts — Respaldos de la base de datos SQLite
 //
-// Copia consistente con `VACUUM INTO` (incluye lo que aún está en el WAL), verificada con `PRAGMA integrity_check` antes de
+// Copia consistente con `VACUUM INTO` (incluye lo que aún está en el WAL), verificada con `PRAGMA quick_check` antes de
 // darla por buena, y rotación independiente por motivo (los de migración no desplazan a los de actualización).
 // Se usan antes de aplicar migraciones y antes de instalar una actualización de la aplicación.
 // ============================================================
@@ -82,9 +82,11 @@ export async function verificarRespaldo(ruta: string): Promise<void> {
   if (!existsSync(ruta) || statSync(ruta).size === 0) throw new Error("El respaldo no se generó o está vacío");
   const db = crearPrismaPara(ruta);
   try {
-    const integridad = await db.$queryRawUnsafe<Array<{ integrity_check: string }>>("PRAGMA integrity_check");
-    if (integridad.length !== 1 || integridad[0]?.integrity_check !== "ok") {
-      throw new Error(`El respaldo está dañado: ${integridad.map((f) => f.integrity_check).join("; ")}`);
+    // quick_check recorre todas las tablas y detecta páginas dañadas, pero no re-verifica cada índice contra su tabla (integrity_check tarda
+    // el doble en una base de cientos de MB): la copia acaba de ser reconstruida de cero por VACUUM INTO, así que sus índices son nuevos.
+    const integridad = await db.$queryRawUnsafe<Array<{ quick_check: string }>>("PRAGMA quick_check");
+    if (integridad.length !== 1 || integridad[0]?.quick_check !== "ok") {
+      throw new Error(`El respaldo está dañado: ${integridad.map((f) => f.quick_check).join("; ")}`);
     }
     const tablas = await db.$queryRawUnsafe<Array<{ n: number | bigint }>>(`SELECT COUNT(*) AS n FROM sqlite_master WHERE type='table' AND name IN ('_prisma_migrations','Empresa')`);
     if (Number(tablas[0]?.n ?? 0) < 2) throw new Error("El respaldo no contiene el esquema de la aplicación");

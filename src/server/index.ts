@@ -15,9 +15,13 @@ import { SriWorker, type OpcionesSriWorker } from "./jobs/sriWorker.job";
 import type { OpcionesServicios } from "./services/container.factory";
 import { registrarSync } from "./routes/sync.routes";
 import { MigracionFallidaError, MigrationService, type ResultadoMigracion } from "./services/migration.service";
+import { asegurarEstadisticas } from "./config/estadisticas.util";
 import { RespaldoService, restaurarRespaldo } from "./services/respaldo.service";
 import { LicenciaWorker, type OpcionesLicenciaWorker } from "./jobs/licencia.job";
 import type { OpcionesLicencia } from "./services/licencia/licencia.service";
+
+/** Caché de páginas de SQLite en KB (64 MB) */
+const CACHE_SQLITE_KB = 65_536;
 
 const HTTP_POR_CODIGO: Record<CodigoError, number> = {
   VALIDACION: 400,
@@ -149,6 +153,15 @@ export async function iniciarBackend(opciones: BackendOptions): Promise<BackendH
 
     // Modo WAL (lecturas concurrentes y mejor tolerancia a cortes de energía)
     await prisma.$queryRawUnsafe("PRAGMA journal_mode=WAL");
+    // Con una base de cientos de MB, la caché por omisión de SQLite (2 MB) obliga a leer del disco las páginas de los índices en cada
+    // venta: 64 MB de caché, temporales en memoria y lectura mapeada. Con la sola conexión del pool, estos PRAGMA valen para toda la sesión.
+    await prisma.$queryRawUnsafe(`PRAGMA cache_size=${-CACHE_SQLITE_KB}`);
+    await prisma.$queryRawUnsafe("PRAGMA temp_store=MEMORY");
+    await prisma.$queryRawUnsafe("PRAGMA mmap_size=268435456");
+    // Estadísticas para el planificador: sin ellas SQLite elige mal el orden de las uniones en las consultas grandes (reportes). `optimize` solo
+    // analiza lo que lo necesita (tablas nuevas o que crecieron mucho), así que en un arranque normal cuesta milisegundos.
+    await prisma.$queryRawUnsafe("PRAGMA optimize");
+    await asegurarEstadisticas(prisma); // una sola vez en una base grande que aún no las tiene (ver estadisticas.util.ts)
 
     const servicios = crearServicios(prisma, {
       directorioSecretos: opciones.directorioSecretos ?? path.join(path.dirname(opciones.dbPath), "secretos"),
@@ -192,6 +205,7 @@ export async function iniciarBackend(opciones: BackendOptions): Promise<BackendH
         await licenciaWorker?.detener();
         await worker?.detener();
         await servidor.close();
+        await prisma.$queryRawUnsafe("PRAGMA optimize").catch(() => undefined); // recomendado por SQLite antes de cerrar una conexión larga
         await prisma.$disconnect();
       },
     };

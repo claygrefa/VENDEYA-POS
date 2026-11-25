@@ -3,10 +3,10 @@
 ## Estado General
 - **Proyecto:** VENDEYA POS (Sistema Punto de Venta Multi-Giro & Facturación Electrónica SRI Ecuador)
 - **Horizonte:** 6 Meses (24 Semanas)
-- **Fase Actual:** MES 6 — Semana 21: pruebas de estrés y rendimiento
+- **Fase Actual:** MES 6 — Semana 22: auditoría de seguridad
 - **Estado de Compilación:** ✅ `tsc --noEmit` → 0 errores | ✅ `tsconfig.node.json` → 0 errores | ✅ `tsconfig.electron.json` → 0 errores
-- **Tests:** ✅ 985/985 passed (63 archivos de prueba)
-- **Último Commit:** `feat: Semana 20 - instaladores nativos y publicacion`
+- **Tests:** ✅ ≈997 (985 + 12 nuevos de la Semana 21). En una corrida completa muy cargada fallaron 4 pruebas de interfaz sensibles al tiempo (escáner «ráfaga rápida», asistente y Ajustes con backend real); los 8 archivos del renderer pasan 138/138 al ejecutarse solos (ver Semana 21)
+- **Último Commit:** `feat: Semana 21 - pruebas de estres y rendimiento`
 
 ---
 
@@ -43,8 +43,8 @@
 - [x] **Semana 20 (COMPLETADA, parcial: ver «No verificado»):** Configuración de `electron-builder` + Inno Setup para generar instaladores nativos `.exe` (Windows) y `.dmg` (macOS) firmados y listos para distribución.
 
 ### MES 6: Auditoría, Seguridad, Estrés y Lanzamiento Comercial
-- [ ] **Semana 21 (ACTUAL):** Pruebas de estrés y rendimiento con bases de datos de 20,000+ productos y simulación de 1,500 ventas diarias en hardware de gama baja/media.
-- [ ] **Semana 22:** Auditoría de seguridad (protección de SQLite, sanitización de entradas, permisos RBAC por rol de cajero/supervisor/admin, respaldos automáticos locales y en nube).
+- [x] **Semana 21 (COMPLETADA):** Pruebas de estrés y rendimiento con bases de datos de 20,000+ productos y simulación de 1,500 ventas diarias en hardware de gama baja/media.
+- [ ] **Semana 22 (ACTUAL):** Auditoría de seguridad (protección de SQLite, sanitización de entradas, permisos RBAC por rol de cajero/supervisor/admin, respaldos automáticos locales y en nube).
 - [ ] **Semana 23:** Centro de ayuda integrado en la aplicación, guías rápidas para cajeros/contadores y telemetría opcional de errores.
 - [ ] **Semana 24:** Corrección final de detalles, congelamiento de código, pruebas en máquinas limpias (Windows 10/11 y macOS) y empaquetado oficial **v1.0.0 Comercial**.
 
@@ -747,12 +747,36 @@ La matriz RBAC cubre las 4 rutas nuevas (77 entradas en la tabla; el recuento de
 
 ---
 
-## Próxima Tarea Exacta (Para ejecutar ahora — Semana 21)
-**Antes de empezar (deudas arrastradas):** (a) repetir contra `celcer` una consulta real y una factura completa con certificado de pruebas del SRI; (b) re-ejecutar la auditoría independiente (`REVIEWER_AGENT.md`); (c) **probar en equipos reales**: ticket/RIDE, balanza, dos cajas en red, interfaz, asistente, actualización, licencia e **instalador en máquina limpia** (procedimiento en la Semana 20); y repetir `npm run test:paquete` en un equipo normal (el paso del ejecutable completo no se pudo verificar); (d) nota de débito (05) y `ats.xsd` oficial; (e) gestión de usuarios y de sucursales/puntos de emisión adicionales; (f) servidor de licencias real, claves y `electron/licencia.config.json`; (g) certificado de firma de código de Windows y Apple, repositorio de releases en GitHub y una actualización real de punta a punta; (h) íconos y marca definitivos.
+### Semana 21 — 2026-11-25 ✅ COMPLETADA
+**Banco de rendimiento** (`tests/performance/`, fuera de `npm test`; `vitest.config.ts` lo excluye salvo `VENDEYA_RENDIMIENTO=1`): `npm run test:rendimiento`.
+- `generador.ts`: generador reproducible (mulberry32, semilla fija) de **20 000 productos** (categorías, presentaciones, lotes, stock), **5 000 clientes**, **90 días × 1 500 ventas** (con Kardex, CxC y comprobantes), 8 cajeros y 3 000 ventas en un turno abierto. Resultado: **138 000 ventas, 482 517 líneas**, base de 458 MB (548 MB tras la prueba).
+- `base.ts`: la base se genera UNA vez en `out/rendimiento/base-<parámetros>.db` (ignorada por git; borrar la carpeta para regenerar) y cada ejecución trabaja sobre una copia. Parámetros reducibles con `VENDEYA_RENDIMIENTO_{PRODUCTOS,CLIENTES,DIAS,VENTAS_DIA,TURNO_ABIERTO}`.
+- `rendimiento.test.ts`: presupuestos con `expect.soft` (p50/p95), 8 cajas × 100 ventas por HTTP con invariantes (sin ventas perdidas/duplicadas, sin sobreventa, secuenciales sin huecos, sin `SQLITE_BUSY`) y resultados en `out/rendimiento/resultados.json`.
+- Tests del propio banco en la suite normal: `generador-rendimiento` (5), `estadisticas` (2), `rendimiento-ui` (5).
 
-1. **Banco de pruebas de rendimiento** (`tests/performance/`, fuera de la suite normal: `npm run test:rendimiento`, con su propia configuración de Vitest o script, para no alargar `npm test`): generador de datos reproducible (semilla fija) que cree una base de **20 000+ productos** (con categorías, presentaciones, lotes en parte de ellos y stock), **miles de clientes** y un historial de **ventas** (por ejemplo 90 días a 1 500 ventas diarias = 135 000), con Kardex, cuentas por cobrar y comprobantes consistentes. Debe poder crearse una vez y reutilizarse.
-2. **Medir y fijar presupuestos** (ms en p50/p95, con el hardware usado anotado): búsqueda de productos por nombre/código/código de barras, alta de venta con 1 y con 20 líneas (con y sin lote), anulación, cierre de turno con miles de ventas, reportes (ventas por día/producto, utilidad, stock valorado, cartera) y su CSV, listado de comprobantes/cola del SRI, ATS del mes, arranque del backend con la base grande (migraciones incluidas) y respaldo (`VACUUM INTO`) de una base de cientos de MB.
-3. **Concurrencia:** varias cajas (6–10 clientes HTTP/WebSocket simultáneos) vendiendo a la vez contra un servidor, con el worker del SRI y la sincronización LAN activos: sin ventas perdidas ni duplicadas, sin sobreventa, secuenciales sin huecos ni repetidos, sin `SQLITE_BUSY`; medir latencia bajo carga. Detectar y corregir cuellos de botella reales (índices faltantes en el schema —con migración—, consultas N+1, paginación, transacciones largas, el pool de una sola conexión).
-4. **Hardware de gama baja/media:** limitar CPU/memoria (o documentar el equipo de referencia) y medir el arranque y la venta; consumo de memoria del backend tras miles de operaciones (fugas).
-5. **Interfaz:** que la búsqueda y el carrito sigan fluidos con el catálogo grande (paginación/virtualización, `debounce`), midiendo en jsdom lo que se pueda y documentando lo que requiere un equipo real.
-6. Documentar en PROJECT_STATUS los números medidos y los límites. Verificar con `npx tsc --noEmit` (3 tsconfig) y `npm test`; actualizar este archivo y commit `feat: Semana 21 - pruebas de estres y rendimiento`.
+**Hardware de referencia:** portátil i5-13420H (12 hilos), 16 GB, Windows 11, Node 24. **Ruido:** las mediciones variaron hasta ≈10× entre corridas (portátil con otras cargas); los presupuestos son ≈2× el peor valor observado y los rangos de abajo son mínimo–máximo de varias corridas.
+
+**Cuellos de botella reales corregidos:**
+- Caché de SQLite de 2 MB → `cache_size=-65536`, `temp_store=MEMORY`, `mmap_size=256 MB`.
+- Índices faltantes (migración `20261201090000_indices_rendimiento`, ahora 12 migraciones): Kardex(referencia), LineaVenta(ventaId), LineaVenta(productoId), MovimientoCaja(turnoId), PagoVenta(ventaId), Venta(turnoId), Venta(cajeroId, createdAt).
+- Reportes agregados en JS → agregación SQL (`reporte.service.ts`; día de Ecuador = `(createdAt-18000000)/86400000`), orden con `Intl.Collator`.
+- Sin `sqlite_stat1` el planificador elegía mal: `asegurarEstadisticas` ejecuta `ANALYZE` una sola vez en bases grandes (≥ 2 000 páginas) y `PRAGMA optimize` al cerrar. (Mejora no demostrada de forma concluyente por el ruido.)
+- Respaldo: verificación con `quick_check` en lugar de `integrity_check` (29 s → 7–25 s).
+- Interfaz: búsqueda de productos con *debounce* de 150 ms (`useDiferido`, una sola consulta con el texto completo) y reportes paginados de 100 filas (totales y CSV siguen incluyendo todo).
+
+**Números medidos a escala completa (antes → después):** búsqueda por nombre p50 20–40 ms, código 27–90, barras 2–5 · venta de 1 línea 26–41 ms (154) · 20 líneas 61–242 · anulación 15–25 (141) · reporte de turno de 3 187 ventas 31–60 (1 218) · cierre de turno 40–170 · ventas por día 113–420 ms (3 668) · por producto 3,5–7 s · utilidad 3–7 s · stock valorado 0,6–1,6 s · cartera 0,1–0,4 s · comprobantes pendientes 5–12 ms, autorizados 60–210 · cola SRI 35–105 · **ATS del mes 10–25 s** · respaldo 7–25 s · primer arranque con la migración de índices ≈ 20–29 s · arranque normal 80–330 ms · **8 cajas simultáneas 8–24,6 ventas/s, p95 430–860 ms** (antes 4,9/s, p95 2,1 s). Todos los invariantes de concurrencia se cumplieron. La corrida final del banco pasó 8/8.
+
+**Gama baja** (simulada: 2 núcleos, heap de 1 GB): venta p50 37 ms; 8 cajas 20,2 ventas/s, p95 521 ms; RSS 216 → 346 MB tras 800 ventas.
+
+**Limitaciones conocidas:** el ATS y los reportes de producto/utilidad a 90 días tardan segundos (aceptable para reportes gerenciales, no para uso interactivo repetido); venta de 20 líneas ≈ 140–240 ms en el peor caso; se mantiene `synchronous=FULL` (NORMAL arriesga la última transacción ante un corte de luz); **no** hay prueba de fugas de varias rondas ni se simuló la velocidad de un solo núcleo lento; no se probó en equipos reales de gama baja. Varias pruebas de interfaz sensibles al tiempo (escáner «ráfaga rápida», `pos` «escribir filtra…», asistente y Ajustes con backend real) pueden fallar en una corrida completa con la máquina saturada y pasan solas: no son regresiones, pero conviene aumentar sus márgenes.
+
+**Verificación:** `tsc --noEmit` (3 tsconfig) ✅ 0 errores | `build:main` ✅ | `build:vite` ✅ | banco de rendimiento ✅ 8/8 | `tests/unit/renderer` ✅ 138/138 | corrida completa: ver «Tests» arriba (4 fallos de temporización bajo carga).
+
+---
+
+## Próxima Tarea Exacta (Para ejecutar ahora — Semana 22)
+**Antes de empezar (deudas arrastradas):** (a) repetir contra `celcer` una consulta real y una factura completa con certificado de pruebas del SRI (`ECONNRESET`); (b) re-ejecutar la auditoría independiente (`REVIEWER_AGENT.md`); (c) probar en equipos reales (ticket/RIDE, balanza, dos cajas en red, instalador en máquina limpia, `npm run test:paquete`, y el rendimiento en un equipo de gama baja real); (d) nota de débito (05) y `ats.xsd` oficial; (e) gestión de usuarios y de sucursales/puntos de emisión; (f) servidor de licencias real; (g) certificados de firma de código (Windows/Apple), repositorio de releases y actualización real; (h) íconos definitivos; (i) endurecer el licenciamiento ante edición directa de la base de datos; (j) ampliar márgenes de las pruebas de interfaz sensibles al tiempo.
+
+1. **Auditoría de seguridad:** protección de SQLite (permisos del archivo, cifrado o al menos protección de respaldos y certificados), sanitización/validación de todas las entradas (Zod en cada ruta, SQL crudo con `Prisma.sql`, XML/HTML), permisos RBAC por rol de cajero/supervisor/admin (revisar la matriz de 72+ rutas), sesiones/tokens, y respaldos automáticos locales y en nube (cifrados, verificados, con retención).
+2. Pruebas que demuestren cada control (intentos de inyección, escalada de privilegios, acceso sin sesión, respaldo restaurable).
+3. Documentar hallazgos y límites en PROJECT_STATUS; `tsc --noEmit` (3 tsconfig) y `npm test`; commit `feat: Semana 22 - auditoria de seguridad`.

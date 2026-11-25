@@ -339,6 +339,7 @@ model Kardex {
   producto Producto @relation(fields: [productoId], references: [id])
 
   @@index([productoId, fecha])
+  @@index([referencia])
 }
 
 // ─────────────────────────────────────────────
@@ -429,6 +430,7 @@ model MovimientoCaja {
   createdAt   DateTime @default(now())
 
   turno TurnoCaja @relation(fields: [turnoId], references: [id])
+  @@index([turnoId])
 }
 
 // ─────────────────────────────────────────────
@@ -473,6 +475,8 @@ model Venta {
   @@index([sucursalId, createdAt])
   @@index([clienteId])
   @@index([numero])
+  @@index([turnoId])
+  @@index([cajeroId, createdAt])
 }
 
 model LineaVenta {
@@ -498,6 +502,8 @@ model LineaVenta {
   venta    Venta    @relation(fields: [ventaId],    references: [id], onDelete: Cascade)
   producto Producto @relation(fields: [productoId], references: [id])
   lote     Lote?    @relation(fields: [loteId],     references: [id])
+  @@index([ventaId])
+  @@index([productoId])
 }
 
 model PagoVenta {
@@ -510,6 +516,7 @@ model PagoVenta {
   createdAt  DateTime @default(now())
 
   venta Venta @relation(fields: [ventaId], references: [id], onDelete: Cascade)
+  @@index([ventaId])
 }
 
 // ─────────────────────────────────────────────

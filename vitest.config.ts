@@ -13,7 +13,8 @@ export default defineConfig({
     pool: "forks",
     poolOptions: { forks: { maxForks: 6, minForks: 1 } },
     include: ["tests/**/*.{test,spec}.ts", "tests/**/*.{test,spec}.tsx"],
-    exclude: ["node_modules", "dist", "dist-electron", "release"],
+    // El banco de rendimiento (tests/performance) tarda minutos y genera una base de cientos de MB: solo corre con `npm run test:rendimiento`
+    exclude: ["node_modules", "dist", "dist-electron", "release", "out", ...(process.env["VENDEYA_RENDIMIENTO"] === "1" ? [] : ["tests/performance/**"])],
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html"],

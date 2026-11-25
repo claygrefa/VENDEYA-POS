@@ -4,7 +4,7 @@
 import { useMutation } from "@tanstack/react-query";
 import React, { useState } from "react";
 import { Aviso } from "../components/Modal";
-import { Boton, Campo, Seleccion, Tabla, guardarArchivo, mensajeDeError } from "../components/Gestion";
+import { Boton, Campo, Paginador, Seleccion, Tabla, guardarArchivo, mensajeDeError } from "../components/Gestion";
 import { useGestion } from "../services/contexto";
 import type { Reporte } from "../services/gestion.api";
 import { cantidadTexto, dinero } from "../services/totales";
@@ -24,6 +24,9 @@ const AGRUPACIONES = [
   { valor: "cajero", titulo: "Por cajero" },
 ] as const;
 
+/** Filas que se dibujan a la vez: un reporte de stock o de ventas por producto puede traer decenas de miles (el CSV las incluye todas) */
+export const FILAS_POR_PAGINA = 100;
+
 const hoy = (): string => new Date(Date.now() - 5 * 3_600_000).toISOString().slice(0, 10);
 const haceUnMes = (): string => new Date(Date.now() - 5 * 3_600_000 - 30 * 86_400_000).toISOString().slice(0, 10);
 
@@ -36,10 +39,11 @@ export function ReportesPage(): React.JSX.Element {
   const [desde, setDesde] = useState(haceUnMes());
   const [hasta, setHasta] = useState(hoy());
   const [aviso, setAviso] = useState<string | null>(null);
+  const [pagina, setPagina] = useState(1);
   const conPeriodo = tipo === "ventas" || tipo === "utilidad";
   const parametros = { ...(conPeriodo ? { desde, hasta } : {}), ...(tipo === "ventas" ? { agrupar } : {}) };
 
-  const generar = useMutation({ mutationFn: () => g.reporte(tipo, parametros) });
+  const generar = useMutation({ mutationFn: () => g.reporte(tipo, parametros), onMutate: () => setPagina(1) });
   const exportar = useMutation({
     mutationFn: async () => {
       const { blob, nombre } = await g.reporteCsv(tipo, parametros);
@@ -72,8 +76,16 @@ export function ReportesPage(): React.JSX.Element {
       {reporte !== undefined ? (
         <div className="space-y-3">
           <h2 className="font-medium text-white">{reporte.titulo}{reporte.desde !== null ? ` · ${reporte.desde} al ${reporte.hasta ?? "hoy"}` : ""}</h2>
-          <Tabla etiqueta={reporte.titulo} filas={reporte.filas} clave={(f) => JSON.stringify(f)} vacio="No hay datos en el periodo"
+          <Tabla etiqueta={reporte.titulo} filas={reporte.filas.slice((pagina - 1) * FILAS_POR_PAGINA, pagina * FILAS_POR_PAGINA)} clave={(f) => JSON.stringify(f)} vacio="No hay datos en el periodo"
             columnas={reporte.columnas.map((c) => ({ titulo: c.titulo, derecha: c.tipo !== "texto", celda: (f: Record<string, string | number>) => (c.tipo === "dinero" ? dinero(Number(f[c.clave])) : c.tipo === "numero" ? cantidadTexto(Number(f[c.clave])) : String(f[c.clave] ?? "")) }))} />
+          {reporte.filas.length > FILAS_POR_PAGINA ? (
+            <>
+              <p className="text-xs text-slate-400">
+                Mostrando {(pagina - 1) * FILAS_POR_PAGINA + 1}–{Math.min(pagina * FILAS_POR_PAGINA, reporte.filas.length)} de {reporte.filas.length} filas. Los totales y el CSV incluyen todas.
+              </p>
+              <Paginador pagina={pagina} total={reporte.filas.length} porPagina={FILAS_POR_PAGINA} onCambio={setPagina} />
+            </>
+          ) : null}
           <dl aria-label="Totales del reporte" className="flex flex-wrap gap-x-8 gap-y-1 text-sm text-slate-300">
             {reporte.columnas.filter((c) => reporte.totales[c.clave] !== undefined && c.tipo !== "texto").map((c) => (
               <div key={c.clave}><dt className="inline">{c.titulo}: </dt><dd className="inline font-semibold text-white">{c.tipo === "dinero" ? dinero(reporte.totales[c.clave] ?? 0) : cantidadTexto(reporte.totales[c.clave] ?? 0)}</dd></div>

@@ -19,6 +19,7 @@
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.node.json",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:rendimiento": "cross-env VENDEYA_RENDIMIENTO=1 vitest run tests/performance/rendimiento.test.ts --testTimeout=1800000 --hookTimeout=3600000",
     "test:paquete": "node tests/smoke/paquete.smoke.js",
     "test:coverage": "vitest run --coverage",
     "lint": "eslint src electron --ext .ts,.tsx",
