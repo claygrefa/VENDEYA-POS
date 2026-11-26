@@ -18,6 +18,7 @@ import {
   validarCantidadVenta,
 } from "./inventario.util";
 import type { KardexService } from "./kardex.service";
+import { confirmarIntento, type ResultadoIntento } from "./intentoCobro.service";
 import { parsear } from "./validation.util";
 import { calcularLinea, calcularTotales, distribuirPagos, round2, round4 } from "./ventaCalculo.util";
 
@@ -82,6 +83,14 @@ export class VentaService {
    */
   async crear(entrada: unknown, actor: ActorVenta): Promise<VentaEmitida> {
     return this.prisma.$transaction((tx) => this.crearEnTx(tx, entrada, actor), TX_OPCIONES);
+  }
+
+  registrarCobro(entrada: unknown, actor: ActorVenta, autorizar: (tx: Db) => Promise<void>): Promise<ResultadoIntento<VentaEmitida>> {
+    const { intentoId, ...datos } = parsear(VentaInputSchema, entrada);
+    return confirmarIntento(this.prisma, actor, intentoId, ["venta", datos], async (tx) => {
+      await autorizar(tx);
+      return this.crearEnTx(tx, datos, actor);
+    });
   }
 
   /**

@@ -3,7 +3,7 @@
 // tests/unit/renderer/pos.test.tsx — Pantalla de venta: búsqueda, escáner, atajos, cobro y errores del servidor
 // ============================================================
 import { screen, waitFor, within } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { VentaInputSchema } from "../../../src/shared/schemas/venta.schema";
 import { useCarrito } from "../../../src/renderer/store/carrito.store";
 import { useSesion } from "../../../src/renderer/store/sesion.store";
@@ -11,6 +11,8 @@ import { ApiSimulada, CAFE, PUNTO, QUESO, renderizarPos, servidorBasico } from "
 
 const dineroRx = (n: string): RegExp => new RegExp(n.replace(".", "[.,]"));
 const total = (): HTMLElement => screen.getByTestId("total");
+
+beforeEach(() => localStorage.clear());
 
 /** Servidor con venta, escaneo y peso simulados. */
 function servidor(extra?: (api: ApiSimulada) => void): ApiSimulada {
@@ -433,16 +435,24 @@ describe("Cobro", () => {
     }
   });
 
-  it("si el servidor no responde se informa la falta de conexión sin perder la venta en curso", async () => {
+  it("tras perder la respuesta y reabrir el POS, recupera el cobro con el mismo UUID y cuerpo", async () => {
     const api = servidor();
-    const { usuario, dialogo } = await conCafe(api);
-    // Se corta la red: el «fetch» falla antes de obtener respuesta
+    const { usuario, dialogo, unmount } = await conCafe(api);
     api.en("POST /api/ventas", () => {
       throw new TypeError("fetch failed");
     });
     await usuario.click(within(dialogo).getByRole("button", { name: "Confirmar cobro" }));
-    expect(await within(dialogo).findByRole("alert")).toHaveTextContent(/No se pudo comunicar con el servidor/);
+    expect(await screen.findByRole("alert")).toHaveTextContent(/No se pudo comunicar con el servidor/);
     expect(useCarrito.getState().lineas).toHaveLength(1);
+    const solicitud = VentaInputSchema.parse(api.llamadasA("POST /api/ventas")[0]?.cuerpo);
+    expect(solicitud.intentoId).toEqual(expect.any(String));
+    unmount();
+
+    const reiniciado = servidor();
+    const recuperado = renderizarPos({ api: reiniciado });
+    await recuperado.usuario.click(await screen.findByRole("button", { name: "Recuperar cobro" }));
+    await screen.findByRole("region", { name: "Venta registrada" });
+    expect(reiniciado.llamadasA("POST /api/ventas").map((l) => l.cuerpo)).toEqual([solicitud]);
   });
 
   it("si ya no hay turno abierto vuelve a la apertura y el carrito se conserva", async () => {

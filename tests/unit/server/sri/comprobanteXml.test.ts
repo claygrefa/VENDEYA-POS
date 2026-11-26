@@ -14,6 +14,8 @@ import {
 } from "../../../../src/server/services/sri/comprobanteXml.builder";
 import { limpiarTexto } from "../../../../src/server/services/sri/xmlTexto.util";
 import { XsdValidatorService } from "../../../../src/server/services/sri/xsdValidator.service";
+import { endpointsSriPruebas } from "../../../../src/server/services/sri/ws/sriSoap.client";
+import { leerFacturaPruebas } from "../../../smoke/sriFacturaPruebas.smoke";
 
 let xsd: XsdValidatorService;
 beforeAll(() => {
@@ -86,6 +88,21 @@ const exigirValido = async (tipo: "factura" | "notaCredito", xml: string): Promi
 };
 
 describe("Factura 2.1.0", () => {
+  it("el comando de pruebas acepta una factura válida y rechaza el ambiente de producción", async () => {
+    const datos = factura();
+    const xml = construirFacturaXml(datos);
+    await expect(leerFacturaPruebas(xml)).resolves.toEqual({ clave: datos.claveAcceso, ruc: emisor.ruc });
+    await expect(leerFacturaPruebas(xml.replace("<ambiente>1</ambiente>", "<ambiente>2</ambiente>"))).rejects.toThrow("ambiente 1");
+  });
+
+  it("el comando y el cliente aceptan únicamente las URL oficiales para celcer", () => {
+    const urls = endpointsSriPruebas({});
+    expect(urls.recepcion).toContain("https://celcer.sri.gob.ec/");
+    expect(endpointsSriPruebas({ SRI_TEST_RECEPCION_URL: urls.recepcion + "?wsdl", SRI_TEST_AUTORIZACION_URL: urls.autorizacion })).toEqual(urls);
+    expect(() => endpointsSriPruebas({ SRI_TEST_RECEPCION_URL: urls.recepcion.replace("celcer", "cel") })).toThrow("servicio oficial de pruebas");
+    expect(() => endpointsSriPruebas({ SRI_TEST_AUTORIZACION_URL: urls.recepcion })).toThrow("servicio oficial de pruebas");
+  });
+
   it("una factura típica valida contra el XSD oficial y trae los datos esperados", async () => {
     const xml = construirFacturaXml(factura());
     await exigirValido("factura", xml);

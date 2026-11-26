@@ -151,7 +151,7 @@ describe("Firma, publicación y CI", () => {
   const wf = yaml<{ on: Record<string, unknown>; jobs: Record<string, { needs?: string; steps: Array<Record<string, unknown>> }> }>(".github", "workflows", "release.yml");
 
   it("las actualizaciones se publican como GitHub Release (latest.yml), con canal beta para las versiones con sufijo", () => {
-    expect(cfg.publish).toMatchObject({ provider: "github", owner: expect.any(String), repo: expect.any(String) });
+    expect(cfg.publish).toMatchObject({ provider: "github", owner: "claygrefa", repo: "VENDEYA-POS" });
     expect(release).toContain("prerelease");
     expect(release).toContain("--publish always");
   });

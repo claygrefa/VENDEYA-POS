@@ -42,6 +42,7 @@ export class TransporteHttp implements TransporteTelemetria {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(lote),
+      redirect: "error",
       signal: AbortSignal.timeout(this.esperaMs),
     });
     if (!r.ok) throw new Error(`El servidor de telemetría respondió ${r.status}`);

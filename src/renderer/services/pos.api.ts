@@ -71,8 +71,10 @@ export class PosApi {
     return this.http.get("/api/impresora");
   }
 
-  crearVenta(venta: VentaInput): Promise<VentaEmitidaPos> {
-    return this.http.post("/api/ventas", venta);
+  async crearVenta(venta: VentaInput): Promise<VentaEmitidaPos> {
+    const resultado = await this.http.post<VentaEmitidaPos | null>("/api/ventas", venta);
+    if (!resultado?.id) throw new ApiError("RESPUESTA_INCOMPLETA", "No se recibió la confirmación del cobro", 0);
+    return resultado;
   }
 
   reimprimir(ventaId: string): Promise<void> {

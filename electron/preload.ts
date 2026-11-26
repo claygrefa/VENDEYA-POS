@@ -32,6 +32,7 @@ export interface VendeyaAPI {
 const allowedInvokeChannels = [
   "app:get-version",
   "app:get-paths",
+  "app:cobro-pendiente",
   "backend:get-info",
   "db:health-check",
   "sri:check-connectivity",

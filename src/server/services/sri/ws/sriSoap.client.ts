@@ -45,6 +45,24 @@ function endpointsOficiales(ambiente: AmbienteSri): EndpointsSri {
   return { recepcion: sinWsdl(ws.RECEPCION), autorizacion: sinWsdl(ws.AUTORIZACION) };
 }
 
+/** El ambiente de pruebas acepta las URL de celcer, con o sin el sufijo del WSDL. */
+export function endpointsSriPruebas(env: NodeJS.ProcessEnv = process.env): EndpointsSri {
+  const oficiales = endpointsOficiales("1");
+  const resolver = (variable: string, oficial: string): string => {
+    const configurado = env[variable]?.trim();
+    if (!configurado) return oficial;
+    const url = new URL(sinWsdl(configurado));
+    if (url.href !== oficial || url.username || url.password) {
+      throw new Error(`${variable} debe apuntar al servicio oficial de pruebas (${oficial})`);
+    }
+    return url.href;
+  };
+  return {
+    recepcion: resolver("SRI_TEST_RECEPCION_URL", oficiales.recepcion),
+    autorizacion: resolver("SRI_TEST_AUTORIZACION_URL", oficiales.autorizacion),
+  };
+}
+
 // ── XML ──────────────────────────────────────────────────────
 
 const escapar = (s: string): string => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -194,7 +212,7 @@ export class SriSoapClient implements ClienteSri {
   }
 
   private urls(ambiente: AmbienteSri): EndpointsSri {
-    return this.endpoints[ambiente] ?? endpointsOficiales(ambiente);
+    return this.endpoints[ambiente] ?? (ambiente === "1" ? endpointsSriPruebas() : endpointsOficiales(ambiente));
   }
 
   async enviarComprobante(ambiente: AmbienteSri, xmlFirmado: string): Promise<RespuestaRecepcion> {

@@ -40,6 +40,7 @@ jobs:
           npx tsc --noEmit -p tsconfig.node.json
           npx tsc --noEmit -p tsconfig.electron.json
       - run: npm test
+      - run: npm run lint
 
   windows:
     needs: verificar
@@ -65,6 +66,7 @@ jobs:
         run: |
           tipo=release
           case "${GITHUB_REF_NAME}" in *-*) tipo=prerelease ;; esac
+          node electron/updater/verificarFirmaRelease.cjs
           npx electron-builder --win --x64 --publish always -c.forceCodeSigning=true "-c.publish.releaseType=${tipo}"
 
   macos:
@@ -93,4 +95,5 @@ jobs:
         run: |
           tipo=release
           case "${GITHUB_REF_NAME}" in *-*) tipo=prerelease ;; esac
+          node electron/updater/verificarFirmaRelease.cjs
           npx electron-builder --mac --publish always -c.forceCodeSigning=true -c.mac.notarize=true "-c.publish.releaseType=${tipo}"

@@ -1,7 +1,7 @@
 // ============================================================
 // src/server/routes/index.ts — Registro de todas las rutas /api
 // ============================================================
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, preHandlerAsyncHookHandler } from "fastify";
 import { crearAuthController } from "../controllers/auth.controller";
 import { crearCertificadoController } from "../controllers/certificado.controller";
 import { crearComprobanteController } from "../controllers/comprobante.controller";
@@ -62,6 +62,8 @@ export function registrarRutas(server: FastifyInstance, servicios: Servicios): v
   // Cada usuario cambia su propia contraseña (la actual debe coincidir; las demás sesiones suyas se cierran)
   server.post("/api/auth/password", sesion, usuarios.cambiarMiPassword);
 
+  const permiso = (modulo: string, accion: string) => ({ preHandler: requerirSesion(servicios, { modulo, accion }) });
+
   // ── Productos (inventario:leer) ───────────────────────────
   const leerInventario = { preHandler: requerirSesion(servicios, { modulo: "inventario", accion: "leer" }) };
   server.get("/api/productos", leerInventario, productos.buscar);
@@ -75,7 +77,12 @@ export function registrarRutas(server: FastifyInstance, servicios: Servicios): v
   server.get<{ Params: { id: string } }>("/api/clientes/:id", leerClientes, clientes.obtener);
 
   // ── Ventas ────────────────────────────────────────────────
-  const crearVenta = { preHandler: [requerirSesion(servicios, { modulo: "ventas", accion: "crear" }), exigirLicencia(servicios)] };
+  const revisarLicencia = exigirLicencia(servicios);
+  const licenciaClienteAnterior: preHandlerAsyncHookHandler = async (req, reply) => {
+    // Con UUID la licencia se comprueba al crear el cobro, después de buscar un resultado previo.
+    if (req.body === null || typeof req.body !== "object" || !("intentoId" in req.body)) await revisarLicencia.call(server, req, reply);
+  };
+  const crearVenta = { preHandler: [requerirSesion(servicios, { modulo: "ventas", accion: "crear" }), licenciaClienteAnterior] };
   const anularVenta = { preHandler: requerirSesion(servicios, { modulo: "ventas", accion: "anular" }) };
   const leerVentas = { preHandler: requerirSesion(servicios, { modulo: "ventas", accion: "leer" }) };
   server.post("/api/ventas", crearVenta, ventas.crear);
@@ -114,7 +121,6 @@ export function registrarRutas(server: FastifyInstance, servicios: Servicios): v
   server.post<{ Params: { id: string } }>("/api/cuentas-por-pagar/:id/pagos", pagarProveedores, cuentas.pagarCxP);
 
   // ── Inventario: catálogo, presentaciones, listas de precios, lotes, ajustes y alertas ──
-  const permiso = (modulo: string, accion: string) => ({ preHandler: requerirSesion(servicios, { modulo, accion }) });
   const invCrear = permiso("inventario", "crear");
   const invActualizar = permiso("inventario", "actualizar");
   const clientesActualizar = permiso("clientes", "actualizar");
@@ -151,7 +157,7 @@ export function registrarRutas(server: FastifyInstance, servicios: Servicios): v
   const operarRestaurante = permiso("restaurante", "actualizar");
   const abrirCuentas = permiso("restaurante", "crear");
   // Cobrar una cuenta de mesa crea una venta: igual que POST /api/ventas, exige licencia vigente. Además, el servicio exige restaurante:actualizar
-  const cobrarCuentas = { preHandler: [requerirSesion(servicios, { modulo: "ventas", accion: "crear" }), exigirLicencia(servicios)] };
+  const cobrarCuentas = crearVenta;
 
   server.get("/api/mesas", verRestaurante, restaurante.listarMesas);
   server.post("/api/mesas", planoMesas, restaurante.crearMesa);

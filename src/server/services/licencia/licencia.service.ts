@@ -15,6 +15,7 @@ import { parsear } from "../validation.util";
 import { ErrorLicencias, type ClienteLicencias, type DatosDispositivo } from "./licencia.cliente";
 import { evaluarLicencia, type LicenciaGuardada } from "./licencia.estado";
 import { verificarLicencia } from "./licencia.token";
+import type { Db } from "../../repositories/kardex.repository";
 
 export interface OpcionesLicencia {
   /** Se exige licencia (aplicación instalada). Con false (desarrollo, pruebas) se opera sin restricciones. */
@@ -55,27 +56,27 @@ export class LicenciaService {
     return this.o.dispositivo;
   }
 
-  async estado(empresaId: string): Promise<EstadoLicencia> {
+  async estado(empresaId: string, db: Db = this.prisma): Promise<EstadoLicencia> {
     const ahora = this.ahora();
     if (!this.habilitada) {
       const e = evaluarLicencia(this.entrada(null, "", ahora));
       return this.o.requerida ? { ...e, mensaje: "El licenciamiento no está configurado en esta instalación (falta el servidor de licencias o su clave pública)" } : e;
     }
-    const empresa = await this.prisma.empresa.findUnique({ where: { id: empresaId }, select: { ruc: true } });
+    const empresa = await db.empresa.findUnique({ where: { id: empresaId }, select: { ruc: true } });
     if (empresa === null) throw new AppError("NO_ENCONTRADO", "La empresa no está configurada");
-    const fila = await this.prisma.licencia.findUnique({ where: { empresaId } });
+    const fila = await db.licencia.findUnique({ where: { empresaId } });
     const estado = evaluarLicencia(this.entrada(fila === null ? null : aGuardada(fila), empresa.ruc, ahora));
     // Se recuerda el reloj más alto visto, salvo que justo ahora esté atrasado (no se «normaliza» un reloj manipulado)
     if (fila !== null && estado.tipo !== "INVALIDA" && ahora.getTime() >= fila.ultimoRelojVisto.getTime() + REFRESCO_RELOJ_MS) {
-      await this.prisma.licencia.update({ where: { empresaId }, data: { ultimoRelojVisto: ahora } });
+      await db.licencia.update({ where: { empresaId }, data: { ultimoRelojVisto: ahora } });
     }
     return estado;
   }
 
   /** Lanza LICENCIA_REQUERIDA (402) si no se puede operar. Sin licenciamiento activo no hace nada ni toca la base. */
-  async exigirVigente(empresaId: string): Promise<void> {
+  async exigirVigente(empresaId: string, db: Db = this.prisma): Promise<void> {
     if (!this.habilitada) return;
-    const e = await this.estado(empresaId);
+    const e = await this.estado(empresaId, db);
     if (!e.permiteOperar) throw new AppError("LICENCIA_REQUERIDA", e.mensaje);
   }
 

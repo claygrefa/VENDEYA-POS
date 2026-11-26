@@ -28,6 +28,7 @@ export const PagoVentaInputSchema = z.object({
 });
 
 export const VentaInputSchema = z.object({
+  intentoId:        z.uuid().transform((id) => id.toLowerCase()).optional(),
   puntoEmisionId:   z.string().uuid(),
   clienteId:        z.string().uuid().optional().nullable(),
   clienteRuc:       z.string().max(13).optional().nullable(),
@@ -43,6 +44,9 @@ export const VentaInputSchema = z.object({
 export const AnularVentaSchema = z.object({
   motivo: z.string().trim().min(5, "El motivo debe tener al menos 5 caracteres").max(300),
 });
+
+export const CobroPendienteSchema = VentaInputSchema.required({ intentoId: true });
+export type CobroPendiente = z.infer<typeof CobroPendienteSchema>;
 
 export type AnularVentaInput = z.infer<typeof AnularVentaSchema>;
 export type LineaVentaInput = z.infer<typeof LineaVentaInputSchema>;

@@ -29,6 +29,7 @@ import {
   type LineaCobro,
 } from "./comanda.util";
 import type { GiroService } from "./giro.service";
+import { confirmarIntento, type ResultadoIntento } from "./intentoCobro.service";
 import { resolverPorcentajeIva } from "./impuesto.util";
 import { validarCantidadVenta } from "./inventario.util";
 import { omitUndefined } from "./object.util";
@@ -367,12 +368,23 @@ export class ComandaService {
    */
   async cobrar(comandaId: string, entrada: unknown, actor: ActorCaja): Promise<ResultadoCobro> {
     const datos = parsear(CobrarComandaSchema, entrada);
+    return this.prisma.$transaction((tx) => this.cobrarEnTx(tx, comandaId, datos, actor), TX_OPCIONES);
+  }
+
+  registrarCobro(comandaId: string, entrada: unknown, actor: ActorCaja, autorizar: (tx: Db) => Promise<void>): Promise<ResultadoIntento<ResultadoCobro>> {
+    const { intentoId, ...datos } = parsear(CobrarComandaSchema, entrada);
+    return confirmarIntento(this.prisma, actor, intentoId, ["comanda", comandaId, datos], async (tx: Db) => {
+      await autorizar(tx);
+      return this.cobrarEnTx(tx, comandaId, datos, actor);
+    });
+  }
+
+  private async cobrarEnTx(tx: Db, comandaId: string, datos: Omit<ReturnType<typeof CobrarComandaSchema.parse>, "intentoId">, actor: ActorCaja): Promise<ResultadoCobro> {
     if (!actor.permisos.includes(PERMISO_COBRAR_COMANDA)) {
       throw new AppError("SIN_PERMISO", "No tiene permiso para cobrar cuentas de mesa");
     }
-    await this.giro.exigir(this.prisma, actor.empresaId, "moduloMesas");
-
-    return this.prisma.$transaction(async (tx) => {
+    await this.giro.exigir(tx, actor.empresaId, "moduloMesas");
+    {
       const comanda = await this.cargarAbierta(tx, comandaId, actor);
 
       const punto = await this.repo.puntoEmision(tx, datos.puntoEmisionId);
@@ -448,7 +460,7 @@ export class ComandaService {
         await this.repo.actualizarEstadoMesa(tx, comanda.mesaId, "LIBRE");
       }
       return { venta, comanda: conResumen(await this.cargar(tx, comanda.id, actor)), cerrada };
-    }, TX_OPCIONES);
+    }
   }
 
   /** Anula una cuenta sin cobros: cancela todos sus ítems y libera la mesa. Solo supervisor. */

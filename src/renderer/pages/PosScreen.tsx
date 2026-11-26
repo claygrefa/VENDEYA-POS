@@ -7,7 +7,7 @@
 // ============================================================
 import { useQueryClient } from "@tanstack/react-query";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { VentaInputSchema, type VentaInput } from "../../shared/schemas/venta.schema";
+import { CobroPendienteSchema, type CobroPendiente } from "../../shared/schemas/venta.schema";
 import { BuscadorProductos } from "../components/BuscadorProductos";
 import { CarritoPanel } from "../components/CarritoPanel";
 import { guardarArchivo } from "../components/Gestion";
@@ -19,6 +19,7 @@ import { useBalanza } from "../hooks/consultas";
 import { useAtajos } from "../hooks/useAtajos";
 import { useEscaneo } from "../hooks/useEscaneo";
 import { ApiError } from "../services/api";
+import { operarCobroPendiente } from "../services/cobroPendiente";
 import { usePos } from "../services/contexto";
 import type { PresentacionPos, ProductoPos, VentaEmitidaPos } from "../services/tipos";
 import { calcularCarrito, dinero, type LineaCarrito } from "../services/totales";
@@ -38,6 +39,7 @@ export function PosScreen(): React.JSX.Element {
   const qc = useQueryClient();
   const tactil = useSesion((s) => s.modoTactil);
   const punto = useSesion((s) => s.puntoEmision);
+  const usuario = useSesion((s) => s.usuario);
   const fijarTurno = useSesion((s) => s.fijarTurno);
   const lineas = useCarrito((s) => s.lineas);
   const cliente = useCarrito((s) => s.cliente);
@@ -51,9 +53,26 @@ export function PosScreen(): React.JSX.Element {
   const [confirmacion, setConfirmacion] = useState<VentaEmitidaPos | null>(null);
   const [errorCobro, setErrorCobro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
+  const [pendiente, setPendiente] = useState<CobroPendiente | null>(null);
+  const [estadoAlmacen, setEstadoAlmacen] = useState<"leyendo" | "listo" | "error">("leyendo");
+  const enCurso = useRef(false);
   const refBusqueda = useRef<HTMLInputElement>(null);
   const modalAbierto = useRef(false);
-  modalAbierto.current = modal !== null;
+  modalAbierto.current = modal !== null || pendiente !== null || estadoAlmacen !== "listo";
+
+  useEffect(() => {
+    if (usuario === null) return;
+    let activo = true;
+    setEstadoAlmacen("leyendo");
+    void operarCobroPendiente(usuario, { tipo: "leer" }).then((cobro) => {
+      if (!activo) return;
+      setPendiente(cobro);
+      setEstadoAlmacen("listo");
+    }).catch(() => {
+      if (activo) setEstadoAlmacen("error");
+    });
+    return () => { activo = false; };
+  }, [usuario]);
 
   // Los avisos se retiran solos (los errores duran más)
   useEffect(() => {
@@ -121,7 +140,7 @@ export function PosScreen(): React.JSX.Element {
   // ── Atajos ─────────────────────────────────────────────────
 
   const abrirCobro = (): void => {
-    if (modal !== null || lineas.length === 0) return;
+    if (modal !== null || pendiente !== null || estadoAlmacen !== "listo" || lineas.length === 0) return;
     if (calculo.hayErrores) return setAviso({ tipo: "error", texto: "Corrija el descuento de la línea marcada antes de cobrar" });
     setErrorCobro(null);
     setModal({ tipo: "cobro" });
@@ -136,7 +155,7 @@ export function PosScreen(): React.JSX.Element {
       if (modal === null) enfocarBusqueda();
     },
     F4: () => {
-      if (modal === null) setModal({ tipo: "cliente" });
+      if (modal === null && pendiente === null) setModal({ tipo: "cliente" });
     },
     F8: abrirCobro,
     Escape: () => {
@@ -152,16 +171,16 @@ export function PosScreen(): React.JSX.Element {
 
   useEffect(() => {
     if (modal === null && confirmacion === null) refBusqueda.current?.focus();
-  }, [modal, confirmacion]);
+  }, [modal, confirmacion, estadoAlmacen]);
 
   // ── Cobro ──────────────────────────────────────────────────
 
   const cobrar = async (d: DatosCobro): Promise<void> => {
-    if (punto === null) return;
-    setEnviando(true);
+    if (usuario === null || punto === null || enCurso.current || pendiente !== null) return;
     setErrorCobro(null);
     // El precio nunca se envía: lo resuelve el servidor (lista del cliente, presentación, producto)
     const entrada = {
+      intentoId: globalThis.crypto.randomUUID(),
       puntoEmisionId: punto.id,
       ...(cliente !== null ? { clienteId: cliente.id } : {}),
       lineas: lineas.map((l) => ({
@@ -175,28 +194,74 @@ export function PosScreen(): React.JSX.Element {
       propina: d.propina,
       emitirFactura: d.emitirFactura,
     };
-    const valida = VentaInputSchema.safeParse(entrada);
+    const valida = CobroPendienteSchema.safeParse(entrada);
     if (!valida.success) {
-      setEnviando(false);
       setErrorCobro(valida.error.issues.map((i) => i.message).join("; "));
       return;
     }
-    const venta: VentaInput = valida.data;
+    enCurso.current = true;
+    setEnviando(true);
+    try {
+      await operarCobroPendiente(usuario, { tipo: "guardar", cobro: valida.data });
+    } catch {
+      setEnviando(false);
+      setErrorCobro("No se pudo guardar el intento de cobro en esta caja");
+      try {
+        const guardado = await operarCobroPendiente(usuario, { tipo: "leer" });
+        if (guardado !== null) {
+          setPendiente(guardado);
+          setModal(null);
+        }
+      } catch {
+        setEstadoAlmacen("error");
+      }
+      return;
+    } finally {
+      enCurso.current = false;
+    }
+    setPendiente(valida.data);
+    await enviarCobro(valida.data);
+  };
+
+  const enviarCobro = async (venta: CobroPendiente): Promise<void> => {
+    if (usuario === null || enCurso.current) return;
+    enCurso.current = true;
+    setEnviando(true);
+    setErrorCobro(null);
     try {
       const emitida = await api.crearVenta(venta);
+      await operarCobroPendiente(usuario, { tipo: "retirar", intentoId: venta.intentoId });
       carrito.getState().vaciar();
       setModal(null);
       setBusqueda("");
       setConfirmacion(emitida);
+      setPendiente(null);
       void qc.invalidateQueries({ queryKey: ["productos"] });
       void qc.invalidateQueries({ queryKey: ["colaSri"] });
     } catch (e) {
       if (e instanceof ApiError) {
         setErrorCobro(e.message);
+        const definitivo = [400, 402, 404, 409].includes(e.status) &&
+          !["DUPLICADO", "ERROR_INTERNO"].includes(e.codigo);
+        if (definitivo) {
+          try {
+            await operarCobroPendiente(usuario, { tipo: "retirar", intentoId: venta.intentoId });
+          } catch {
+            setErrorCobro("No se pudo cerrar el intento guardado en esta caja");
+            setModal(null);
+            return;
+          }
+          setPendiente(null);
+          if (modal === null) setAviso({ tipo: "error", texto: e.message });
+        } else setModal(null);
         // Sin turno abierto (lo cerraron desde otra caja o un supervisor): se vuelve a la apertura; el carrito se conserva
         if (e.codigo === "TURNO_REQUERIDO") fijarTurno(null);
-      } else setErrorCobro("No se pudo registrar la venta");
+      } else {
+        setErrorCobro("No se pudo confirmar el resultado del cobro");
+        setModal(null);
+      }
     } finally {
+      enCurso.current = false;
       setEnviando(false);
     }
   };
@@ -238,6 +303,23 @@ export function PosScreen(): React.JSX.Element {
     carrito.getState().fijarDescuento(l.clave, r.descuento, r.tipoDescuento);
     setModal(null);
   };
+
+  if (estadoAlmacen !== "listo") {
+    return <div className="p-6 text-white" role="status">{estadoAlmacen === "leyendo"
+      ? "Revisando cobros pendientes…" : "No se pudo leer el registro de cobros de esta caja. Vuelve a abrir la aplicación."}</div>;
+  }
+
+  if (pendiente !== null && modal === null) {
+    return (
+      <div className="flex flex-col items-start gap-4 p-6 text-white">
+        <h1 className="text-xl font-semibold">Cobro pendiente de confirmación</h1>
+        {errorCobro !== null && <Aviso tipo="error">{errorCobro}</Aviso>}
+        <button type="button" className="btn-primary" disabled={enviando} onClick={() => void enviarCobro(pendiente)}>
+          {enviando ? "Consultando…" : "Recuperar cobro"}
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full flex-col bg-slate-900 text-white" data-tactil={tactil ? "si" : "no"}>

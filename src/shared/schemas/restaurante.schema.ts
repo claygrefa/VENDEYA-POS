@@ -2,7 +2,7 @@
 // src/shared/schemas/restaurante.schema.ts — Mesas, comandas, cocina y cobro
 // ============================================================
 import { z } from "zod";
-import { PagoVentaInputSchema } from "./venta.schema";
+import { PagoVentaInputSchema, VentaInputSchema } from "./venta.schema";
 
 export const DESTINOS_PREPARACION = ["COCINA", "BARRA"] as const;
 
@@ -93,6 +93,7 @@ export const PreCuentaQuerySchema = z.object({
 
 export const CobrarComandaSchema = z
   .object({
+    intentoId:       VentaInputSchema.shape.intentoId,
     puntoEmisionId: z.string().uuid(),
     modo:           z.enum(["ITEMS", "PARTE_IGUAL"]).default("ITEMS"),
     /** ITEMS: ítems a cobrar en esta venta (por defecto, todos los pendientes de cobro) */

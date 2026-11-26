@@ -122,6 +122,7 @@ export class ClienteLicenciasHttp implements ClienteLicencias {
         method: "POST",
         headers: { "content-type": "application/json", accept: "application/json" },
         body: JSON.stringify(cuerpo),
+        redirect: "error",
         signal: AbortSignal.timeout(this.timeoutMs),
       });
     } catch {

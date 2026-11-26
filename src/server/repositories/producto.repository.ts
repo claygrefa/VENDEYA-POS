@@ -68,6 +68,7 @@ export class ProductoRepository {
       const patron = `%${search}%`;
       // Usa frases literales en FTS5. Los patrones LIKE con comodines del usuario conservan su semántica anterior.
       const frase = `"${search.replaceAll('"', '""')}"`;
+      // eslint-disable-next-line no-control-regex -- SQLite FTS no admite NUL en la consulta.
       const coincidencias = /^([^%_\x00]){3,}$/u.test(search)
         ? Prisma.sql`
           SELECT p.id, p.nombre FROM ProductoBusqueda

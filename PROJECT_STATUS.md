@@ -1,12 +1,42 @@
 # PROJECT_STATUS.md — Bitácora Maestra de Desarrollo (VENDEYA POS)
 
 ## Estado General
+
+### Bloqueos de pre-lanzamiento v1.0.0 — 2026-11-26
+
+- [x] **Punto 5.** Electron escribe el UUID y la solicitud en disco antes de enviar el cobro. El POS ofrece recuperarlo al reiniciar. SQLite confirma el resultado junto al pago, la venta y el inventario. Los rechazos de negocio se guardan como `FAILED`. Las pruebas cubren un corte TCP posterior al commit, un reinicio del backend y un nuevo arranque del POS. Los clientes HTTP anteriores pueden omitir `intentoId`; para recuperar su propio cobro deben generarlo y reenviarlo. El contrato también admite UUID en el cobro de comandas.
+- [x] **Punto 4.** `package.json` y `electron-builder.yml` apuntan a `claygrefa/VENDEYA-POS`, que coincide con `origin`. Tras validar el candidato comercial, ejecutar estos comandos sobre el commit aprobado. Subir el tag dispara el flujo de publicación.
+
+```powershell
+git tag v1.0.0
+git push origin refs/tags/v1.0.0
+```
+
+- [x] **Punto 6.** La app lee `LICENSE_SERVER_URL`, `LICENSE_PUBLIC_KEY` (PEM Ed25519) y `TELEMETRY_URL` del entorno al arrancar. Mantiene la validación en segundo plano cada 24 h y hasta 15 días de gracia desde la última validación exitosa, limitada por el vencimiento de la suscripción. La telemetría envía errores con consentimiento del administrador. Para probar el protocolo HTTP, ejecutar `npm run mock:prelanzamiento -- <RUC-de-prueba>` y configurar las variables que imprime en el proceso de la app. En desarrollo, añadir `VENDEYA_LICENCIA=on`. El receptor es local y su estado y clave cambian al reiniciarlo.
+- [x] **Punto 1, preparación.** El flujo comercial local y CI requieren `CSC_LINK` y `CSC_KEY_PASSWORD`, y activan `forceCodeSigning`. En Windows, cargar ambas variables en la sesión y ejecutar `npm run prisma:generate`, `npm run build:main`, `npm run build:vite` y `npm run build:release:win`. Configurar los secretos Windows/macOS del workflow para publicar. [Documentación de firma de electron-builder](https://www.electron.build/v26/docs/features/code-signing/).
+- [x] **Punto 2, automatización.** Copiar el candidato firmado y `tests/smoke/smoke-test-install.ps1` a una VM Windows limpia e interactiva. Ejecutar `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\smoke-test-install.ps1 -Installer .\vendeyapos-Setup-1.0.0.exe`. Desde el repositorio también funciona `npm run smoke-test-install -- -Installer .\release\vendeyapos-Setup-1.0.0.exe`. Comprueba Authenticode, código de salida de NSIS, ventana, base SQLite nueva y API del asistente sin empresa configurada.
+- [x] **Punto 3, preparación.** `SRI_TEST_RECEPCION_URL` y `SRI_TEST_AUTORIZACION_URL` se resuelven a los servicios de recepción y autorización del ambiente oficial `celcer`. Con una factura XML sin firma de ambiente `1` (v2.1.0), su certificado `.p12` y `SRI_P12_PASSWORD` en el proceso, validar primero con `npm run sri:smoke -- "C:\ruta\factura.xml" "C:\ruta\firma.p12"`. Añadir `--enviar` para enviar a pruebas y consultar autorización. Si queda pendiente, ejecutar `npm run sri:smoke -- --consultar <clave-de-acceso>` con la misma clave. Usar archivos fuera del repositorio y retirar la contraseña del entorno al terminar. [Ficha técnica del SRI](https://www.sri.gob.ec/o/sri-portlet-biblioteca-alfresco-internet/descargar/bd280acc-3e16-429a-809b-fa7eb5c6f855/FICHA%20T%C3%89CNICA%20COMPROBANTES%20ELECTR%C3%93NICOS%20ESQUEMA%20OFFLINE%20Versi%C3%B3n%202.22.pdf).
+
+**Pendiente fuera de VS Code.** Obtener un candidato con el certificado comercial, ejecutar el smoke en Windows limpio y verificar una actualización real. Firmar y notarizar en macOS y probar el DMG en un equipo limpio. Ejecutar el envío controlado de una factura en `celcer` y registrar el estado `AUTORIZADO`. Configurar los servidores comerciales de licencias y telemetría. Crear y subir el tag tras aprobar esas verificaciones.
+
+**Archivos modificados y creados**
+
+- Cobro en `prisma/schema.prisma` y `prisma/migrations/20261204090000_intento_cobro/migration.sql`, esquemas, rutas y controladores de venta y restaurante, `intentoCobro.service.ts`, `venta.service.ts` y `comanda.service.ts`.
+- Recuperación en `electron/ipc/{app,cobroPendiente}.ipc.ts`, `electron/preload.ts`, `PosScreen.tsx`, `cobroPendiente.ts` y `pos.api.ts`.
+- Licencias y telemetría en `electron/{main,licencia.config}.ts`, `licencia.{cliente,service}.ts`, `telemetria.service.ts` y `receptorPrelanzamiento.mock.ts`.
+- Distribución y SRI en `electron-builder.yml`, `.github/workflows/release.yml`, `verificarFirmaRelease.cjs`, `smoke-test-install.ps1`, `sriFacturaPruebas.smoke.ts` y `sriSoap.client.ts`.
+- Verificación en `package.json`, `package-lock.json`, `tests/config/eslint.config.cjs`, anotaciones de lint en `producto.repository.ts` y `balanza.protocolo.ts` y pruebas de POS, IPC, ventas, empaquetado, XML y receptor.
+
+**Siguiente tarea atómica.** Construir el NSIS con el certificado comercial y ejecutar `smoke-test-install` en la VM Windows limpia.
+
+**Verificación local.** Pasaron los tres chequeos de TypeScript, ESLint, `build:main`, `build:vite`, 1.120 pruebas de regresión (77 archivos) y las cinco pruebas de estrés ejecutadas aparte. La búsqueda parcial de catálogo alcanzó 73,10 ms en una corrida simultánea y 17,73 ms en aislamiento frente al umbral de 50 ms. Se verificaron la sintaxis y el rechazo de un instalador inexistente en `smoke-test-install`, la comprobación de credenciales de firma y la ayuda de `sri:smoke`. El NSIS firmado y la autorización real del SRI requieren las pruebas de campo indicadas arriba.
+
 - **Proyecto:** VENDEYA POS (Sistema Punto de Venta Multi-Giro & Facturación Electrónica SRI Ecuador)
 - **Horizonte:** 6 Meses (24 Semanas)
-- **Fase Actual:** Plan de 24 semanas completado — candidata a v1.0.0 (NO publicada; ver «Próxima Tarea Exacta»)
+- **Fase Actual:** Candidata v1.0.0, pendiente de validación de campo. Ver «Bloqueos de pre-lanzamiento v1.0.0».
 - **Estado de Compilación:** ✅ `tsc --noEmit` → 0 errores | ✅ `tsconfig.node.json` → 0 errores | ✅ `tsconfig.electron.json` → 0 errores
-- **Tests:** ✅ 75/75 archivos (1112 pruebas) passed
-- **Último Commit:** `fix: …` / `feat: gestion de usuarios y sucursales` / `chore: scripts dev` (2026-11-26; sin etiqueta `v1.0.0`: aún no se puede publicar)
+- **Tests:** ✅ 1.125 pruebas en 78 archivos (regresión y estrés en ejecuciones separadas).
+- **Entregable de pre-lanzamiento:** `fix: cierra bloqueos de prelanzamiento del POS` (2026-11-26). Tag pendiente de aprobar el candidato firmado.
 
 ---
 
@@ -893,7 +923,7 @@ Cierra la limitación «no hay gestión de usuarios ni de sucursales» de las Se
 
 ---
 
-## Próxima Tarea Exacta (Antes de publicar v1.0.0 — fuera de esta sesión: requiere equipos y credenciales reales)
+## Pendientes registrados antes de resolver los bloqueos de pre-lanzamiento
 El plan de 24 semanas está ejecutado; **el producto no debe publicarse todavía**. Lista de verificación en orden de prioridad:
 
 1. ~~Actualizar Electron~~ ✅ **hecho (2026-11-26): Electron 33.4.11 → 45.5.0 y Zod 3 → 4.6.7** (`npm audit --omit=dev`: 0 vulnerabilidades; Electron ya no figura). Verificado: `tsc` ×3 0 errores, `npm test` 76/76 archivos (1118 pruebas), `electron-builder --win --dir` y `test:paquete` **13/13 comprobaciones de contenido** sobre el motor de Electron 45 (Prisma, serialport, PDF, XSD, respaldo). **Falta, y solo se puede en un equipo real: abrir la aplicación con Electron 45** (ventana, IPC, `safeStorage`, impresoras, actualización); aquí el ejecutable sigue saliendo con código 3 por el entorno. Ajustes de compatibilidad: `will-navigate` usa `evento.url` (los argumentos sueltos están obsoletos) y el tipo de impresoras (`isDefault`). `electron-builder` no pudo descargar su propia copia de Electron (carpeta fuera del proyecto); se empaquetó con `--config.electronDist=node_modules/electron/dist --config.electronVersion=45.5.0`. Quedan avisos solo en herramientas de empaquetado (`electron-builder` 25 / `electron-updater`), que no viajan en el instalador.

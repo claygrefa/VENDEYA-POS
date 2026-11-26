@@ -1,8 +1,11 @@
 // ============================================================
 // tests/integration/server/ventas-api.test.ts — Endpoints /api/ventas (HTTP + RBAC)
 // ============================================================
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { randomUUID } from "node:crypto";
+import path from "node:path";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { Producto } from "@prisma/client";
+import { buildServer, iniciarBackend } from "../../../src/server";
 import { abrirTurno, crearEntorno, crearProducto, type Entorno } from "../helpers/entorno.helper";
 
 let env: Entorno;
@@ -116,5 +119,68 @@ describe("GET /api/ventas/:id y POST /api/ventas/:id/anular", () => {
     expect(repetida.json()).toMatchObject({ error: "ESTADO_INVALIDO" });
     expect((await api("POST", `/api/ventas/${creada.id}/anular`, tokenSupervisor, {})).statusCode).toBe(400);
     expect((await api("POST", "/api/ventas/no-existe/anular", tokenSupervisor, { motivo: "No existe" })).statusCode).toBe(404);
+  });
+});
+
+describe("recuperación de cobros", () => {
+  it("recupera el cobro tras perder la respuesta HTTP y reiniciar el backend", async () => {
+    const productoCorte = await crearProducto(env, { codigo: "CORTE", stock: 3 });
+    const payload = { ...cuerpoVenta(1, 12), intentoId: randomUUID(), lineas: [{ productoId: productoCorte.id, cantidad: 1 }] };
+    const headers = { authorization: `Bearer ${tokenCajero}`, "content-type": "application/json" };
+    const sinRespuesta = await buildServer(env.servicios, "silent");
+    const impresion = vi.spyOn(env.servicios.impresion, "alCobrar").mockResolvedValue(false);
+    sinRespuesta.addHook("onSend", async (_req, reply) => {
+      if (reply.statusCode === 201) reply.raw.destroy();
+    });
+    let original: unknown;
+    try {
+      const url = await sinRespuesta.listen({ port: 0, host: "127.0.0.1" });
+      await expect(fetch(`${url}/api/ventas`, { method: "POST", headers, body: JSON.stringify(payload) })).rejects.toThrow();
+      const intento = await env.prisma.intentoCobro.findUniqueOrThrow({ where: { id: payload.intentoId } });
+      expect(intento.estado).toBe("CONFIRMED");
+      original = JSON.parse(intento.respuesta!);
+      expect(impresion).toHaveBeenCalledTimes(1);
+    } finally {
+      await sinRespuesta.close();
+      impresion.mockRestore();
+    }
+    const reiniciado = await iniciarBackend({
+      dbPath: path.join(path.dirname(env.secretos), "vendeya.db"),
+      migrationsDir: path.resolve("prisma/migrations"), port: 0, logLevel: "silent",
+    });
+    try {
+      const cajero = env.servicios.sesiones.obtener(tokenCajero)!;
+      const token = reiniciado.servicios.sesiones.crear(cajero);
+      const reintentar = () => reiniciado.server.inject({
+        method: "POST", url: "/api/ventas", headers: { ...headers, authorization: `Bearer ${token}` }, payload,
+      });
+      const impresionReinicio = vi.spyOn(reiniciado.servicios.impresion, "alCobrar");
+      for (const respuesta of await Promise.all([reintentar(), reintentar()])) {
+        expect(respuesta.statusCode).toBe(201);
+        expect(respuesta.json()).toEqual(original);
+      }
+      expect(impresionReinicio).not.toHaveBeenCalled();
+      const venta = await reiniciado.prisma.venta.findMany({
+        where: { lineas: { some: { productoId: productoCorte.id } } }, include: { pagos: true },
+      });
+      expect(venta).toHaveLength(1);
+      expect(venta[0]?.pagos).toHaveLength(1);
+      expect(await reiniciado.prisma.producto.findUnique({ where: { id: productoCorte.id } })).toMatchObject({ stockActual: 2 });
+      expect(await reiniciado.prisma.kardex.count({ where: { productoId: productoCorte.id, tipoMovimiento: "VENTA" } })).toBe(1);
+    } finally {
+      await reiniciado.close();
+    }
+  });
+
+  it("conserva un rechazo de negocio y rechaza reutilizar el UUID con otros datos", async () => {
+    const intentoId = randomUUID();
+    const payload = { ...cuerpoVenta(500, 99999), intentoId };
+    const [primera, segunda] = await Promise.all([
+      api("POST", "/api/ventas", tokenCajero, payload), api("POST", "/api/ventas", tokenCajero, payload),
+    ]);
+    expect(primera.json()).toMatchObject({ error: "STOCK_INSUFICIENTE" });
+    expect(segunda.json()).toEqual(primera.json());
+    expect(await env.prisma.intentoCobro.findUnique({ where: { id: intentoId } })).toMatchObject({ estado: "FAILED", respuesta: null });
+    expect((await api("POST", "/api/ventas", tokenCajero, { ...cuerpoVenta(), intentoId })).json()).toMatchObject({ error: "DUPLICADO" });
   });
 });

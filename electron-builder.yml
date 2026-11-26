@@ -47,7 +47,7 @@ extraResources:
 # ── Windows: instalador NSIS de un clic, por usuario (no pide administrador) ──
 # Firma de código: electron-builder firma solo si encuentra el certificado en las variables de entorno CSC_LINK (archivo .pfx o su
 # contenido en base64) y CSC_KEY_PASSWORD. NUNCA se escribe aquí ni en el repositorio. El flujo de publicación (.github/workflows/release.yml)
-# exige la firma con -c.forceCodeSigning=true. Sin firma, Windows SmartScreen avisa y la actualización silenciosa pierde confianza.
+# y build:release:win verifican ambas variables y exigen la firma con -c.forceCodeSigning=true.
 win:
   target:
     - target: nsis
@@ -154,6 +154,6 @@ linux:
 # Canal estable = «latest». Una versión con sufijo (1.2.0-beta.1) se publica como prerelease y la reciben solo las cajas con VENDEYA_CANAL=beta.
 publish:
   provider: github
-  owner: vendeya
-  repo: vendeya-pos
+  owner: claygrefa
+  repo: VENDEYA-POS
   releaseType: release

@@ -437,6 +437,18 @@ model MovimientoCaja {
 // VENTAS
 // ─────────────────────────────────────────────
 
+model IntentoCobro {
+  id           String   @id
+  empresaId    String
+  cajeroId     String
+  huella       String
+  estado       String
+  respuesta    String?
+  errorCodigo  String?
+  errorMensaje String?
+  creadoEn     DateTime @default(now())
+}
+
 model Venta {
   id              String   @id @default(uuid())
   numero          String                         // "001-001-000000001" (único por punto de emisión)

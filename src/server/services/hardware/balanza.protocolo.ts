@@ -166,6 +166,7 @@ export async function leerPesoEstable(puerto: PuertoSerie, opciones: OpcionesLec
     puerto.alRecibir((datos) => {
       pendiente += datos.toString("latin1");
       // Las tramas terminan en CR, LF o ETX; lo último (sin terminador) espera al siguiente bloque
+      // eslint-disable-next-line no-control-regex -- ETX es un delimitador del protocolo serial.
       const partes = pendiente.split(/[\r\n\u0003]+/);
       pendiente = partes.pop() ?? "";
       for (const parte of partes) {

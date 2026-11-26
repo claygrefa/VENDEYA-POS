@@ -5,6 +5,7 @@
 // ============================================================
 import { ipcMain } from "electron";
 import type { BackendHandle } from "../../src/server";
+import { operarCobroPendiente } from "./cobroPendiente.ipc";
 
 export interface RutasApp {
   userData: string;
@@ -36,6 +37,7 @@ export interface DbHealth {
 export const CANALES_IPC_APP = [
   "app:get-version",
   "app:get-paths",
+  "app:cobro-pendiente",
   "db:health-check",
   "backend:get-info",
 ] as const;
@@ -44,6 +46,7 @@ export function registrarIpcApp(ctx: IpcAppContexto): void {
   ipcMain.handle("app:get-version", (): string => ctx.version);
 
   ipcMain.handle("app:get-paths", (): RutasApp => ctx.rutas);
+  ipcMain.handle("app:cobro-pendiente", (_evento, entrada: unknown) => operarCobroPendiente(ctx.rutas.userData, entrada));
 
   ipcMain.handle("backend:get-info", (): BackendInfo | null => {
     if (ctx.urlServidor !== undefined) {

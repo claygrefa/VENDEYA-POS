@@ -82,8 +82,8 @@ function calcularRutas(): RutasApp {
 }
 
 /**
- * Licenciamiento: se exige solo en la aplicación instalada (no en desarrollo) y se apaga con VENDEYA_LICENCIA=off. Los datos del servidor
- * de licencias (URL y clave pública) vienen de la compilación; si faltan, el backend lo informa y no bloquea las cajas.
+ * La app instalada verifica la licencia por defecto. VENDEYA_LICENCIA=on habilita las pruebas en desarrollo y off desactiva
+ * la verificación. La URL y la clave pública se resuelven desde el entorno o los recursos de la instalación.
  */
 function opcionesLicencia(rutas: RutasApp): NonNullable<Parameters<typeof iniciarBackend>[0]["licencia"]> {
   const config = cargarConfigLicencia({
@@ -92,7 +92,7 @@ function opcionesLicencia(rutas: RutasApp): NonNullable<Parameters<typeof inicia
     registrar: (m) => console.warn(`[licencia] ${m}`),
   });
   return {
-    requerida: app.isPackaged && process.env["VENDEYA_LICENCIA"] !== "off",
+    requerida: process.env["VENDEYA_LICENCIA"] === "on" || (app.isPackaged && process.env["VENDEYA_LICENCIA"] !== "off"),
     cliente: config === null ? null : new ClienteLicenciasHttp(config.servidorUrl),
     clavePublica: config?.clavePublica ?? null,
     dispositivo: identificarDispositivo({ directorioSecretos: path.join(rutas.userData, "secretos"), version: app.getVersion() }),
@@ -101,7 +101,7 @@ function opcionesLicencia(rutas: RutasApp): NonNullable<Parameters<typeof inicia
 
 /** Destino de la telemetría (https) si se configuró; una URL inválida se ignora en lugar de impedir el arranque */
 function transporteTelemetria(): TransporteHttp | null {
-  const url = process.env["VENDEYA_TELEMETRIA_URL"];
+  const url = process.env["TELEMETRY_URL"]?.trim() || process.env["VENDEYA_TELEMETRIA_URL"];
   if (url === undefined || url === "") return null;
   try {
     return new TransporteHttp(url);
@@ -214,7 +214,7 @@ async function arrancar(): Promise<void> {
       : {}),
     sriWorker: { habilitado: process.env["SRI_WORKER"] !== "off" },
     // Respaldo diario automático (y copia cifrada en la nube si el administrador la configuró)
-    // Telemetría de errores: desactivada hasta que el administrador la active; sin VENDEYA_TELEMETRIA_URL los reportes solo se acumulan
+    // Telemetría de errores: desactivada hasta que el administrador la active.
     telemetria: { version: app.getVersion(), transporte: transporteTelemetria() },
     respaldoAutomatico: { habilitado: process.env["RESPALDO_AUTOMATICO"] !== "off" },
     licencia: opcionesLicencia(rutas),

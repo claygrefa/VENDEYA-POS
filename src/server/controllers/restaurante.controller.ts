@@ -56,9 +56,10 @@ export function crearRestauranteController(servicios: Servicios) {
 
     cobrar: async (req: ConId, reply: FastifyReply): Promise<FastifyReply> => {
       const actor = actorDe(req);
-      const resultado = await servicios.comandas.cobrar(req.params.id, req.body, actor);
-      void servicios.impresion.alCobrar(resultado.venta.id, actor); // aparte: no retrasa ni condiciona el cobro
-      return reply.status(201).send(resultado);
+      const resultado = await servicios.comandas.registrarCobro(req.params.id, req.body, actor, (tx) =>
+        servicios.licencia.exigirVigente(actor.empresaId, tx));
+      if (!resultado.repetido) void servicios.impresion.alCobrar(resultado.valor.venta.id, actor);
+      return reply.status(201).send(resultado.valor);
     },
 
     anularComanda: async (req: ConId, reply: FastifyReply): Promise<FastifyReply> =>

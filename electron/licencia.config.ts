@@ -2,8 +2,8 @@
 // electron/licencia.config.ts — Configuración del servidor de licencias de ESTA compilación
 //
 // Se necesitan dos datos públicos (no son secretos): la URL del servidor de licencias y su clave pública Ed25519 (PEM), con la que la
-// aplicación comprueba que una licencia es auténtica. Se toman, por orden, de las variables de entorno VENDEYA_LICENCIAS_URL y
-// VENDEYA_LICENCIAS_CLAVE_PUBLICA, o del primer `licencia.config.json` que exista en las rutas indicadas:
+// aplicación comprueba que una licencia es auténtica. Se toman de LICENSE_SERVER_URL y LICENSE_PUBLIC_KEY (o sus alias
+// VENDEYA_LICENCIAS_URL y VENDEYA_LICENCIAS_CLAVE_PUBLICA) y se completan con el primer `licencia.config.json` disponible:
 //   { "servidorUrl": "https://…", "clavePublica": "-----BEGIN PUBLIC KEY-----\n…" }
 // Sin configuración el licenciamiento queda desactivado (la aplicación lo informa en Ajustes › Licencia) en lugar de bloquear las cajas.
 // No importa `electron`: se prueba sin Electron.
@@ -37,8 +37,8 @@ function urlValida(valor: string): string | null {
 
 export function cargarConfigLicencia(o: OpcionesConfigLicencia): ConfigLicencia | null {
   const aviso = o.registrar ?? ((): void => undefined);
-  let url = o.env["VENDEYA_LICENCIAS_URL"];
-  let clave = o.env["VENDEYA_LICENCIAS_CLAVE_PUBLICA"]?.replace(/\\n/g, "\n");
+  let url = o.env["LICENSE_SERVER_URL"]?.trim() || o.env["VENDEYA_LICENCIAS_URL"];
+  let clave = (o.env["LICENSE_PUBLIC_KEY"]?.trim() || o.env["VENDEYA_LICENCIAS_CLAVE_PUBLICA"])?.replace(/\\n/g, "\n");
 
   if (url === undefined || url === "" || clave === undefined || clave === "") {
     const archivo = o.rutas.find((r) => existsSync(r));

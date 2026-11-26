@@ -9,10 +9,11 @@ export function crearVentaController(servicios: Servicios) {
   return {
     crear: async (req: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> => {
       const actor = actorDe(req);
-      const venta = await servicios.ventas.crear(req.body, actor);
+      const resultado = await servicios.ventas.registrarCobro(req.body, actor, (tx) =>
+        servicios.licencia.exigirVigente(actor.empresaId, tx));
       // El ticket y la gaveta se atienden aparte: la respuesta de la venta no espera a la impresora ni depende de ella
-      void servicios.impresion.alCobrar(venta.id, actor);
-      return reply.status(201).send(venta);
+      if (!resultado.repetido) void servicios.impresion.alCobrar(resultado.valor.id, actor);
+      return reply.status(201).send(resultado.valor);
     },
 
     anular: async (
