@@ -2,12 +2,12 @@
 // tests/integration/server/seed-services.test.ts
 // Seed + repositorios + servicios contra una BD SQLite aislada.
 // ============================================================
-import { execSync } from "child_process";
 import { existsSync, rmSync } from "fs";
 import path from "path";
-import { PrismaClient } from "@prisma/client";
+import type { PrismaClient } from "@prisma/client";
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { runSeed, ROLES_BASE, type SeedResult } from "../../../prisma/seed";
+import { crearPrismaPara } from "../../../src/server/config/database.config";
 import { ClienteRepository } from "../../../src/server/repositories/cliente.repository";
 import { EmpresaRepository } from "../../../src/server/repositories/empresa.repository";
 import { ProductoRepository } from "../../../src/server/repositories/producto.repository";
@@ -15,13 +15,13 @@ import { UsuarioRepository } from "../../../src/server/repositories/usuario.repo
 import { AppError } from "../../../src/server/services/appError.util";
 import { ClienteService } from "../../../src/server/services/cliente.service";
 import { EmpresaService } from "../../../src/server/services/empresa.service";
+import { MigrationService } from "../../../src/server/services/migration.service";
 import { ProductoService } from "../../../src/server/services/producto.service";
 import { UsuarioService } from "../../../src/server/services/usuario.service";
 import { TARIFAS_IVA } from "../../../src/shared/constants/sri.constants";
 
-const DB_NOMBRE = `vendeya-seed-test-${process.pid}.db`;
-const DB_URL = `file:./${DB_NOMBRE}`;
-const DB_RUTA = path.resolve(__dirname, "../../../prisma", DB_NOMBRE);
+const PRISMA_DIR = path.resolve(__dirname, "../../../prisma");
+const DB_RUTA = path.join(PRISMA_DIR, `vendeya-seed-test-${process.pid}.db`);
 
 let prisma: PrismaClient;
 let seed: SeedResult;
@@ -41,12 +41,12 @@ async function codigoError(promesa: Promise<unknown>): Promise<string> {
 }
 
 beforeAll(async () => {
-  execSync("npx prisma migrate deploy", {
-    cwd: path.resolve(__dirname, "../../.."),
-    env: { ...process.env, DATABASE_URL: DB_URL },
-    stdio: "pipe",
-  });
-  prisma = new PrismaClient({ datasources: { db: { url: DB_URL } } });
+  prisma = crearPrismaPara(DB_RUTA);
+  await new MigrationService(prisma, {
+    dbPath: DB_RUTA,
+    migrationsDir: path.join(PRISMA_DIR, "migrations"),
+    backupsDir: path.join(PRISMA_DIR, "test-backups"),
+  }).migrar();
   seed = await runSeed(prisma, { adminPassword: "ClaveDePrueba1" });
   empresas = new EmpresaService(new EmpresaRepository(prisma));
   usuarios = new UsuarioService(new UsuarioRepository(prisma));
@@ -55,7 +55,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await prisma.$disconnect();
+  await prisma?.$disconnect();
   for (const sufijo of ["", "-journal"]) {
     if (existsSync(DB_RUTA + sufijo)) rmSync(DB_RUTA + sufijo);
   }
