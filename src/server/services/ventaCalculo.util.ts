@@ -4,12 +4,19 @@
 // ============================================================
 import { AppError } from "./appError.util";
 
+function redondearEscalado(n: number, escala: number): number {
+  const escalado = n * escala;
+  const medio = Math.floor(escalado) + 0.5;
+  // Corrige el error binario cerca de medio centavo, proporcional a la magnitud.
+  return Math.round(Math.abs(escalado - medio) <= Math.abs(escalado) * Number.EPSILON ? medio : escalado);
+}
+
 export function round2(n: number): number {
-  return Math.round((n + Number.EPSILON) * 100) / 100;
+  return redondearEscalado(n, 100) / 100;
 }
 
 export function round4(n: number): number {
-  return Math.round((n + Number.EPSILON) * 10_000) / 10_000;
+  return redondearEscalado(n, 10_000) / 10_000;
 }
 
 // ── Líneas ───────────────────────────────────────────────────
@@ -54,7 +61,8 @@ export interface TotalesVenta {
 }
 
 export function calcularTotales(lineas: ReadonlyArray<ResultadoLinea>): TotalesVenta {
-  const suma = (f: (l: ResultadoLinea) => number): number => round2(lineas.reduce((acc, l) => acc + f(l), 0));
+  const suma = (f: (l: ResultadoLinea) => number): number =>
+    lineas.reduce((acc, l) => acc + redondearEscalado(f(l), 100), 0) / 100;
   return {
     subtotal: suma((l) => l.subtotal),
     descuento: suma((l) => l.descuento),

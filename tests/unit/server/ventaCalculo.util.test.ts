@@ -21,6 +21,8 @@ describe("redondeo", () => {
     expect(round2(1.005)).toBe(1.01);
     expect(round2(0.1 + 0.2)).toBe(0.3);
     expect(round2(2.675)).toBe(2.68);
+    expect(round2(10.075)).toBe(10.08);
+    expect(round2(10.0749999)).toBe(10.07);
   });
   it("round4", () => {
     expect(round4(1.00005)).toBe(1.0001);

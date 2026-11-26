@@ -10,7 +10,7 @@ import WebSocket from "ws";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import type { Producto } from "@prisma/client";
 import { iniciarBackend } from "../../../src/server";
-import { ClienteSync, type ReceptoresSync } from "../../../src/server/services/sync/syncCliente";
+import { ClienteSync, type ReceptoresSync, type WebSocketLike } from "../../../src/server/services/sync/syncCliente";
 import { CIERRE_CAJA_DUPLICADA, CIERRE_MODULO_DESHABILITADO, CIERRE_NO_AUTENTICADO, CIERRE_SESION_REVOCADA, type EventoDifundido } from "../../../src/server/services/sync/sync.service";
 import { generarP12Prueba } from "../../helpers/certificados.helper";
 import { iniciarSriSimulado, type SriSimulado } from "../../helpers/sriSimulado.helper";
@@ -97,6 +97,25 @@ afterEach(() => {
 });
 
 describe("Conexión y autenticación", () => {
+  it("una conexión repetida reutiliza el socket y al cerrar quita los callbacks del cliente", () => {
+    let abiertos = 0;
+    let cerrados = 0;
+    const socket: WebSocketLike = {
+      onopen: null, onmessage: null, onclose: null, onerror: null,
+      close: () => { cerrados++; },
+    };
+    const cliente = new ClienteSync({ url: wsUrl(), token: tokens.admin!, cajaId: "limpieza", crearSocket: () => {
+      abiertos++;
+      return socket;
+    } });
+    cliente.conectar();
+    cliente.conectar();
+    expect(abiertos).toBe(1);
+    cliente.desconectar();
+    expect(cerrados).toBe(1);
+    expect(socket).toMatchObject({ onopen: null, onmessage: null, onclose: null });
+  });
+
   it("el backend por defecto atiende solo a este equipo; con redLocal escucha en toda la red", async () => {
     expect(env.backend.host).toBe("127.0.0.1");
     const dir = mkdtempSync(path.join(os.tmpdir(), "vendeya-lan-"));

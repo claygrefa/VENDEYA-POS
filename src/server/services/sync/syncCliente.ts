@@ -18,6 +18,8 @@ export interface WebSocketLike {
 
 export type EstadoCliente = "DESCONECTADO" | "CONECTANDO" | "CONECTADO";
 
+const ignorarErrorSocket = (): void => undefined;
+
 export interface OpcionesClienteSync {
   /** URL base del servidor, p. ej. `ws://192.168.1.10:3001` */
   url: string;
@@ -69,6 +71,7 @@ export class ClienteSync {
   }
 
   conectar(): void {
+    if (this.activo) return;
     this.activo = true;
     this.abrir();
   }
@@ -79,7 +82,13 @@ export class ClienteSync {
     this.temporizador = null;
     const s = this.socket;
     this.socket = null;
-    s?.close(1000, "Cliente cerrado");
+    if (s !== null) {
+      s.onopen = null;
+      s.onmessage = null;
+      s.onclose = null;
+      // ws puede emitir error al cerrar mientras conecta. El manejador restante no captura al cliente.
+      s.close(1000, "Cliente cerrado");
+    }
     this.cambiar("DESCONECTADO");
   }
 
@@ -140,9 +149,12 @@ export class ClienteSync {
           break;
       }
     };
-    socket.onerror = () => undefined; // el cierre que sigue decide qué hacer
+    socket.onerror = ignorarErrorSocket; // el cierre que sigue decide qué hacer
     socket.onclose = (ev) => {
       if (this.socket !== socket) return; // un socket anterior ya reemplazado
+      socket.onopen = null;
+      socket.onmessage = null;
+      socket.onclose = null;
       this.socket = null;
       this.cambiar("DESCONECTADO");
       if (!this.activo) return;

@@ -560,6 +560,7 @@ model ComprobanteElectronico {
   origen       ComprobanteElectronico?  @relation("ModificaA", fields: [comprobanteOrigenId], references: [id])
   modificadores ComprobanteElectronico[] @relation("ModificaA")
 
+  @@unique([puntoEmisionId, tipoComprobante, secuencial], map: "ComprobanteElectronico_punto_tipo_secuencial_key")
   @@index([comprobanteOrigenId])
   @@index([compraId])
   @@index([estado, proximoIntento])

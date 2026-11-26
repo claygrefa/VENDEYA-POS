@@ -915,3 +915,12 @@ El plan de 24 semanas está ejecutado; **el producto no debe publicarse todavía
 - Archivos actualizados: `PROJECT_STATUS.md` y `tests/integration/server/seed-services.test.ts`. La suite de seed prepara su base SQLite con `MigrationService`, el migrador de arranque de la aplicación. El CLI de Prisma fallaba desde Vitest en este entorno, aunque aplicó las 12 migraciones al ejecutarlo directamente con una ruta absoluta. Después del cambio, la suite de seed pasó 19/19.
 - Verificación: los tres `tsc --noEmit`, `build:main` y `build:vite` finalizaron correctamente. La última corrida completa anterior a la corrección final obtuvo 1092 pruebas aprobadas, 1 fallo intermitente en Ajustes y 19 pruebas sin ejecutar por el fallo inicial de seed. En ejecuciones aisladas posteriores pasaron seed (19/19) y Ajustes con backend real (3/3). Queda confirmar la suite completa en CI desde el commit candidato.
 - Siguiente tarea técnica: actualizar Electron y verificar el arranque del nuevo paquete con la base local, IPC y periféricos nativos. Después, resolver el aviso de Zod, repetir el análisis de dependencias y construir un candidato firmado desde un commit verificable.
+
+---
+
+### Auditoría de estrés POS — 2026-11-26
+
+- Se añadió `tests/stress/posStress.test.ts` con SQLite temporal, 25.000 productos, 1.000 ventas consecutivas, 50 peticiones simultáneas, 500 facturas offline, fallos controlados de persistencia y corte TCP antes de completar un cobro.
+- Se corrigieron el timeout SQLite, la búsqueda de catálogo, el redondeo de líneas y la limpieza de WebSockets. Se añadieron migraciones para unicidad fiscal e índice FTS5. Los archivos y límites están detallados en `STRESS_AUDIT_REPORT.md`.
+- Verificación: los tres chequeos de TypeScript pasaron y Vitest aprobó 1.118/1.118 pruebas en 76 archivos, incluidas las cinco de estrés. Máximos de catálogo 5,13 ms por barras y 23,19 ms por nombre parcial. Se registraron 34,85 ventas/s consecutivas, 20 cobros de 50 con stock limitado y 500 autorizaciones simuladas tras restablecer la conexión. SQLite pasó integridad y se eliminó la base temporal. Persisten avisos de Vite CJS y de `act()` en pruebas del renderer. El cliente Prisma se generó en un destino aislado porque Windows mantenía ocupada la DLL local.
+- Próxima tarea atómica: comprobar el arranque y la migración de un candidato firmado sobre una copia representativa. Se mantiene pendiente la idempotencia ante pérdida de respuesta tras confirmar un cobro.

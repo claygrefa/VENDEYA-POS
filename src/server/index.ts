@@ -198,6 +198,8 @@ export async function iniciarBackend(opciones: BackendOptions): Promise<BackendH
 
     // Modo WAL (lecturas concurrentes y mejor tolerancia a cortes de energía)
     await prisma.$queryRawUnsafe("PRAGMA journal_mode=WAL");
+    // Tolera bloqueos breves de otra conexión SQLite sin ocupar todo el plazo de cobro.
+    await prisma.$queryRaw`PRAGMA busy_timeout=5000`;
     // Con una base de cientos de MB, la caché por omisión de SQLite (2 MB) obliga a leer del disco las páginas de los índices en cada
     // venta: 64 MB de caché, temporales en memoria y lectura mapeada. Con la sola conexión del pool, estos PRAGMA valen para toda la sesión.
     await prisma.$queryRawUnsafe(`PRAGMA cache_size=${-CACHE_SQLITE_KB}`);
