@@ -117,7 +117,7 @@ function createWindow(): BrowserWindow {
     height: 800,
     minWidth: 1024,
     minHeight: 600,
-    title: "VENDEYA POS",
+    title: "vendeyapos",
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,

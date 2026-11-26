@@ -91,13 +91,13 @@ nsis:
   allowToChangeInstallationDirectory: false
   createDesktopShortcut: always
   createStartMenuShortcut: true
-  shortcutName: VENDEYA POS
+  shortcutName: vendeyapos
   runAfterFinish: true
   # Desinstalar NO borra los datos del negocio (base de datos, respaldos, certificado y secretos viven en %APPDATA%/vendeya-pos)
   deleteAppDataOnUninstall: false
   language: "3082"
   # Sin espacios: el nombre del archivo debe coincidir con el que escribe latest.yml y el que sirve GitHub
-  artifactName: VENDEYA-POS-Setup-${version}.${ext}
+  artifactName: vendeyapos-Setup-${version}.${ext}
 
 # ── macOS: .dmg firmado con hardened runtime y notarizado ──
 # NO se pudo construir ni probar (hace falta un Mac). Requiere: certificado «Developer ID Application» (CSC_LINK/CSC_KEY_PASSWORD) y, para

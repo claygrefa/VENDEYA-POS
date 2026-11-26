@@ -938,3 +938,9 @@ El plan de 24 semanas está ejecutado; **el producto no debe publicarse todavía
 - `electron-builder.yml` habilita `win.verifyUpdateCodeSignature`. En una compilación firmada, electron-builder registra el editor del certificado en `app-update.yml`. `tests/unit/electron/paquete.test.ts` comprueba que la protección siga habilitada.
 - Pasaron los tres chequeos de TypeScript, las 1.118 pruebas en 76 archivos, `build:main` y `build:vite`. La compilación NSIS con firma obligatoria y publicación deshabilitada llegó a SignTool y se detuvo por falta de acceso al certificado de firma de código.
 - Siguiente tarea atómica: usar el certificado de VENDEYA para construir el NSIS, validar Authenticode y el editor en `app-update.yml`, e instalar y verificar el primer arranque en el Windows limpio.
+
+### Nombre visible de Windows — 2026-11-26
+
+- `electron-builder.yml` usa `vendeyapos` en el acceso directo y `vendeyapos-Setup-1.0.0.exe` como nombre previsto del instalador. `electron/main.ts` y `src/renderer/index.html` aplican el mismo nombre a la ventana. `tests/unit/electron/paquete.test.ts` verifica el acceso directo.
+- Pasaron los tres chequeos de TypeScript, `build:main`, `build:vite` y las 1.118 pruebas.
+- Siguiente tarea atómica: construir el instalador con el certificado de firma de código y verificar el primer arranque en el Windows limpio.

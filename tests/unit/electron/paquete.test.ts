@@ -105,7 +105,7 @@ describe("Qué entra en el paquete", () => {
 describe("Instalador de Windows (NSIS)", () => {
   it("es un instalador NSIS x64 de un clic, por usuario y sin pedir administrador", () => {
     expect(cfg.win.target).toEqual([{ target: "nsis", arch: ["x64"] }]);
-    expect(cfg.nsis).toMatchObject({ oneClick: true, perMachine: false, createDesktopShortcut: "always", createStartMenuShortcut: true, shortcutName: "VENDEYA POS", runAfterFinish: true });
+    expect(cfg.nsis).toMatchObject({ oneClick: true, perMachine: false, createDesktopShortcut: "always", createStartMenuShortcut: true, shortcutName: "vendeyapos", runAfterFinish: true });
     expect(cfg.win.requestedExecutionLevel).toBe("asInvoker");
     expect(cfg.win.signingHashAlgorithms).toEqual(["sha256"]);
   });
