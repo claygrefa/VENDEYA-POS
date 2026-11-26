@@ -944,3 +944,10 @@ El plan de 24 semanas está ejecutado; **el producto no debe publicarse todavía
 - `electron-builder.yml` usa `vendeyapos` en el acceso directo y `vendeyapos-Setup-1.0.0.exe` como nombre previsto del instalador. `electron/main.ts` y `src/renderer/index.html` aplican el mismo nombre a la ventana. `tests/unit/electron/paquete.test.ts` verifica el acceso directo.
 - Pasaron los tres chequeos de TypeScript, `build:main`, `build:vite` y las 1.118 pruebas.
 - Siguiente tarea atómica: construir el instalador con el certificado de firma de código y verificar el primer arranque en el Windows limpio.
+
+### Instalador firmado de prueba para Windows — 2026-11-26
+
+- Se generó `out/vendeyapos-prueba/vendeyapos-Setup-1.0.0.exe` con firma Authenticode, sello de tiempo y el certificado autofirmado `vendeyapos (prueba)`. Se exportó el certificado público a `out/vendeyapos-prueba/vendeyapos-prueba.cer`. La clave privada no exportable queda en el almacén personal de Windows. No se publicó el instalador ni se cambió la confianza de Windows.
+- La huella del firmante coincide con la del certificado público y `app-update.yml` contiene el mismo editor. Windows identificó la firma y reportó que su raíz no es de confianza en este entorno.
+- Pasaron los tres chequeos de TypeScript, las 1.118 pruebas y las 13 comprobaciones de contenido y backend del paquete. El ejecutable completo no respondió ni creó la base con el perfil temporal de la prueba.
+- Siguiente tarea atómica: probar el instalador en el Windows limpio que el usuario tiene disponible, con confianza de prueba configurada únicamente en ese equipo, y verificar la ventana del asistente y la creación de la base.
