@@ -21,6 +21,8 @@ import type { Servicios } from "../services/container.factory";
 import { crearLicenciaController } from "../controllers/licencia.controller";
 import { crearRespaldoController } from "../controllers/respaldo.controller";
 import { crearTelemetriaController } from "../controllers/telemetria.controller";
+import { crearSucursalController } from "../controllers/sucursal.controller";
+import { crearUsuarioController } from "../controllers/usuario.controller";
 import { exigirLicencia, requerirSesion } from "./auth.guard";
 
 export function registrarRutas(server: FastifyInstance, servicios: Servicios): void {
@@ -42,6 +44,8 @@ export function registrarRutas(server: FastifyInstance, servicios: Servicios): v
   const licencia = crearLicenciaController(servicios);
   const respaldo = crearRespaldoController(servicios);
   const telemetria = crearTelemetriaController(servicios);
+  const usuarios = crearUsuarioController(servicios);
+  const sucursales = crearSucursalController(servicios);
 
   // ── Públicas ──────────────────────────────────────────────
   server.get("/api/health", health.estado);
@@ -55,6 +59,8 @@ export function registrarRutas(server: FastifyInstance, servicios: Servicios): v
   const sesion = { preHandler: requerirSesion(servicios) };
   server.post("/api/auth/logout", sesion, auth.logout);
   server.get("/api/auth/me", sesion, auth.yo);
+  // Cada usuario cambia su propia contraseña (la actual debe coincidir; las demás sesiones suyas se cierran)
+  server.post("/api/auth/password", sesion, usuarios.cambiarMiPassword);
 
   // ── Productos (inventario:leer) ───────────────────────────
   const leerInventario = { preHandler: requerirSesion(servicios, { modulo: "inventario", accion: "leer" }) };
@@ -75,6 +81,8 @@ export function registrarRutas(server: FastifyInstance, servicios: Servicios): v
   server.post("/api/ventas", crearVenta, ventas.crear);
   server.post<{ Params: { id: string } }>("/api/ventas/:id/anular", anularVenta, ventas.anular);
   server.get<{ Params: { id: string } }>("/api/ventas/:id", leerVentas, ventas.obtener);
+  // PDF de la factura de la venta (lo guarda quien cobró, con o sin impresora): permiso de ventas, no del monitor del SRI
+  server.get<{ Params: { id: string } }>("/api/ventas/:id/ride", leerVentas, impresion.rideDeVenta);
 
   // ── Turnos de caja ────────────────────────────────────────
   // caja:crear = operar caja (abrir, movimientos, cierre); caja:leer = consultar.
@@ -220,6 +228,24 @@ export function registrarRutas(server: FastifyInstance, servicios: Servicios): v
   server.patch("/api/configuracion/empresa", permiso("configuracion", "actualizar"), setup.actualizarEmpresa);
   server.patch("/api/configuracion/modulos", permiso("configuracion", "actualizar"), setup.actualizarModulos);
   server.post("/api/configuracion/giro", permiso("configuracion", "actualizar"), setup.aplicarGiro);
+
+  // ── Usuarios (administrador: usuarios:*) ──────────────────
+  // No se borran: se desactivan. Desactivar, cambiar el rol o la contraseña cierra las sesiones de esa persona.
+  server.get("/api/usuarios", permiso("usuarios", "leer"), usuarios.listar);
+  server.get("/api/roles", permiso("usuarios", "leer"), usuarios.roles);
+  server.post("/api/usuarios", permiso("usuarios", "crear"), usuarios.crear);
+  server.patch<{ Params: { id: string } }>("/api/usuarios/:id", permiso("usuarios", "actualizar"), usuarios.actualizar);
+  server.post<{ Params: { id: string } }>("/api/usuarios/:id/estado", permiso("usuarios", "actualizar"), usuarios.estado);
+  server.post<{ Params: { id: string } }>("/api/usuarios/:id/password", permiso("usuarios", "actualizar"), usuarios.restablecerPassword);
+
+  // ── Sucursales y puntos de emisión (configuración) ────────
+  // El código lo asigna el sistema (consecutivo, no se reutiliza); el establecimiento debe estar registrado en el SRI para facturar con él.
+  server.get("/api/sucursales", permiso("configuracion", "leer"), sucursales.listar);
+  server.post("/api/sucursales", permiso("configuracion", "actualizar"), sucursales.crear);
+  server.patch<{ Params: { id: string } }>("/api/sucursales/:id", permiso("configuracion", "actualizar"), sucursales.actualizar);
+  server.post<{ Params: { id: string } }>("/api/sucursales/:id/estado", permiso("configuracion", "actualizar"), sucursales.estado);
+  server.post<{ Params: { id: string } }>("/api/sucursales/:id/puntos-emision", permiso("configuracion", "actualizar"), sucursales.crearPunto);
+  server.patch<{ Params: { id: string } }>("/api/puntos-emision/:id", permiso("configuracion", "actualizar"), sucursales.actualizarPunto);
 
   // ── Licencia (estado para cualquier usuario: el marco avisa al cajero; la gestión es del administrador) ──
   const administrar = permiso("configuracion", "actualizar");

@@ -5,8 +5,8 @@
 - **Horizonte:** 6 Meses (24 Semanas)
 - **Fase Actual:** Plan de 24 semanas completado — candidata a v1.0.0 (NO publicada; ver «Próxima Tarea Exacta»)
 - **Estado de Compilación:** ✅ `tsc --noEmit` → 0 errores | ✅ `tsconfig.node.json` → 0 errores | ✅ `tsconfig.electron.json` → 0 errores
-- **Tests:** ✅ 71/71 archivos (≈ 1069 pruebas) passed
-- **Último Commit:** `feat: Semana 24 - release v1.0.0` (sin etiqueta `v1.0.0`: aún no se puede publicar)
+- **Tests:** ✅ 75/75 archivos (1112 pruebas) passed
+- **Último Commit:** `fix: …` / `feat: gestion de usuarios y sucursales` / `chore: scripts dev` (2026-11-26; sin etiqueta `v1.0.0`: aún no se puede publicar)
 
 ---
 
@@ -857,9 +857,39 @@ Código congelado en la versión `1.0.0`; instalador de Windows generado; **no s
 **Notas de la versión 1.0.0 (lo entregado, por semana)**
 Cimientos y base de datos (S1–4) · núcleo POS, inventario y turnos con cierre ciego, cartera, retail, farmacia y restaurante (S5–8; la interfaz de mesas aún no existe) · motor tributario SRI: clave de acceso, XML v2.10/2.30 con XSD, firma XAdES-BES con `.p12` cifrado AES-256-GCM, cola offline con reintentos, retenciones/liquidaciones/guías/ATS (S9–12) · impresión térmica y RIDE, periféricos y red local con sincronización (S13–14) · interfaz POS y vistas de gestión (S15–16) · asistente inicial, auto-actualización con respaldo previo, licenciamiento con gracia sin conexión e instalador (S17–20) · rendimiento a 138 000 ventas con 8 cajas (S21) · auditoría de seguridad, freno a fuerza bruta, respaldos cifrados (S22) · centro de ayuda, restauración guiada y telemetría opcional (S23) · dependencias actualizadas y paquete 1.0.0 (S24).
 
-**Límites conocidos del producto** (acumulados): ver cada semana. Los principales: base SQLite sin cifrar en reposo; LAN sin TLS; sin gestión de usuarios ni de sucursales; sin pantallas de mesas/comandas ni de retenciones/liquidaciones/guías; sin nota de débito ni `ats.xsd` oficial; ATS y reportes de 90 días tardan segundos; licenciamiento e instalación son un estorbo, no una barrera.
+**Límites conocidos del producto** (acumulados): ver cada semana. Los principales: base SQLite sin cifrar en reposo; LAN sin TLS; sin pantallas de mesas/comandas ni de retenciones/liquidaciones/guías; sin nota de débito ni `ats.xsd` oficial; ATS y reportes de 90 días tardan segundos; licenciamiento e instalación son un estorbo, no una barrera.
 
 **Verificación:** `tsc --noEmit` (3 tsconfig) ✅ | `npx vitest run` ✅ 71/71 archivos (≈ 1069 pruebas) | `npm run build` ✅ | instalador `1.0.0` generado ✅ | `test:paquete` ✅ 13/13 (arranque del ejecutable ✗ por el entorno).
+
+---
+
+### Corrección de auditoría (2026-11-26) — `fix:` ✅
+El auditor (`AUDIT_REPORT.md`, fuera de Git) revisó el código hasta la Semana 24 y lo aprobó; pidió cerrar lo siguiente, que quedó corregido:
+- **`EPERM` al renombrar archivos temporales en Windows** (antivirus/indexador reteniendo el archivo recién escrito): `src/server/services/archivo.util.ts` → `renombrarConReintento` (hasta 6 intentos con espera creciente solo ante `EPERM`/`EBUSY`/`EACCES`; cualquier otro error, o un bloqueo que no cede, se propaga). Aplicado a todos los «escribir `.tmp` y renombrar»: telemetría, certificado, clave maestra, configuración de la nube y restauración preparada. El patrón sigue siendo atómico ante un corte de luz. 4 pruebas nuevas (`tests/unit/server/archivo.util.test.ts`).
+- **Prueba frágil de licencia** (`licencia.test.ts`, validación periódica): era una carrera entre el intervalo real de 40 ms y la lectura del estado; ahora el servidor de licencias está «caído» durante la comprobación de gracia y solo después se restablece.
+- **Higiene de release**: `tsconfig.json` sin `baseUrl` (rutas con `./`) y `tsconfig.node.json` con `module`/`moduleResolution` `Node16` (aviso de TypeScript 6; el emit sigue siendo CommonJS); pruebas unitarias de `fechaEcuador`, `xmlTexto` y `xsdValidator`; contrato de `validarClaveAcceso` documentado; espera de `sync-lan.test.ts` ampliada; `.env.test` fuera de Git (nada lo leía) y registrado en `.gitignore`.
+- **Empaquetado con `Node16`** (pedido por el auditor): `build:main`, `build:vite` y `electron-builder --win --dir` OK; `npm run test:paquete` sobre ese paquete: **13/13 comprobaciones de contenido ✅** (migraciones, alta, login, XSD, Code128, PDF, serialport, respaldo, `app.asar` limpio, motor de Prisma); las 2 que abren el ejecutable siguen fallando solo por el entorno (los procesos de Electron no pueden escribir fuera del proyecto aquí). La carpeta temporal del humo se apuntó a `out/` (dentro del proyecto).
+- **No corregido a propósito (requiere recursos externos o decisión):** Electron 33.x vulnerable, firma de código, factura autorizada por el SRI real, Zod 4, máquina limpia/servidores reales (ver «Próxima Tarea Exacta»). Opcional pendiente: configuración de Vite en ESM (aviso «CJS build of Vite's Node API is deprecated»).
+
+---
+
+### Post-1.0 — Gestión de usuarios y sucursales (2026-11-25) ✅
+Cierra la limitación «no hay gestión de usuarios ni de sucursales» de las Semanas 15–24: hasta hoy un cliente real no podía crear un cajero ni una caja nueva sin tocar código.
+
+**Servidor** (`usuarioAdmin.service.ts`, `sucursal.service.ts`, controladores `usuario`/`sucursal`; sin migraciones: usa las tablas y permisos existentes `usuarios:*` y `configuracion:*`)
+- Usuarios: `GET/POST /api/usuarios`, `PATCH /api/usuarios/:id`, `POST /api/usuarios/:id/estado|password`, `GET /api/roles`, y `POST /api/auth/password` (cada persona cambia la suya, cualquier rol). Solo el administrador (`usuarios:*`) gestiona a los demás.
+- Reglas en el servidor: nunca se ve ni toca a otra empresa (404); nadie se desactiva ni cambia el rol a sí mismo; la empresa no se queda sin un administrador activo; no se desactiva a quien tiene un turno de caja abierto; las personas **no se borran, se desactivan**; el nombre de usuario no cambia y se guarda en minúsculas (el inicio de sesión ya no distingue mayúsculas; los usuarios antiguos con mayúsculas siguen entrando).
+- **Cierre de sesiones** (el pendiente de la Semana 22): `SessionService.revocarDeUsuario` cierra todas las sesiones de una persona al desactivarla, cambiarle el rol o la contraseña (la sesión guardaba una copia de los permisos); las cajas de la LAN pierden su conexión en el siguiente latido. Al cambiar la propia contraseña se cierran las demás sesiones propias y continúa la actual.
+- Contraseñas: restablecer la de otra persona exige la del administrador (con el mismo freno de intentos del login); una confirmación equivocada responde **400**, no 401 (un 401 haría que la pantalla cierre la sesión).
+- Sucursales: `GET/POST /api/sucursales`, `PATCH /api/sucursales/:id`, `POST /api/sucursales/:id/estado|puntos-emision`, `PATCH /api/puntos-emision/:id`. El código (001, 002…) lo asigna el sistema, es consecutivo, **no cambia ni se reutiliza** (es parte de la serie y de la clave de acceso del SRI); crear una sucursal crea su «Caja principal». No se desactiva una sucursal con turnos o cuentas de mesa abiertos, ni se deja a la empresa sin un punto de emisión activo; desactivar conserva todo el historial y el POS deja de ofrecerla.
+
+**Interfaz**: Ajustes › **Usuarios** (solo con `usuarios:leer`) y Ajustes › **Sucursales**; botón **Mi contraseña** en la barra superior para todos los roles; guías «Usuarios» y «Sucursales y cajas» en el centro de ayuda.
+
+**Pruebas** (+30): `tests/integration/server/usuarios-sucursales.test.ts` (25: alta, filtros, edición, rol, auto-protecciones, último administrador, turno abierto, sesiones cerradas, contraseñas, aislamiento entre empresas, sucursales/cajas), `tests/integration/renderer/usuarios-backend.test.tsx` (5: la interfaz real contra el backend real), matriz RBAC ampliada (13 rutas) y ayuda. Además: `tsconfig` sin `baseUrl` y con `Node16` (avisos de TypeScript 6), 3 pruebas de utilidades SRI y una espera ampliada en `sync-lan.test.ts`.
+
+**Guardar la factura al cobrar**: la pantalla de venta terminada ofrece «Guardar factura (PDF)» (el RIDE de esa venta) para entregarla o enviarla sin impresora. Ruta nueva `GET /api/ventas/:id/ride` con el permiso `ventas:leer` (el cajero no tiene el del monitor del SRI); solo devuelve la factura de esa venta (404 si no tiene). El PDF de una factura aún no autorizada sale marcado «sin valor tributario». No se ofrece si la venta no generó factura (hoy el ticket térmico solo existe para la impresora).
+
+**Límites / pendiente**: no hay PIN de caja rápida ni «usuarios por sucursal» (cualquier usuario puede abrir turno en cualquier sucursal activa); no hay recuperación de contraseña si se pierde la del único administrador (hay que restaurar o resetear la base: fuera del alcance); no hay registro de auditoría de quién cambió qué (solo `updatedAt`); el establecimiento nuevo debe registrarse en el SRI fuera del sistema (la pantalla lo advierte).
 
 ---
 
@@ -872,4 +902,14 @@ El plan de 24 semanas está ejecutado; **el producto no debe publicarse todavía
 4. **SRI real:** consulta y factura completa en `celcer` con certificado de pruebas (`ECONNRESET`), luego producción; nota de débito y `ats.xsd` oficial.
 5. **Equipos reales:** ticket/RIDE, gaveta, balanza, lector, dos cajas en red, rendimiento en gama baja.
 6. Servidor de licencias real y `electron/licencia.config.json`; servidor de telemetría (o dejarla sin destino); íconos y marca definitivos.
-7. Re-ejecutar la auditoría independiente (`REVIEWER_AGENT.md`); funciones pendientes de producto: gestión de usuarios y sucursales (con cierre de sesiones), pantallas de mesas/retenciones/guías, TLS en la LAN y cifrado en reposo de la base.
+7. Re-ejecutar la auditoría independiente (`REVIEWER_AGENT.md`); funciones pendientes de producto: pantallas de mesas/retenciones/guías, usuarios por sucursal (hoy un usuario opera en cualquiera), TLS en la LAN y cifrado en reposo de la base.
+
+---
+
+### Revisión de distribución — 2026-11-26
+
+- Estado: publicación bloqueada. El ejecutable de `release/v1.0.0` devuelve `NotSigned` en Authenticode. El ASAR de esa compilación no contiene los controladores de usuarios y sucursales que están en el código actual. El índice y el árbol de trabajo tienen cambios previos pendientes, incluida la eliminación preparada de `.env.test`.
+- Seguridad: `npm audit --omit=dev` reportó un hallazgo alto en Zod 3.25.76. El informe completo reportó 28 hallazgos (4 críticos, 16 altos y 8 moderados), incluido Electron 33.4.11, que se distribuye como runtime aunque figure en devDependencies.
+- Actualizaciones: `verifyUpdateCodeSignature` está en `false`. El paquete y electron-builder apuntan a `vendeya/vendeya-pos`, mientras que el remoto `origin` es `claygrefa/VENDEYA-POS`. Confirmar el repositorio de publicación y el acceso para el flujo de release antes de generar un paquete de distribución.
+- Alcance: el único esquema Prisma usa SQLite. PostgreSQL para multicaja sigue pendiente respecto del stack definido. Persisten los límites y las verificaciones de campo pendientes de la Semana 24.
+- Siguiente tarea técnica: actualizar Electron y verificar el arranque del nuevo paquete con la base local, IPC y periféricos nativos. Después, resolver el aviso de Zod, repetir el análisis de dependencias y construir un candidato firmado desde un commit verificable.

@@ -14,12 +14,17 @@ import type { EstadoActualizacion } from "../../shared/types/actualizacion.types
 import { SeccionLicencia } from "./AjustesLicencia";
 import { SeccionPrivacidad } from "./AjustesPrivacidad";
 import { SeccionRespaldos } from "./AjustesRespaldos";
+import { SeccionSucursales } from "./AjustesSucursales";
+import { SeccionUsuarios } from "./AjustesUsuarios";
 import { useNavegacion } from "../store/navegacion.store";
+import { tienePermiso, useSesion } from "../store/sesion.store";
 import { ETIQUETA_GIRO, ETIQUETA_REGIMEN, ETIQUETA_TIPO } from "./SetupWizard";
 
-type Seccion = "empresa" | "modulos" | "impresora" | "balanza" | "certificado" | "red" | "licencia" | "actualizaciones" | "respaldos" | "privacidad";
+type Seccion = "empresa" | "sucursales" | "usuarios" | "modulos" | "impresora" | "balanza" | "certificado" | "red" | "licencia" | "actualizaciones" | "respaldos" | "privacidad";
 const SECCIONES: ReadonlyArray<{ id: Seccion; titulo: string }> = [
   { id: "empresa", titulo: "Empresa" },
+  { id: "sucursales", titulo: "Sucursales" },
+  { id: "usuarios", titulo: "Usuarios" },
   { id: "modulos", titulo: "Giro y módulos" },
   { id: "impresora", titulo: "Impresora" },
   { id: "balanza", titulo: "Balanza" },
@@ -56,18 +61,24 @@ type Mensaje = { tipo: "error" | "exito"; texto: string } | null;
 export function AjustesPage(): React.JSX.Element {
   const pedida = useNavegacion((s) => s.seccionAjustes);
   const consumir = useNavegacion((s) => s.consumirSeccionAjustes);
-  const [seccion, setSeccion] = useState<Seccion>(() => (SECCIONES.some((s) => s.id === pedida) ? (pedida as Seccion) : "empresa"));
+  const usuario = useSesion((s) => s.usuario);
+  // Usuarios solo para quien administra usuarios (usuarios:leer); el resto de las secciones, para todo el que entra a Ajustes
+  const secciones = SECCIONES.filter((s) => s.id !== "usuarios" || tienePermiso(usuario, "usuarios:leer"));
+  const [seccion, setSeccion] = useState<Seccion>(() => (secciones.some((s) => s.id === pedida) ? (pedida as Seccion) : "empresa"));
   // Otra parte de la aplicación (el aviso de licencia) pide abrir una pestaña concreta
   useEffect(() => {
     if (pedida === null) return;
-    if (SECCIONES.some((s) => s.id === pedida)) setSeccion(pedida as Seccion);
+    if (secciones.some((s) => s.id === pedida)) setSeccion(pedida as Seccion);
     consumir();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pedida, consumir]);
   return (
     <section aria-label="Ajustes" className="space-y-2">
       <h1 className="text-xl font-semibold text-white">Ajustes</h1>
-      <Pestanas etiqueta="Secciones de ajustes" opciones={SECCIONES} activa={seccion} onCambio={setSeccion} />
+      <Pestanas etiqueta="Secciones de ajustes" opciones={secciones} activa={seccion} onCambio={setSeccion} />
       {seccion === "empresa" ? <SeccionEmpresa /> : null}
+      {seccion === "sucursales" ? <SeccionSucursales /> : null}
+      {seccion === "usuarios" ? <SeccionUsuarios /> : null}
       {seccion === "modulos" ? <SeccionModulos /> : null}
       {seccion === "impresora" ? <SeccionImpresora /> : null}
       {seccion === "balanza" ? <SeccionBalanza /> : null}

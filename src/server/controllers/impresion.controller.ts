@@ -35,6 +35,16 @@ export function crearImpresionController(servicios: Servicios) {
       return reply.status(204).send();
     },
 
+    /** RIDE de la factura de una venta, como archivo (el cajero lo guarda cuando no hay impresora). */
+    rideDeVenta: async (req: ConId, reply: FastifyReply): Promise<FastifyReply> => {
+      const r = await servicios.ride.generarDeVenta(req.params.id, actorDe(req));
+      return reply
+        .header("Content-Type", "application/pdf")
+        .header("Content-Disposition", `attachment; filename="${r.nombreArchivo}"`)
+        .header("X-Comprobante-Autorizado", r.autorizado ? "SI" : "NO")
+        .send(r.pdf);
+    },
+
     /** RIDE en PDF: en línea para verlo en pantalla, o `?descargar=1` como archivo. */
     ride: async (req: FastifyRequest<{ Params: { id: string }; Querystring: { descargar?: string } }>, reply: FastifyReply): Promise<FastifyReply> => {
       const r = await servicios.ride.generar(req.params.id, actorDe(req));

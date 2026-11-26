@@ -32,4 +32,14 @@ export class RideService {
     const tipo = datos.titulo.split(" ")[0]?.toLowerCase() ?? "comprobante";
     return { pdf, nombreArchivo: `${tipo}-${datos.numero}.pdf`, autorizado: datos.autorizado };
   }
+
+  /**
+   * RIDE de la factura de una venta (para que quien cobró pueda guardar o enviar el comprobante aunque no haya impresora). Es de la venta,
+   * no del monitor del SRI: se pide con el permiso de leer ventas y solo devuelve la factura de esa venta.
+   */
+  async generarDeVenta(ventaId: string, actor: ActorCaja): Promise<ResultadoRide> {
+    const factura = await this.prisma.comprobanteElectronico.findFirst({ where: { ventaId, empresaId: actor.empresaId, tipoComprobante: "01" }, select: { id: true } });
+    if (factura === null) throw new AppError("NO_ENCONTRADO", "Esta venta no tiene factura electrónica");
+    return this.generar(factura.id, actor);
+  }
 }

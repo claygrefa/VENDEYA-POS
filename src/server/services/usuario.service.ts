@@ -73,7 +73,8 @@ export class UsuarioService {
     if (espera > 0) {
       throw new AppError("DEMASIADOS_INTENTOS", `Demasiados intentos fallidos. Espere ${Math.ceil(espera / 60)} min antes de volver a intentar`);
     }
-    const usuario = await this.repo.findByUsername(username);
+    // Los usuarios nuevos se guardan en minúsculas: «Maria» entra como «maria» (los antiguos con mayúsculas siguen entrando tal cual)
+    const usuario = (await this.repo.findByUsername(username)) ?? (username === username.toLowerCase() ? null : await this.repo.findByUsername(username.toLowerCase()));
     // Mismo error (y mismo tiempo) para usuario inexistente o clave errónea: no filtrar cuáles existen.
     const correcta = await verifyPassword(password, usuario?.passwordHash ?? (await obtenerHashSenuelo()));
     if (usuario === null || !correcta) {

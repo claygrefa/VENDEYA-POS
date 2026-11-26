@@ -47,6 +47,8 @@ import { MesaService } from "./mesa.service";
 import { PresentacionService } from "./presentacion.service";
 import { ProductoService } from "./producto.service";
 import { SessionService } from "./session.service";
+import { SucursalService } from "./sucursal.service";
+import { UsuarioAdminService } from "./usuarioAdmin.service";
 import { TurnoService } from "./turno.service";
 import { UsuarioService } from "./usuario.service";
 import { ImpresionService, type OpcionesImpresion } from "./hardware/impresion.service";
@@ -104,6 +106,8 @@ export interface Servicios {
   mesas: MesaService;
   comandas: ComandaService;
   sesiones: SessionService;
+  usuariosAdmin: UsuarioAdminService;
+  sucursales: SucursalService;
   respaldos: RespaldoService;
   respaldoNube: RespaldoNubeService;
   restauracion: RestauracionService;
@@ -179,10 +183,15 @@ export function crearServicios(prisma: PrismaClient, secretos: OpcionesServicios
   const ventas = new VentaService(prisma, new VentaRepository(), kardex, cuentasPorCobrar, comprobantes);
   const cuentasPorPagar = new CuentaPorPagarService(prisma, new CuentaPorPagarRepository(), turnoRepo);
 
+  const usuarioRepo = new UsuarioRepository(prisma);
+  const usuarios = new UsuarioService(usuarioRepo);
+
   return {
     prisma,
     empresas: new EmpresaService(new EmpresaRepository(prisma)),
-    usuarios: new UsuarioService(new UsuarioRepository(prisma)),
+    usuarios,
+    usuariosAdmin: new UsuarioAdminService(usuarioRepo, usuarios, sesiones),
+    sucursales: new SucursalService(prisma),
     productos,
     clientes: new ClienteService(new ClienteRepository(prisma)),
     kardex,

@@ -44,6 +44,10 @@ describe("Contenido de la ayuda", () => {
     expect(leer("src/renderer/pages/AjustesPage.tsx")).toContain("Imprimir prueba");
     expect(leer("src/renderer/pages/AjustesRespaldos.tsx")).toContain("Respaldar ahora");
     expect(leer("src/renderer/pages/AjustesRespaldos.tsx")).toContain("Preparar restauración");
+    for (const boton of ["Nuevo usuario", "Contraseña de", "Desactivar"]) expect(leer("src/renderer/pages/AjustesUsuarios.tsx")).toContain(boton);
+    for (const boton of ["Nueva sucursal", "Agregar caja a", "Editar"]) expect(leer("src/renderer/pages/AjustesSucursales.tsx")).toContain(boton);
+    expect(leer("src/renderer/components/BarraEstado.tsx")).toContain("Mi contraseña");
+    expect(pos).toContain("Guardar factura (PDF)");
     expect(leer("src/renderer/pages/ClientesPage.tsx")).toContain("Nuevo cliente");
     expect(leer("src/renderer/pages/InventarioPage.tsx")).toContain("Nuevo producto");
     expect(leer("src/renderer/pages/SriMonitorPage.tsx")).toContain("Reintentar envío");

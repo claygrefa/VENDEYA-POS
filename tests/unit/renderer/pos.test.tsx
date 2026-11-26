@@ -351,6 +351,43 @@ describe("Cobro", () => {
     expect(screen.getByLabelText("Buscar producto")).toHaveFocus();
   });
 
+  it("sin impresora la factura igual se guarda: «Guardar factura (PDF)» descarga el archivo de la venta", async () => {
+    const descargas: string[] = [];
+    URL.createObjectURL = vi.fn(() => "blob:prueba");
+    URL.revokeObjectURL = vi.fn();
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) {
+      descargas.push(this.download);
+    });
+    const api = servidor((a) =>
+      a
+        .en("POST /api/ventas/v1/imprimir", { status: 409, cuerpo: { error: "ESTADO_INVALIDO", mensaje: "No hay una impresora configurada" } })
+        .en("GET /api/ventas/v1/ride", { texto: "%PDF-1.4", cabeceras: { "content-type": "application/pdf", "content-disposition": 'attachment; filename="factura-001-001-000000042.pdf"' } })
+    );
+    const { usuario, dialogo } = await conCafe(api);
+    await usuario.clear(within(dialogo).getByLabelText("Monto 1"));
+    await usuario.type(within(dialogo).getByLabelText("Monto 1"), "30");
+    await usuario.click(within(dialogo).getByRole("button", { name: "Confirmar cobro" }));
+
+    const confirmacion = await screen.findByRole("region", { name: "Venta registrada" });
+    await usuario.click(within(confirmacion).getByRole("button", { name: "Reimprimir ticket" }));
+    expect(await screen.findByText("No hay una impresora configurada")).toBeInTheDocument();
+    await usuario.click(within(confirmacion).getByRole("button", { name: "Guardar factura (PDF)" }));
+    expect(await screen.findByText("Factura guardada: factura-001-001-000000042.pdf")).toBeInTheDocument();
+    expect(descargas).toEqual(["factura-001-001-000000042.pdf"]);
+    expect(api.llamadasA("GET /api/ventas/v1/ride")).toHaveLength(1);
+  });
+
+  it("si la venta no generó factura (p. ej. Consumidor Final por más de USD 50) no se ofrece guardarla", async () => {
+    const api = servidor((a) =>
+      a.en("POST /api/ventas", { status: 201, cuerpo: { id: "v2", numero: "001-001-000000043", subtotal: 20, descuento: 0, iva: 3, propina: 0, total: 23, pagos: [{ formaPago: "EFECTIVO", monto: 23, cambio: 0 }], comprobante: null, advertencias: [] } })
+    );
+    const { usuario, dialogo } = await conCafe(api);
+    await usuario.click(within(dialogo).getByRole("button", { name: "Confirmar cobro" }));
+    const confirmacion = await screen.findByRole("region", { name: "Venta registrada" });
+    expect(within(confirmacion).getByRole("button", { name: "Reimprimir ticket" })).toBeInTheDocument();
+    expect(within(confirmacion).queryByRole("button", { name: "Guardar factura (PDF)" })).toBeNull();
+  });
+
   it("con cliente identificado se envía su id; el crédito exige cliente", async () => {
     const api = servidor((a) => a.en("GET /api/clientes", { cuerpo: { items: [{ id: "99999999-9999-4999-8999-999999999999", tipoIdentificacion: "05", identificacion: "1710034065", razonSocial: "Juan Pérez" }], total: 1, page: 1, pageSize: 10 } }));
     const { usuario, dialogo } = await conCafe(api, 0);

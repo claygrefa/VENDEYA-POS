@@ -86,6 +86,7 @@ const RUTAS: ReadonlyArray<readonly [Metodo, string, Requisito]> = [
   ["POST", "/api/ventas", "ventas:crear"],
   ["POST", "/api/ventas/:id/anular", "ventas:anular"],
   ["GET", "/api/ventas/:id", "ventas:leer"],
+  ["GET", "/api/ventas/:id/ride", "ventas:leer"],
   ["POST", "/api/turnos/abrir", "caja:crear"],
   ["POST", "/api/turnos/:id/movimientos", "caja:crear"],
   ["POST", "/api/turnos/:id/cerrar", "caja:crear"],
@@ -147,6 +148,20 @@ const RUTAS: ReadonlyArray<readonly [Metodo, string, Requisito]> = [
   ["PUT", "/api/configuracion/certificado", "configuracion:actualizar"],
   ["DELETE", "/api/configuracion/certificado", "configuracion:actualizar"],
   ["POST", "/api/configuracion/certificado/rotar-clave", "configuracion:actualizar"],
+  // ── Usuarios, sucursales y puntos de emisión ──
+  ["POST", "/api/auth/password", "sesion"],
+  ["GET", "/api/usuarios", "usuarios:leer"],
+  ["GET", "/api/roles", "usuarios:leer"],
+  ["POST", "/api/usuarios", "usuarios:crear"],
+  ["PATCH", "/api/usuarios/:id", "usuarios:actualizar"],
+  ["POST", "/api/usuarios/:id/estado", "usuarios:actualizar"],
+  ["POST", "/api/usuarios/:id/password", "usuarios:actualizar"],
+  ["GET", "/api/sucursales", "configuracion:leer"],
+  ["POST", "/api/sucursales", "configuracion:actualizar"],
+  ["PATCH", "/api/sucursales/:id", "configuracion:actualizar"],
+  ["POST", "/api/sucursales/:id/estado", "configuracion:actualizar"],
+  ["POST", "/api/sucursales/:id/puntos-emision", "configuracion:actualizar"],
+  ["PATCH", "/api/puntos-emision/:id", "configuracion:actualizar"],
 ];
 
 /** Permisos esperados por rol (fijados a mano: un cambio en el seed debe ser una decisión consciente). */

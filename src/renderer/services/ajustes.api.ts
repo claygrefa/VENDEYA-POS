@@ -3,7 +3,7 @@
 // ============================================================
 import type { DispositivosLicencia, EstadoLicencia } from "../../shared/types/licencia.types";
 import type { EstadoTelemetria, ReporteError } from "../../shared/types/telemetria.types";
-import type { ApiCliente } from "./api";
+import { consulta, type ApiCliente } from "./api";
 
 export interface DatosEmpresa {
   ruc: string;
@@ -98,6 +98,55 @@ export interface EstadoRespaldos {
 }
 
 export type DatosRestauracion = { origen: "local"; archivo: string; password: string } | { origen: "nube"; archivo: string; frase: string; password: string };
+
+export interface UsuarioGestion {
+  id: string;
+  username: string;
+  nombre: string;
+  apellido: string;
+  rol: string;
+  email: string | null;
+  cedula: string | null;
+  telefono: string | null;
+  estado: "ACTIVO" | "INACTIVO";
+  ultimoAcceso: string | null;
+  creado: string;
+  sesionesActivas: number;
+}
+
+export interface RolGestion {
+  nombre: string;
+  descripcion: string;
+}
+
+export interface DatosUsuarioNuevo {
+  username: string;
+  password: string;
+  rol: string;
+  nombre: string;
+  apellido: string;
+  email: string | null;
+  cedula: string | null;
+  telefono: string | null;
+}
+
+export interface PuntoEmisionGestion {
+  id: string;
+  codigo: string;
+  descripcion: string;
+  estado: "ACTIVO" | "INACTIVO";
+}
+
+export interface SucursalGestion {
+  id: string;
+  codigo: string;
+  nombre: string;
+  direccion: string;
+  telefono: string;
+  estado: "ACTIVO" | "INACTIVO";
+  turnosAbiertos: number;
+  puntosEmision: PuntoEmisionGestion[];
+}
 
 export class AjustesApi {
   constructor(readonly http: ApiCliente) {}
@@ -196,6 +245,50 @@ export class AjustesApi {
   }
   cancelarRestauracion(): Promise<EstadoRespaldos> {
     return this.http.delete("/api/respaldos/restaurar");
+  }
+
+  // Usuarios (administrador)
+  usuarios(filtro: { q?: string; estado?: string } = {}): Promise<{ items: UsuarioGestion[] }> {
+    return this.http.get(`/api/usuarios${consulta(filtro)}`);
+  }
+  roles(): Promise<{ items: RolGestion[] }> {
+    return this.http.get("/api/roles");
+  }
+  crearUsuario(datos: DatosUsuarioNuevo): Promise<UsuarioGestion> {
+    return this.http.post("/api/usuarios", datos);
+  }
+  actualizarUsuario(id: string, datos: Partial<Omit<DatosUsuarioNuevo, "username" | "password">>): Promise<UsuarioGestion> {
+    return this.http.patch(`/api/usuarios/${encodeURIComponent(id)}`, datos);
+  }
+  estadoUsuario(id: string, estado: "ACTIVO" | "INACTIVO"): Promise<UsuarioGestion> {
+    return this.http.post(`/api/usuarios/${encodeURIComponent(id)}/estado`, { estado });
+  }
+  restablecerPassword(id: string, datos: { passwordAdmin: string; password: string }): Promise<UsuarioGestion> {
+    return this.http.post(`/api/usuarios/${encodeURIComponent(id)}/password`, datos);
+  }
+  /** Cada usuario cambia su propia contraseña (cualquier rol) */
+  cambiarMiPassword(datos: { actual: string; nueva: string }): Promise<{ sesionesCerradas: number }> {
+    return this.http.post("/api/auth/password", datos);
+  }
+
+  // Sucursales y puntos de emisión (administrador)
+  sucursales(): Promise<{ items: SucursalGestion[] }> {
+    return this.http.get("/api/sucursales");
+  }
+  crearSucursal(datos: { nombre: string; direccion: string; telefono: string }): Promise<SucursalGestion> {
+    return this.http.post("/api/sucursales", datos);
+  }
+  actualizarSucursal(id: string, datos: { nombre?: string; direccion?: string; telefono?: string }): Promise<SucursalGestion> {
+    return this.http.patch(`/api/sucursales/${encodeURIComponent(id)}`, datos);
+  }
+  estadoSucursal(id: string, estado: "ACTIVO" | "INACTIVO"): Promise<SucursalGestion> {
+    return this.http.post(`/api/sucursales/${encodeURIComponent(id)}/estado`, { estado });
+  }
+  crearPuntoEmision(sucursalId: string, descripcion: string): Promise<SucursalGestion> {
+    return this.http.post(`/api/sucursales/${encodeURIComponent(sucursalId)}/puntos-emision`, { descripcion });
+  }
+  actualizarPuntoEmision(id: string, datos: { descripcion?: string; estado?: "ACTIVO" | "INACTIVO" }): Promise<SucursalGestion> {
+    return this.http.patch(`/api/puntos-emision/${encodeURIComponent(id)}`, datos);
   }
 
   // Telemetría opcional de errores

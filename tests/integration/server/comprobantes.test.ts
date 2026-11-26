@@ -464,6 +464,33 @@ describe("API de comprobantes", () => {
     expect(cuerpo.advertencias[0]).toMatch(/Consumidor Final/);
   });
 
+  it("GET /ventas/:id/ride: quien cobró guarda el PDF de la factura aunque no tenga permiso del monitor del SRI; sin factura 404", async () => {
+    const venta = async (emitirFactura: boolean): Promise<string> => {
+      const r = await api("POST", "/api/ventas", "api.caja", {
+        puntoEmisionId: env.seed.puntoEmisionId, clienteId: cliente.id, emitirFactura,
+        lineas: [{ productoId: p15.id, cantidad: 1 }], pagos: [{ formaPago: "EFECTIVO", monto: 12 }],
+      });
+      expect(r.statusCode).toBe(201);
+      return (r.json() as { id: string }).id;
+    };
+    const conFactura = await venta(true);
+    expect((await api("GET", "/api/comprobantes", "api.caja")).statusCode).toBe(403); // el monitor sigue vedado al cajero
+    const pdf = await api("GET", `/api/ventas/${conFactura}/ride`, "api.caja");
+    expect(pdf.statusCode).toBe(200);
+    expect(pdf.headers["content-type"]).toBe("application/pdf");
+    expect(pdf.headers["content-disposition"]).toMatch(/^attachment; filename="factura-\d{3}-\d{3}-\d{9}\.pdf"$/);
+    expect(pdf.headers["x-comprobante-autorizado"]).toBe("NO"); // aún pendiente: el PDF lo marca «sin valor tributario»
+    expect(pdf.rawPayload.subarray(0, 4).toString()).toBe("%PDF");
+    expect((await api("GET", `/api/ventas/${conFactura}/ride`, "api.conta")).statusCode).toBe(200);
+
+    const sinFactura = await venta(false);
+    const r404 = await api("GET", `/api/ventas/${sinFactura}/ride`, "api.caja");
+    expect(r404.statusCode).toBe(404);
+    expect((r404.json() as { mensaje: string }).mensaje).toMatch(/no tiene factura electrónica/);
+    expect((await api("GET", "/api/ventas/no-existe/ride", "api.caja")).statusCode).toBe(404);
+    expect((await api("GET", `/api/ventas/${conFactura}/ride`)).statusCode).toBe(401);
+  });
+
   it("GET /comprobantes: contador y supervisor lo ven (sin XML), el cajero no; filtros y paginación", async () => {
     expect((await api("GET", "/api/comprobantes", "api.caja")).statusCode).toBe(403);
     expect((await api("GET", "/api/comprobantes")).statusCode).toBe(401);

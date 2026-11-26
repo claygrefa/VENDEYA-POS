@@ -23,3 +23,42 @@ export const LoginSchema = z.object({
 });
 
 export type LoginInput = z.infer<typeof LoginSchema>;
+
+// ── Gestión de usuarios (administrador) ──────────────────────
+export const ROLES_USUARIO = ["ADMIN", "SUPERVISOR", "CAJERO", "BODEGUERO", "CONTADOR", "MESERO", "COCINA"] as const;
+
+/** Alta desde la pantalla de usuarios: la empresa es la del administrador que la hace. El usuario se guarda en minúsculas. */
+export const NuevoUsuarioSchema = UsuarioSchema.omit({ empresaId: true }).extend({
+  username: UsuarioSchema.shape.username.transform((u) => u.toLowerCase()),
+});
+export type NuevoUsuarioInput = z.infer<typeof NuevoUsuarioSchema>;
+
+/** Datos que se pueden corregir de un usuario (el nombre de usuario no cambia: figura en turnos y ventas). */
+export const ActualizarUsuarioSchema = z.object({
+  rol:      z.enum(ROLES_USUARIO).optional(),
+  nombre:   z.string().trim().min(1).max(100).optional(),
+  apellido: z.string().trim().min(1).max(100).optional(),
+  email:    UsuarioSchema.shape.email,
+  cedula:   UsuarioSchema.shape.cedula,
+  telefono: UsuarioSchema.shape.telefono,
+});
+export type ActualizarUsuarioInput = z.infer<typeof ActualizarUsuarioSchema>;
+
+export const EstadoUsuarioSchema = z.object({ estado: z.enum(["ACTIVO", "INACTIVO"]) });
+
+export const FiltroUsuariosSchema = z.object({
+  q:      z.string().trim().max(100).optional(),
+  estado: z.enum(["ACTIVO", "INACTIVO"]).optional(),
+});
+
+/** El administrador define una contraseña nueva para otra persona: confirma con la suya. */
+export const RestablecerPasswordSchema = z.object({
+  passwordAdmin: z.string().min(1, "Escriba su contraseña para confirmar").max(200),
+  password:      UsuarioSchema.shape.password,
+});
+
+/** Cada usuario cambia la suya: debe conocer la actual. */
+export const CambiarPasswordSchema = z.object({
+  actual: z.string().min(1, "Escriba su contraseña actual").max(200),
+  nueva:  UsuarioSchema.shape.password,
+}).refine((d) => d.actual !== d.nueva, { message: "La contraseña nueva debe ser distinta de la actual", path: ["nueva"] });

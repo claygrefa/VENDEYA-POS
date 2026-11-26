@@ -10,6 +10,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { VentaInputSchema, type VentaInput } from "../../shared/schemas/venta.schema";
 import { BuscadorProductos } from "../components/BuscadorProductos";
 import { CarritoPanel } from "../components/CarritoPanel";
+import { guardarArchivo } from "../components/Gestion";
 import { Aviso } from "../components/Modal";
 import { ModalCliente } from "../components/ModalCliente";
 import { ModalCobro, type DatosCobro } from "../components/ModalCobro";
@@ -200,6 +201,17 @@ export function PosScreen(): React.JSX.Element {
     }
   };
 
+  const guardarFactura = async (): Promise<void> => {
+    if (confirmacion === null) return;
+    try {
+      const { blob, nombre } = await api.facturaPdf(confirmacion.id);
+      guardarArchivo(nombre, blob);
+      setAviso({ tipo: "exito", texto: `Factura guardada: ${nombre}` });
+    } catch (e) {
+      setAviso({ tipo: "error", texto: e instanceof ApiError ? e.message : "No se pudo guardar la factura" });
+    }
+  };
+
   const reimprimir = async (): Promise<void> => {
     if (confirmacion === null) return;
     try {
@@ -242,7 +254,7 @@ export function PosScreen(): React.JSX.Element {
 
         <aside className="flex w-[26rem] min-w-[22rem] flex-col rounded-2xl border border-slate-700 bg-slate-800/60 p-4">
           {confirmacion !== null ? (
-            <Confirmacion venta={confirmacion} onNueva={nuevaVenta} onReimprimir={() => void reimprimir()} />
+            <Confirmacion venta={confirmacion} onNueva={nuevaVenta} onReimprimir={() => void reimprimir()} onGuardar={() => void guardarFactura()} />
           ) : (
             <>
               <CarritoPanel
@@ -326,7 +338,7 @@ export function PosScreen(): React.JSX.Element {
   );
 }
 
-function Confirmacion({ venta, onNueva, onReimprimir }: { venta: VentaEmitidaPos; onNueva: () => void; onReimprimir: () => void }): React.JSX.Element {
+function Confirmacion({ venta, onNueva, onReimprimir, onGuardar }: { venta: VentaEmitidaPos; onNueva: () => void; onReimprimir: () => void; onGuardar: () => void }): React.JSX.Element {
   const cambio = venta.pagos.reduce((a, p) => a + p.cambio, 0);
   return (
     <section aria-label="Venta registrada" className="flex flex-1 flex-col justify-between">
@@ -350,6 +362,11 @@ function Confirmacion({ venta, onNueva, onReimprimir }: { venta: VentaEmitidaPos
         ))}
       </div>
       <div className="mt-4 grid grid-cols-2 gap-2">
+        {venta.comprobante !== null ? (
+          <button type="button" onClick={onGuardar} className="col-span-2 h-12 rounded-xl border border-slate-500 text-white hover:bg-slate-700">
+            Guardar factura (PDF)
+          </button>
+        ) : null}
         <button type="button" onClick={onReimprimir} className="h-12 rounded-xl bg-slate-700 text-white">
           Reimprimir ticket
         </button>

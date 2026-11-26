@@ -79,6 +79,11 @@ export class PosApi {
     return this.http.post(`/api/ventas/${ventaId}/imprimir`);
   }
 
+  /** PDF de la factura de la venta (para guardarlo en el equipo) */
+  facturaPdf(ventaId: string): Promise<{ blob: Blob; nombre: string }> {
+    return this.http.archivo(`/api/ventas/${ventaId}/ride`);
+  }
+
   /** Estado de la cola del SRI; null si el usuario no tiene permiso para verla. */
   async colaSri(): Promise<ColaSriPos | null> {
     try {

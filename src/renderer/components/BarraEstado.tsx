@@ -1,10 +1,11 @@
 // ============================================================
 // src/renderer/components/BarraEstado.tsx — Cajero, turno y estado de la conexión, la cola del SRI y la impresora
 // ============================================================
-import React from "react";
+import React, { useState } from "react";
 import type { EstadoCliente } from "../../server/services/sync/syncCliente";
 import { useColaSri, useImpresora } from "../hooks/consultas";
 import { useSesion } from "../store/sesion.store";
+import { CambiarPassword } from "./CambiarPassword";
 
 interface Props {
   sync: { estado: EstadoCliente; desactivada: boolean };
@@ -23,6 +24,7 @@ export function BarraEstado({ sync, onSalir }: Props): React.JSX.Element {
   const alternarTactil = useSesion((s) => s.alternarTactil);
   const cola = useColaSri();
   const impresora = useImpresora();
+  const [cambiandoPassword, setCambiandoPassword] = useState(false);
 
   const pendientes = cola.data === undefined || cola.data === null ? null : cola.data.pendientes.length;
   const conexion = sync.desactivada
@@ -67,10 +69,14 @@ export function BarraEstado({ sync, onSalir }: Props): React.JSX.Element {
         <button type="button" onClick={alternarTactil} aria-pressed={tactil} className="rounded-lg border border-slate-600 px-3 py-1 hover:bg-slate-700">
           Modo táctil: {tactil ? "sí" : "no"}
         </button>
+        <button type="button" onClick={() => setCambiandoPassword(true)} className="rounded-lg border border-slate-600 px-3 py-1 hover:bg-slate-700">
+          Mi contraseña
+        </button>
         <button type="button" onClick={onSalir} className="rounded-lg px-3 py-1 text-red-300 hover:bg-slate-700">
           Salir
         </button>
       </div>
+      {cambiandoPassword ? <CambiarPassword onCerrar={() => setCambiandoPassword(false)} /> : null}
     </header>
   );
 }

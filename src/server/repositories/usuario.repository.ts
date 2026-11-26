@@ -31,4 +31,42 @@ export class UsuarioRepository {
   async registrarAcceso(id: string): Promise<void> {
     await this.prisma.usuario.update({ where: { id }, data: { ultimoAcceso: new Date() } });
   }
+
+  /** Usuario de la empresa indicada (nunca devuelve el de otra empresa). */
+  findByIdEnEmpresa(id: string, empresaId: string): Promise<UsuarioConRol | null> {
+    return this.prisma.usuario.findFirst({ where: { id, empresaId }, include: incluirRolYPermisos });
+  }
+
+  listar(empresaId: string, f: { q?: string | undefined; estado?: string | undefined }): Promise<UsuarioConRol[]> {
+    const q = f.q?.trim();
+    return this.prisma.usuario.findMany({
+      where: {
+        empresaId,
+        ...(f.estado !== undefined ? { status: f.estado } : {}),
+        ...(q !== undefined && q !== ""
+          ? { OR: [{ username: { contains: q } }, { nombre: { contains: q } }, { apellido: { contains: q } }, { cedula: { contains: q } }] }
+          : {}),
+      },
+      include: incluirRolYPermisos,
+      orderBy: [{ status: "asc" }, { nombre: "asc" }, { apellido: "asc" }],
+    });
+  }
+
+  listarRoles(): Promise<Array<{ id: string; nombre: string; descripcion: string }>> {
+    return this.prisma.rol.findMany({ select: { id: true, nombre: true, descripcion: true }, orderBy: { nombre: "asc" } });
+  }
+
+  update(id: string, data: Prisma.UsuarioUncheckedUpdateInput): Promise<UsuarioConRol> {
+    return this.prisma.usuario.update({ where: { id }, data, include: incluirRolYPermisos });
+  }
+
+  /** Administradores activos de la empresa (se excluye `excepto`): la empresa nunca puede quedarse sin uno. */
+  contarAdministradoresActivos(empresaId: string, excepto: string): Promise<number> {
+    return this.prisma.usuario.count({ where: { empresaId, status: "ACTIVO", rol: { nombre: "ADMIN" }, id: { not: excepto } } });
+  }
+
+  /** ¿Tiene un turno de caja abierto? (no se puede desactivar a quien tiene dinero a su cargo) */
+  async tieneTurnoAbierto(usuarioId: string): Promise<boolean> {
+    return (await this.prisma.turnoCaja.count({ where: { cajeroId: usuarioId, estado: "ABIERTO" } })) > 0;
+  }
 }

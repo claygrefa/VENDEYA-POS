@@ -21,3 +21,4 @@ export * from "./balanza.schema";
 export * from "./gestion.schema";
 export * from "./setup.schema";
 export * from "./respaldo.schema";
+export * from "./sucursal.schema";

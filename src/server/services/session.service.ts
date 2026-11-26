@@ -39,6 +39,30 @@ export class SessionService {
     this.sesiones.delete(token);
   }
 
+  /**
+   * Cierra todas las sesiones de un usuario (menos la indicada en `excepto`) y devuelve cuántas cerró. Se usa al desactivarlo, cambiarle el
+   * rol o la contraseña: la sesión guarda una copia de sus permisos, así que no basta con cambiar la base. Las cajas conectadas por la red
+   * local pierden su conexión en el siguiente latido de la sincronización.
+   */
+  revocarDeUsuario(usuarioId: string, excepto?: string): number {
+    let cerradas = 0;
+    for (const [token, s] of this.sesiones) {
+      if (s.usuario.id === usuarioId && token !== excepto) {
+        this.sesiones.delete(token);
+        cerradas += 1;
+      }
+    }
+    return cerradas;
+  }
+
+  /** Sesiones vigentes de un usuario (aparece «en línea» en la lista de usuarios). */
+  activasDe(usuarioId: string): number {
+    this.purgarExpiradas();
+    let n = 0;
+    for (const s of this.sesiones.values()) if (s.usuario.id === usuarioId) n += 1;
+    return n;
+  }
+
   get activas(): number {
     this.purgarExpiradas();
     return this.sesiones.size;
