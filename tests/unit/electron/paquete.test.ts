@@ -133,7 +133,7 @@ describe("Instalador de Windows (NSIS)", () => {
 
 describe("macOS (.dmg) — configuración lista, NO construida ni probada (hace falta un Mac)", () => {
   it("firma con hardened runtime y permisos para Electron, y genera dmg x64 y arm64", () => {
-    expect(cfg.mac.target).toEqual([{ target: "dmg", arch: ["x64", "arm64"] }]);
+    expect(cfg.mac.target).toEqual([{ target: "dmg", arch: ["x64", "arm64"] }, { target: "zip", arch: ["x64", "arm64"] }]);
     expect(cfg.mac.hardenedRuntime).toBe(true);
     for (const e of [cfg.mac.entitlements, cfg.mac.entitlementsInherit]) {
       const plist = readFileSync(path.join(RAIZ, cfg.directories.buildResources, e), "utf8");
@@ -152,26 +152,27 @@ describe("Firma, publicación y CI", () => {
 
   it("las actualizaciones se publican como GitHub Release (latest.yml), con canal beta para las versiones con sufijo", () => {
     expect(cfg.publish).toMatchObject({ provider: "github", owner: "claygrefa", repo: "VENDEYA-POS" });
-    expect(release).toContain("prerelease");
-    expect(release).toContain("--publish always");
+    expect(release).toContain("--publish never");
+    expect(release).toContain("release:publish -- --promote");
   });
 
-  it("la publicación solo parte de una etiqueta vX.Y.Z, verifica antes de construir y exige que la etiqueta coincida con package.json", () => {
-    expect(wf.on).toEqual({ push: { tags: ["v*"] } });
+  it("el candidato se verifica y firma antes de que el tag promueva sus artefactos", () => {
+    expect(wf.on).toEqual({ workflow_dispatch: null, push: { tags: ["v*"] } });
     expect(wf.jobs["windows"]?.needs).toBe("verificar");
     expect(wf.jobs["macos"]?.needs).toBe("verificar");
     expect(release).toContain("npm test");
-    expect(release).toMatch(/package\.json[\s\S]*GITHUB_REF_NAME/);
+    expect(wf.jobs["publicar"]).toMatchObject({ if: "github.event_name == 'push'", environment: "release-production" });
   });
 
   it("nada se publica sin firmar: forceCodeSigning en Windows y macOS, y notarización en macOS", () => {
     expect(cfg.win).toMatchObject({ verifyUpdateCodeSignature: true });
-    expect(release.match(/forceCodeSigning=true/g)).toHaveLength(2);
+    expect(leer("package.json")).toContain("--config.forceCodeSigning=true");
+    expect(release).toContain("Get-AuthenticodeSignature");
     expect(release).toContain("-c.mac.notarize=true");
   });
 
   it("los secretos llegan solo por `secrets.*` (nunca escritos) y no hay claves ni tokens en el repositorio", () => {
-    for (const s of ["WIN_CSC_LINK", "WIN_CSC_KEY_PASSWORD", "MAC_CSC_LINK", "MAC_CSC_KEY_PASSWORD", "APPLE_ID", "APPLE_APP_SPECIFIC_PASSWORD", "APPLE_TEAM_ID"]) {
+    for (const s of ["CSC_LINK", "CSC_KEY_PASSWORD", "MAC_CSC_LINK", "MAC_CSC_KEY_PASSWORD", "APPLE_ID", "APPLE_APP_SPECIFIC_PASSWORD", "APPLE_TEAM_ID"]) {
       expect(release).toContain(`\${{ secrets.${s} }}`);
     }
     for (const texto of [release, ci, leer("electron-builder.yml"), leer("package.json")]) {

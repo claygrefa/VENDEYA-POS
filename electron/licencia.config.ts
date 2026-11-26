@@ -24,6 +24,21 @@ export interface OpcionesConfigLicencia {
 
 const ES_PEM = /^-----BEGIN PUBLIC KEY-----[\s\S]+-----END PUBLIC KEY-----\s*$/;
 
+export function cargarDestinoTelemetria(o: OpcionesConfigLicencia): string | undefined {
+  const env = o.env["TELEMETRY_URL"]?.trim() || o.env["VENDEYA_TELEMETRIA_URL"];
+  if (env) return env;
+  const archivo = o.rutas.find((r) => existsSync(r));
+  if (archivo) {
+    try {
+      const j = JSON.parse(readFileSync(archivo, "utf8")) as { telemetriaUrl?: unknown };
+      if (typeof j.telemetriaUrl === "string") return j.telemetriaUrl;
+    } catch {
+      o.registrar?.("No se pudo leer el destino de telemetría");
+    }
+  }
+  return undefined;
+}
+
 /** https siempre; http solo contra el propio equipo (desarrollo del servidor de licencias). */
 function urlValida(valor: string): string | null {
   try {

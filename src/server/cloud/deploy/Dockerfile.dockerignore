@@ -1,0 +1,16 @@
+**
+!package.json
+!package-lock.json
+!tsconfig.node.json
+!src/
+!src/server/
+!src/server/cloud/
+!src/server/cloud/**
+!src/server/services/
+!src/server/services/licencia/
+!src/server/services/licencia/licencia.token.ts
+!src/server/services/telemetria/
+!src/server/services/telemetria/telemetria.util.ts
+!src/shared/
+!src/shared/types/
+!src/shared/types/telemetria.types.ts

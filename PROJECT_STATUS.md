@@ -2,15 +2,22 @@
 
 ## Estado General
 
+### Automatización de salida comercial v1.0.0 — 2026-11-26
+
+- [x] Backend cloud en `src/server/cloud/` con contrato de Electron, PostgreSQL, migración, Docker, Compose y Blueprint de Render. `cloud:init` genera una clave Ed25519 local. `cloud:verify` prueba el origen HTTPS, renueva una licencia verificable y registra telemetría.
+- [x] `tests/smoke/sriTestReal.smoke.ts` pide factura, RUC, certificado y contraseña oculta. Conserva la respuesta SOAP del SRI tras una autorización de pruebas válida. `tests/smoke/smoke-test-install.ps1` genera recibos distintos para instalación limpia y upgrade NSIS con conservación de datos.
+- [x] `.github/workflows/release.yml` firma el candidato ejecutado manualmente en Actions, verifica Authenticode y notariza macOS. El tag publica los mismos artefactos verificados. `electron/updater/release/` genera los manifiestos y aplica la comprobación de evidencia antes de crear el tag. El configurador Electron incorpora URL de licencias, clave pública y URL de telemetría al candidato.
+- [x] `docs/RELEASE_V1_RUNBOOK.md` y `npm run release:runbook` guían los pasos en orden. `evidence/` y `.release-private/` se excluyen de Git y del instalador. Se actualizaron `package.json`, `package-lock.json`, `electron-builder.yml`, `.gitignore`, el cliente SOAP y las pruebas del backend y del empaquetado.
+- [ ] Siguiente tarea atómica. Ejecutar `npm.cmd run cloud:init`, crear el Blueprint y generar `evidence/services.json` contra el HTTPS real. Después siguen `celcer`, los recibos de Windows, validación de firma y aprobación del tag.
+
+**Verificación local.** Pasaron 1.121 pruebas de regresión en 78 archivos, los cuatro chequeos TypeScript y ESLint. La integración cloud aplica la migración con PostgreSQL embebido, valida dispositivos y revocación, y comprueba telemetría deduplicada. Se confirmó la inicialización idempotente de claves en un directorio temporal, la sintaxis de Compose y de PowerShell, y el rechazo del control de publicación al faltar evidencia. La suite de estrés corresponde a la verificación previa. Docker Desktop no tenía un motor activo durante esta sesión. El despliegue HTTPS, la autorización del SRI, el smoke de la VM y la firma real siguen como verificaciones de campo.
+
+El control vigente es `npm run release:publish` para validar evidencia y `npm run release:publish -- --publish` para crear el tag anotado y subirlo tras aprobar el candidato. Esta sección reemplaza los comandos directos de tag de las bitácoras previas.
+
 ### Bloqueos de pre-lanzamiento v1.0.0 — 2026-11-26
 
 - [x] **Punto 5.** Electron escribe el UUID y la solicitud en disco antes de enviar el cobro. El POS ofrece recuperarlo al reiniciar. SQLite confirma el resultado junto al pago, la venta y el inventario. Los rechazos de negocio se guardan como `FAILED`. Las pruebas cubren un corte TCP posterior al commit, un reinicio del backend y un nuevo arranque del POS. Los clientes HTTP anteriores pueden omitir `intentoId`; para recuperar su propio cobro deben generarlo y reenviarlo. El contrato también admite UUID en el cobro de comandas.
-- [x] **Punto 4.** `package.json` y `electron-builder.yml` apuntan a `claygrefa/VENDEYA-POS`, que coincide con `origin`. Tras validar el candidato comercial, ejecutar estos comandos sobre el commit aprobado. Subir el tag dispara el flujo de publicación.
-
-```powershell
-git tag v1.0.0
-git push origin refs/tags/v1.0.0
-```
+- [x] **Punto 4.** `package.json` y `electron-builder.yml` apuntan a `claygrefa/VENDEYA-POS`, que coincide con `origin`. La sección de automatización comercial documenta el nuevo flujo con comprobación de evidencia.
 
 - [x] **Punto 6.** La app lee `LICENSE_SERVER_URL`, `LICENSE_PUBLIC_KEY` (PEM Ed25519) y `TELEMETRY_URL` del entorno al arrancar. Mantiene la validación en segundo plano cada 24 h y hasta 15 días de gracia desde la última validación exitosa, limitada por el vencimiento de la suscripción. La telemetría envía errores con consentimiento del administrador. Para probar el protocolo HTTP, ejecutar `npm run mock:prelanzamiento -- <RUC-de-prueba>` y configurar las variables que imprime en el proceso de la app. En desarrollo, añadir `VENDEYA_LICENCIA=on`. El receptor es local y su estado y clave cambian al reiniciarlo.
 - [x] **Punto 1, preparación.** El flujo comercial local y CI requieren `CSC_LINK` y `CSC_KEY_PASSWORD`, y activan `forceCodeSigning`. En Windows, cargar ambas variables en la sesión y ejecutar `npm run prisma:generate`, `npm run build:main`, `npm run build:vite` y `npm run build:release:win`. Configurar los secretos Windows/macOS del workflow para publicar. [Documentación de firma de electron-builder](https://www.electron.build/v26/docs/features/code-signing/).

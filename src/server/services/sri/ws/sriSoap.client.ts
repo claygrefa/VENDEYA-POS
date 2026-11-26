@@ -222,9 +222,13 @@ export class SriSoapClient implements ClienteSri {
   }
 
   async consultarAutorizacion(ambiente: AmbienteSri, claveAcceso: string): Promise<RespuestaAutorizacion> {
+    return (await this.consultarAutorizacionConXml(ambiente, claveAcceso)).resultado;
+  }
+
+  async consultarAutorizacionConXml(ambiente: AmbienteSri, claveAcceso: string): Promise<{ resultado: RespuestaAutorizacion; xml: string }> {
     const cuerpo = `<claveAccesoComprobante>${escapar(claveAcceso)}</claveAccesoComprobante>`;
     const r = await post(this.urls(ambiente).autorizacion, sobre(NS_AUTORIZACION, "autorizacionComprobante", cuerpo), this.timeoutMs);
-    return this.interpretar(r, leerRespuestaAutorizacion);
+    return { resultado: this.interpretar(r, leerRespuestaAutorizacion), xml: r.cuerpo };
   }
 
   /** Un SOAP Fault llega con HTTP 500: se intenta leer igual para dar un mensaje útil, y siempre es reintentable. */

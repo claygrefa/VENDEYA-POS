@@ -1,0 +1,34 @@
+name: vendeya-cloud
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: vendeya
+      POSTGRES_PASSWORD: vendeya-local
+      POSTGRES_DB: vendeya
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vendeya"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - postgres:/var/lib/postgresql/data
+  cloud:
+    build:
+      context: ../../../..
+      dockerfile: src/server/cloud/deploy/Dockerfile
+    environment:
+      CLOUD_DATABASE_URL: postgres://vendeya:vendeya-local@postgres:5432/vendeya
+      LICENSE_SIGNING_KEY_BASE64: ${LICENSE_SIGNING_KEY_BASE64:?Run npm run cloud:init first}
+    ports:
+      - "127.0.0.1:8080:8080"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/health').then(r=>{if(!r.ok)process.exitCode=1}).catch(()=>{process.exitCode=1})"]
+      interval: 5s
+      timeout: 3s
+      retries: 18
+    depends_on:
+      postgres:
+        condition: service_healthy
+volumes:
+  postgres:

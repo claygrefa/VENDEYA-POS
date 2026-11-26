@@ -11,18 +11,18 @@ import { XsdValidatorService } from "../../src/server/services/sri/xsdValidator.
 const AMBIENTE = "1";
 const LIMITE_ARCHIVO = 5 * 1024 * 1024;
 
-async function leerArchivo(ruta: string): Promise<Buffer> {
+export async function leerArchivo(ruta: string): Promise<Buffer> {
   const info = await stat(ruta);
   if (!info.isFile() || info.size > LIMITE_ARCHIVO) throw new Error("Se requiere un archivo regular de hasta 5 MiB");
   return readFile(ruta);
 }
 
-async function validarXsd(xml: string): Promise<void> {
+export async function validarXsd(xml: string): Promise<void> {
   const resultado = await new XsdValidatorService().validar("factura", xml);
   if (!resultado.valido) throw new Error(resultado.errores.map(({ mensaje }) => mensaje).join("\n"));
 }
 
-function validarClavePruebas(clave: string) {
+export function validarClavePruebas(clave: string) {
   if (!validarClaveAcceso(clave)) throw new Error("La clave de acceso no pasa Módulo 11");
   const partes = parsearClaveAcceso(clave);
   if (partes.ambiente !== AMBIENTE || partes.tipoComprobante !== "01") throw new Error("Se requiere una clave de factura del ambiente 1 (pruebas)");

@@ -21,7 +21,7 @@ import { liberarIpcImpresoras, registrarIpcImpresoras } from "./ipc/printer.ipc"
 import { liberarIpcUpdater, registrarIpcUpdater } from "./ipc/updater.ipc";
 import { MigracionFallidaError } from "../src/server/services/migration.service";
 import { ActualizadorApp, type AutoUpdaterLike } from "./updater/updater.service";
-import { cargarConfigLicencia } from "./licencia.config";
+import { cargarConfigLicencia, cargarDestinoTelemetria } from "./licencia.config";
 import { ClienteLicenciasHttp } from "../src/server/services/licencia/licencia.cliente";
 import { TransporteHttp } from "../src/server/services/telemetria/telemetria.service";
 import { esEnlaceExternoSeguro, esNavegacionPermitida } from "./navegacion.seguridad";
@@ -85,12 +85,16 @@ function calcularRutas(): RutasApp {
  * La app instalada verifica la licencia por defecto. VENDEYA_LICENCIA=on habilita las pruebas en desarrollo y off desactiva
  * la verificación. La URL y la clave pública se resuelven desde el entorno o los recursos de la instalación.
  */
-function opcionesLicencia(rutas: RutasApp): NonNullable<Parameters<typeof iniciarBackend>[0]["licencia"]> {
-  const config = cargarConfigLicencia({
+function configuracionServicios() {
+  return {
     rutas: [path.join(process.resourcesPath ?? "", "licencia.config.json"), path.join(app.getAppPath(), "electron", "licencia.config.json")],
     env: process.env,
-    registrar: (m) => console.warn(`[licencia] ${m}`),
-  });
+    registrar: (m: string) => console.warn(`[servicios cloud] ${m}`),
+  };
+}
+
+function opcionesLicencia(rutas: RutasApp): NonNullable<Parameters<typeof iniciarBackend>[0]["licencia"]> {
+  const config = cargarConfigLicencia(configuracionServicios());
   return {
     requerida: process.env["VENDEYA_LICENCIA"] === "on" || (app.isPackaged && process.env["VENDEYA_LICENCIA"] !== "off"),
     cliente: config === null ? null : new ClienteLicenciasHttp(config.servidorUrl),
@@ -101,7 +105,7 @@ function opcionesLicencia(rutas: RutasApp): NonNullable<Parameters<typeof inicia
 
 /** Destino de la telemetría (https) si se configuró; una URL inválida se ignora en lugar de impedir el arranque */
 function transporteTelemetria(): TransporteHttp | null {
-  const url = process.env["TELEMETRY_URL"]?.trim() || process.env["VENDEYA_TELEMETRIA_URL"];
+  const url = cargarDestinoTelemetria(configuracionServicios());
   if (url === undefined || url === "") return null;
   try {
     return new TransporteHttp(url);

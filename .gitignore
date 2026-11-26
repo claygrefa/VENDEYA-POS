@@ -4,7 +4,7 @@ node_modules/
 # Build outputs
 dist/
 dist-electron/
-release/
+/release/
 out/
 
 # Base de datos local
@@ -59,3 +59,9 @@ temp/
 
 # Entorno de pruebas local (nadie lo lee: las pruebas usan rutas propias); no se versiona
 .env.test
+
+# Credenciales locales y evidencia privada de release
+/.release-private/
+/evidence/
+/electron/licencia.config.json
+/smoke-baseline/
