@@ -958,3 +958,9 @@ El plan de 24 semanas está ejecutado; **el producto no debe publicarse todavía
 - Se generó y verificó el firmante de `out/vendeyapos-arranque-corregido/vendeyapos-Setup-1.0.0.exe` con el certificado de prueba. El backend empaquetado aplicó las 14 migraciones y respondió HTTP 200 para el asistente usando una copia de la base afectada. La base original quedó intacta.
 - Pasaron los tres chequeos de TypeScript, las 1.119 pruebas y 13 comprobaciones de contenido y backend del paquete. El arranque gráfico con perfil temporal sigue sin pasar en este entorno.
 - Siguiente tarea atómica: instalar el paquete corregido sobre la instalación de prueba y confirmar que se abre la ventana del asistente en Windows.
+
+### Arranque verificado en la instalación local — 2026-11-26
+
+- El acceso directo apuntaba a una instalación con el ASAR del paquete anterior. NSIS terminó con código 2 al intentar retirar esa instalación. Se respaldaron y reemplazaron únicamente los tres archivos de programa que diferían del paquete firmado corregido, sin borrar datos ni modificar accesos directos.
+- Se verificó el arranque real de la instalación reparada. La API respondió `configurado: false` y la ventana mostró el paso «Empresa» del asistente. La ventana quedó abierta.
+- Siguiente tarea atómica: reproducir el código 2 de NSIS en un entorno aislado y validar la actualización y el primer arranque en otra máquina Windows limpia.
