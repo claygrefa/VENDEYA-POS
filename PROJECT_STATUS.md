@@ -928,7 +928,7 @@ El plan de 24 semanas está ejecutado; **el producto no debe publicarse todavía
 ### Revisión del candidato 74aa179 — 2026-11-26
 
 - Distribución comercial bloqueada. El único instalador NSIS local devuelve `NotSigned`. El paquete descomprimido de Electron 45 pasó 13 comprobaciones de backend y contenido, con 14 migraciones aplicadas. El ejecutable completo no respondió ni creó la base en el perfil temporal de la prueba.
-- Los tres chequeos de TypeScript pasaron. `npm audit --omit=dev` no reportó hallazgos. La auditoría completa reportó 25 en herramientas de desarrollo y empaquetado (4 críticos, 13 altos y 8 moderados). Electron no figura en esa lista.
+- Los tres chequeos de TypeScript y las 1.118 pruebas en 76 archivos pasaron. `npm audit --omit=dev` no reportó hallazgos. La auditoría completa reportó 25 en herramientas de desarrollo y empaquetado (4 críticos, 13 altos y 8 moderados). Electron no figura en esa lista.
 - La configuración de Windows mantiene `verifyUpdateCodeSignature: false`, incluso cuando el flujo de release exige firmar el instalador. El destino de publicación configurado difiere de `origin`. Sigue pendiente verificar la autorización de una factura con el SRI y probar instalación, actualización y restauración en equipos limpios.
 - El cobro carece de idempotencia ante pérdida de respuesta después de confirmar la transacción. La prueba de estrés cubre un corte durante el envío, antes de completar la solicitud.
 - Archivo actualizado: `PROJECT_STATUS.md`. Siguiente tarea atómica: generar un instalador firmado de Windows con verificación de firma de actualizaciones habilitada y confirmar que inicia en un equipo limpio.
