@@ -951,3 +951,10 @@ El plan de 24 semanas está ejecutado; **el producto no debe publicarse todavía
 - La huella del firmante coincide con la del certificado público y `app-update.yml` contiene el mismo editor. Windows identificó la firma y reportó que su raíz no es de confianza en este entorno.
 - Pasaron los tres chequeos de TypeScript, las 1.118 pruebas y las 13 comprobaciones de contenido y backend del paquete. El ejecutable completo no respondió ni creó la base con el perfil temporal de la prueba.
 - Siguiente tarea atómica: probar el instalador en el Windows limpio que el usuario tiene disponible, con confianza de prueba configurada únicamente en ese equipo, y verificar la ventana del asistente y la creación de la base.
+
+### Recuperación de un primer arranque interrumpido — 2026-11-26
+
+- La inspección de solo lectura confirmó que la base que producía «El respaldo no contiene el esquema de la aplicación» únicamente tenía el registro de migraciones sin filas. `src/server/services/migration.service.ts` omite el respaldo previo en ese caso y mantiene el respaldo obligatorio para esquemas existentes. `tests/integration/server/migration.service.test.ts` cubre el reinicio después de un fallo durante la primera migración.
+- Se generó y verificó el firmante de `out/vendeyapos-arranque-corregido/vendeyapos-Setup-1.0.0.exe` con el certificado de prueba. El backend empaquetado aplicó las 14 migraciones y respondió HTTP 200 para el asistente usando una copia de la base afectada. La base original quedó intacta.
+- Pasaron los tres chequeos de TypeScript, las 1.119 pruebas y 13 comprobaciones de contenido y backend del paquete. El arranque gráfico con perfil temporal sigue sin pasar en este entorno.
+- Siguiente tarea atómica: instalar el paquete corregido sobre la instalación de prueba y confirmar que se abre la ventana del asistente en Windows.

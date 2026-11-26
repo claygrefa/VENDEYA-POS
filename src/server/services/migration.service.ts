@@ -124,7 +124,7 @@ export class MigrationService {
   async migrar(): Promise<ResultadoMigracion> {
     const { dbPath } = this.opciones;
     // Debe evaluarse antes de cualquier consulta: Prisma crea el archivo al primer acceso.
-    const existiaConDatos = existsSync(dbPath) && statSync(dbPath).size > 0;
+    const existiaArchivo = existsSync(dbPath) && statSync(dbPath).size > 0;
 
     const enDisco = this.listarEnDisco();
     await this.prisma.$executeRawUnsafe(CREAR_TABLA_MIGRACIONES);
@@ -144,7 +144,14 @@ export class MigrationService {
       return { aplicadas: [], respaldo: null };
     }
 
-    const respaldo = existiaConDatos ? await this.respaldos.crear("pre-migracion") : null;
+    // Un primer arranque interrumpido puede dejar solo el registro vacío de migraciones.
+    const objetos = existiaArchivo && aplicadas.size === 0
+      ? await this.prisma.$queryRawUnsafe<Array<{ name: string }>>(
+        `SELECT name FROM sqlite_master WHERE tbl_name NOT IN ('_prisma_migrations', 'sqlite_sequence') LIMIT 1`
+      )
+      : [];
+    const necesitaRespaldo = aplicadas.size > 0 || objetos.length > 0;
+    const respaldo = necesitaRespaldo ? await this.respaldos.crear("pre-migracion") : null;
 
     for (const m of pendientes) {
       try {

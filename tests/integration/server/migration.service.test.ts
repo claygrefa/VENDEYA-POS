@@ -60,6 +60,21 @@ describe("MigrationService", () => {
     expect(tablas).toHaveLength(4);
   });
 
+  it("reanuda el primer arranque si SQLite solo contiene el registro vacío de migraciones", async () => {
+    const migracionFallida = path.join(dir, "migraciones-fallidas", "20200101000000_fallo");
+    mkdirSync(migracionFallida, { recursive: true });
+    writeFileSync(path.join(migracionFallida, "migration.sql"), 'INSERT INTO "TablaInexistente" VALUES (1);');
+    await expect(servicio(path.dirname(migracionFallida)).migrar()).rejects.toMatchObject({ respaldo: null });
+    await prisma.$disconnect();
+    prisma = crearPrismaPara(dbPath);
+
+    const resultado = await servicio().migrar();
+    expect(resultado.aplicadas).toHaveLength(servicio().listarEnDisco().length);
+    expect(resultado.respaldo).toBeNull();
+    expect(existsSync(backupsDir)).toBe(false);
+    expect(await prisma.empresa.count()).toBe(0);
+  });
+
   it("registra checksum SHA-256 idéntico al de Prisma", async () => {
     await servicio().migrar();
     const filas = await prisma.$queryRawUnsafe<Array<{ migration_name: string; checksum: string; finished_at: unknown }>>(
