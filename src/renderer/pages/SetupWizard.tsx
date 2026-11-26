@@ -69,7 +69,7 @@ interface Terminado {
   certificado: { estado: "cargado" | "omitido" | "fallo"; detalle: string };
 }
 
-const primerError = (r: { success: false; error: { issues: Array<{ message: string; path: Array<string | number> }> } }): string => r.error.issues[0]?.message ?? "Revise los datos";
+const primerError = (r: { success: false; error: { issues: Array<{ message: string }> } }): string => r.error.issues[0]?.message ?? "Revise los datos";
 
 export function SetupWizard(): React.JSX.Element {
   const { api } = usePos();

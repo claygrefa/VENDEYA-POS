@@ -17,7 +17,11 @@ export function registrarIpcImpresoras(): void {
     const ventana = BrowserWindow.getAllWindows()[0];
     if (ventana === undefined) return [];
     const impresoras = await ventana.webContents.getPrintersAsync();
-    return impresoras.map((p) => ({ nombre: p.name, descripcion: p.description, esPredeterminada: p.isDefault }));
+    return impresoras.map((p) => ({
+      nombre: p.name,
+      descripcion: p.description,
+      esPredeterminada: Boolean((p as unknown as { isDefault?: boolean }).isDefault ?? (p.options as Record<string, unknown> | undefined)?.["is-default"]),
+    }));
   });
 }
 

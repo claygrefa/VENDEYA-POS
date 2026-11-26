@@ -4,8 +4,16 @@
 // + Fastify) → IPC → ventana. Apagado limpio del backend al salir.
 // ============================================================
 
+import fs from "fs";
 import path from "path";
 import { app, BrowserWindow, dialog, safeStorage, shell } from "electron";
+
+function devLog(msg: string): void {
+  console.log(`[main] ${msg}`);
+  try {
+    fs.appendFileSync(path.join(__dirname, "../../electron-dev.log"), `[${new Date().toISOString()}] ${msg}\n`);
+  } catch {}
+}
 import { autoUpdater } from "electron-updater";
 import { iniciarBackend, type BackendHandle } from "../src/server";
 import { liberarIpcApp, registrarIpcApp, type RutasApp } from "./ipc/app.ipc";
@@ -21,6 +29,9 @@ import { identificarDispositivo } from "../src/server/services/licencia/disposit
 
 const isDev = process.env["NODE_ENV"] === "development";
 const PUERTO_PREFERIDO = parseInt(process.env["SERVER_PORT"] ?? "3001", 10);
+
+// En terminales POS y entornos virtuales/remotos, la aceleración por hardware puede provocar caídas del proceso GPU (STATUS_BREAKPOINT)
+app.disableHardwareAcceleration();
 
 let backend: BackendHandle | null = null;
 let actualizador: ActualizadorApp | null = null;
@@ -53,9 +64,14 @@ function iniciarActualizador(): void {
 function calcularRutas(): RutasApp {
   const userData = app.getPath("userData");
   const dbEnv = process.env["DB_PATH"];
-  const db = dbEnv !== undefined && dbEnv !== "" ? path.resolve(dbEnv) : path.join(userData, "data", "vendeya.db");
+  const db =
+    dbEnv !== undefined && dbEnv !== ""
+      ? path.resolve(dbEnv)
+      : isDev
+        ? path.join(app.getAppPath(), "prisma", "dev.db")
+        : path.join(userData, "data", "vendeya.db");
   return {
-    userData,
+    userData: isDev ? path.join(app.getAppPath(), ".userData") : userData,
     db,
     backups: path.join(path.dirname(db), "backups"),
     // Empaquetado: extraResources → <resources>/prisma/migrations; desarrollo: raíz del proyecto
@@ -121,8 +137,9 @@ function createWindow(): BrowserWindow {
   });
 
   // La ventana no sale de la interfaz de la aplicación, no incrusta otras páginas y no pide cámara, micrófono, ubicación ni notificaciones
-  win.webContents.on("will-navigate", (evento, url) => {
-    if (!esNavegacionPermitida(url, isDev)) evento.preventDefault();
+  // La dirección viene en el propio evento (`evento.url`): los argumentos sueltos (url, isInPlace…) están obsoletos en Electron
+  win.webContents.on("will-navigate", (evento) => {
+    if (!esNavegacionPermitida(evento.url, isDev)) evento.preventDefault();
   });
   win.webContents.on("will-attach-webview", (evento) => evento.preventDefault());
   win.webContents.session.setPermissionRequestHandler((_contenido, _permiso, responder) => responder(false));
@@ -132,8 +149,17 @@ function createWindow(): BrowserWindow {
   });
 
   if (isDev) {
-    void win.loadURL("http://localhost:5173");
-    win.webContents.openDevTools();
+    const cargarDev = async (intentos = 30): Promise<void> => {
+      try {
+        await win.loadURL("http://localhost:5173");
+        win.webContents.openDevTools();
+      } catch {
+        if (intentos > 0 && !win.isDestroyed()) {
+          setTimeout(() => void cargarDev(intentos - 1), 500);
+        }
+      }
+    };
+    void cargarDev();
   } else {
     void win.loadFile(path.join(__dirname, "../../dist/index.html"));
   }
@@ -157,9 +183,12 @@ function urlDelServidor(): string | undefined {
 }
 
 async function arrancar(): Promise<void> {
+  devLog("arrancar(): calculando rutas...");
   const rutas = calcularRutas();
+  devLog(`arrancar(): db=${rutas.db}, userData=${rutas.userData}, migraciones=${rutas.migraciones}`);
   const servidor = urlDelServidor();
   if (servidor !== undefined) {
+    devLog(`arrancar(): modo caja secundaria con servidor ${servidor}`);
     console.log(`[caja secundaria] servidor: ${servidor}`);
     registrarIpcImpresoras();
     registrarIpcApp({ version: app.getVersion(), rutas, obtenerBackend: () => null, urlServidor: servidor });
@@ -168,6 +197,7 @@ async function arrancar(): Promise<void> {
     return;
   }
 
+  devLog("arrancar(): iniciando backend...");
   backend = await iniciarBackend({
     dbPath: rutas.db,
     migrationsDir: rutas.migraciones,
@@ -193,6 +223,7 @@ async function arrancar(): Promise<void> {
     port: PUERTO_PREFERIDO,
     logLevel: process.env["LOG_LEVEL"] ?? (isDev ? "info" : "warn"),
   });
+  devLog(`arrancar(): backend iniciado en ${backend.url}`);
   console.log(`[backend] ${backend.url} | migraciones aplicadas: ${backend.migraciones.aplicadas.length}`);
   if (backend.migraciones.respaldo !== null) {
     console.log(`[backend] respaldo previo: ${backend.migraciones.respaldo}`);
@@ -206,13 +237,18 @@ async function arrancar(): Promise<void> {
   });
   iniciarActualizador();
 
+  devLog("arrancar(): llamando a createWindow()...");
   createWindow();
+  devLog("arrancar(): createWindow() completado.");
 }
 
 // ── Instancia única: dos procesos sobre la misma BD SQLite corromperían el flujo de caja ──
+devLog("Verificando instancia única...");
 if (!app.requestSingleInstanceLock()) {
+  devLog("Bloqueo de instancia denegado (otra instancia ya corre). Saliendo.");
   app.quit();
 } else {
+  devLog("Instancia única adquirida. Esperando app.whenReady()...");
   app.on("second-instance", () => {
     const [ventana] = BrowserWindow.getAllWindows();
     if (ventana !== undefined) {
@@ -223,9 +259,14 @@ if (!app.requestSingleInstanceLock()) {
 
   app
     .whenReady()
-    .then(arrancar)
+    .then(async () => {
+      devLog("app.whenReady() resuelto. Iniciando arrancar()...");
+      await arrancar();
+      devLog("arrancar() completado con éxito.");
+    })
     .catch((error: unknown) => {
       const mensaje = error instanceof Error ? error.message : String(error);
+      devLog(`Fallo en arranque: ${mensaje} - ${String(error)}`);
       console.error("[backend] fallo de arranque:", error);
       if (error instanceof MigracionFallidaError) {
         const estado = error.restaurado

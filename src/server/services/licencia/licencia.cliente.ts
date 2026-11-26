@@ -115,7 +115,7 @@ export class ClienteLicenciasHttp implements ClienteLicencias {
     await this.pedir("liberar", p, null);
   }
 
-  private async pedir<T>(ruta: string, cuerpo: unknown, esquema: z.ZodType<T, z.ZodTypeDef, unknown> | null): Promise<T> {
+  private async pedir<T>(ruta: string, cuerpo: unknown, esquema: z.ZodSchema<T> | null): Promise<T> {
     let respuesta: Response;
     try {
       respuesta = await this.fetchFn(`${this.base}/v1/licencias/${ruta}`, {
