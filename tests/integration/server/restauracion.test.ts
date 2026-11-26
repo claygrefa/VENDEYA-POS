@@ -8,6 +8,7 @@ import path from "path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { runSeed } from "../../../prisma/seed";
 import { iniciarBackend, type BackendHandle } from "../../../src/server";
+import { crearPrismaPara } from "../../../src/server/config/database.config";
 import { PASSWORD_ADMIN } from "../helpers/entorno.helper";
 
 const MIGRACIONES = path.resolve(__dirname, "../../../prisma/migrations");
@@ -92,7 +93,6 @@ describe("Restaurar un respaldo local", () => {
     expect(((await api("GET", "/api/respaldos")).json() as { restauracionPendiente: unknown }).restauracionPendiente).toBeNull();
     expect(existsSync(path.join(path.dirname(dbPath), "restauracion-pendiente.db"))).toBe(false);
     // La base conservada contiene lo que había justo antes de restaurar
-    const { crearPrismaPara } = await import("../../../src/server/config/database.config");
     const copia = path.join(path.dirname(dbPath), guardadas[0] as string);
     const db = crearPrismaPara(copia);
     try {

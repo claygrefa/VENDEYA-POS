@@ -315,8 +315,14 @@ describe("Validación periódica en segundo plano", () => {
       servidor.alta("PERIODICA-0001", { ruc, plan: "PRO", maxDispositivos: 1, vence: new Date(ahora.getTime() + 365 * DIA) });
       expect((await api(e, "POST", "/api/licencia/activar", "admin", { clave: "PERIODICA-0001" })).statusCode).toBe(200);
 
+      // Con el servidor caído el trabajo periódico no puede renovar: así la comprobación de «gracia» no depende de la carrera entre
+      // el intervalo real (40 ms) y la lectura del estado, que con la máquina cargada daba «ACTIVA» a destiempo.
+      servidor.caido = true;
       reloj = new Date(reloj.getTime() + 4 * DIA); // 4 días sin validar → gracia
       expect((await estado("admin", e)).tipo).toBe("GRACIA");
+      await new Promise((r) => setTimeout(r, 120)); // varios intervalos del trabajo con el servidor caído: sigue en gracia
+      expect((await estado("admin", e)).tipo).toBe("GRACIA");
+      servidor.caido = false;
       const esperar = async (cond: () => boolean | Promise<boolean>, ms = 4000): Promise<void> => {
         const limite = Date.now() + ms;
         while (!(await cond())) {

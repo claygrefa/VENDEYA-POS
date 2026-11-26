@@ -109,7 +109,11 @@ export function parsearClaveAcceso(clave: string): PartesClaveAcceso {
   };
 }
 
-/** ¿La clave tiene 49 dígitos y un dígito verificador correcto? */
+/**
+ * ¿La clave tiene 49 dígitos y un dígito verificador correcto?
+ * Contrato: valida SOLO la forma y el Módulo 11 (detecta errores de digitación). No comprueba que el tipo de
+ * comprobante, el ambiente o el RUC sean coherentes; para eso se usa `parsearClaveAcceso` y se revisan sus partes.
+ */
 export function validarClaveAcceso(clave: string): boolean {
   if (!/^\d{49}$/.test(clave)) return false;
   return calcularDigitoVerificador(clave.slice(0, 48)) === Number(clave[48]);

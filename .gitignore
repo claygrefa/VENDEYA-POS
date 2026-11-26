@@ -55,3 +55,6 @@ coverage/
 # Temporales
 tmp/
 temp/
+
+# Entorno de pruebas local (nadie lo lee: las pruebas usan rutas propias); no se versiona
+.env.test

@@ -18,6 +18,7 @@ import type { RespaldoService } from "./respaldo.service";
 import { protegerRuta, restaurarRespaldo, verificarRespaldo } from "./respaldo.service";
 import type { RespaldoNubeService } from "./respaldoNube.service";
 import { parsear } from "./validation.util";
+import { renombrarConReintento } from "./archivo.util";
 
 const BASE_PENDIENTE = "restauracion-pendiente.db";
 const NOTA_PENDIENTE = "restauracion-pendiente.json";
@@ -76,7 +77,7 @@ export class RestauracionService {
       throw new AppError("ESTADO_INVALIDO", `El respaldo no es válido: ${e instanceof Error ? e.message : String(e)}`);
     }
     rmSync(staging, { force: true });
-    renameSync(temporal, staging);
+    renombrarConReintento(temporal, staging);
     protegerRuta(staging, false);
     const nota: RestauracionPendiente = { origen: datos.origen, archivo: datos.archivo, preparada: this.ahora().toISOString() };
     writeFileSync(path.join(this.directorioDatos, NOTA_PENDIENTE), JSON.stringify(nota), { mode: 0o600 });

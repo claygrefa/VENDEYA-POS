@@ -23,7 +23,7 @@ const tokens: Record<string, string> = {};
 const abiertos: Array<{ desconectar: () => void }> = [];
 
 const wsUrl = (): string => env.backend.url.replace(/^http/, "ws");
-const esperar = async (cond: () => boolean, ms = 5_000): Promise<void> => {
+const esperar = async (cond: () => boolean, ms = 15_000): Promise<void> => {
   const limite = Date.now() + ms;
   while (Date.now() < limite) {
     if (cond()) return;

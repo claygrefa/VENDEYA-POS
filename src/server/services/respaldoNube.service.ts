@@ -16,6 +16,7 @@ import { cifrarArchivo, descifrarArchivo, EXTENSION_RESPALDO_CIFRADO } from "./r
 import { cifrarSecreto, descifrarSecreto, type SecretoCifrado } from "./sri/firma/cifrado.util";
 import type { ProveedorClaveMaestra } from "./sri/firma/claveMaestra.provider";
 import { parsear } from "./validation.util";
+import { renombrarConReintento } from "./archivo.util";
 
 const ARCHIVO_CONFIG = "respaldos.json";
 const AAD_FRASE = "vendeya/respaldo-nube/frase";
@@ -78,7 +79,7 @@ export class RespaldoNubeService {
     // Se escribe a un temporal y se renombra: un corte a mitad no deja la configuración truncada
     const temporal = `${this.rutaConfig}.tmp`;
     writeFileSync(temporal, JSON.stringify(config), { mode: 0o600 });
-    renameSync(temporal, this.rutaConfig);
+    renombrarConReintento(temporal, this.rutaConfig);
     try {
       chmodSync(this.rutaConfig, 0o600);
     } catch {
@@ -121,7 +122,7 @@ export class RespaldoNubeService {
     const temporal = `${destino}.parcial`;
     try {
       await cifrarArchivo(origen, temporal, frase);
-      renameSync(temporal, destino);
+      renombrarConReintento(temporal, destino);
     } catch (e) {
       rmSync(temporal, { force: true });
       throw e;

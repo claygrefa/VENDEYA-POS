@@ -6,7 +6,7 @@
 // BD no obtiene ni el archivo ni la clave, y quien copie solo la carpeta de certificados no obtiene la contraseña.
 // La contraseña y la clave privada nunca se devuelven por la API ni se registran.
 // ============================================================
-import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "fs";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "fs";
 import path from "path";
 import type { PrismaClient } from "@prisma/client";
 import { CargarCertificadoSchema, MAX_BYTES_P12 } from "../../../shared/schemas/certificado.schema";
@@ -17,6 +17,7 @@ import { parsear } from "../validation.util";
 import { cifrarSecreto, descifrarSecreto, type SecretoCifrado } from "./firma/cifrado.util";
 import type { ProveedorClaveMaestra } from "./firma/claveMaestra.provider";
 import { DIAS_AVISO_VENCIMIENTO, leerPkcs12, validarCertificadoParaEmisor, type MaterialFirma } from "./firma/pkcs12.util";
+import { renombrarConReintento } from "../archivo.util";
 
 const DIA_MS = 86_400_000;
 
@@ -223,7 +224,7 @@ export class CertificadoService {
     const destino = this.ruta(nombre);
     const temporal = `${destino}.tmp`;
     writeFileSync(temporal, contenido, { mode: 0o600 });
-    renameSync(temporal, destino);
+    renombrarConReintento(temporal, destino);
   }
 
   private leerArchivo(nombre: string): Buffer {

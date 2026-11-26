@@ -24,13 +24,12 @@
     "noPropertyAccessFromIndexSignature": false,
 
     /* Path aliases */
-    "baseUrl": ".",
     "paths": {
-      "@shared/*": ["src/shared/*"],
-      "@renderer/*": ["src/renderer/*"],
-      "@server/*": ["src/server/*"],
-      "bwip-js": ["node_modules/bwip-js/dist/bwip-js.d.ts"]
+      "@shared/*": ["./src/shared/*"],
+      "@renderer/*": ["./src/renderer/*"],
+      "@server/*": ["./src/server/*"],
+      "bwip-js": ["./node_modules/bwip-js/dist/bwip-js.d.ts"]
     }
   },
-  "include": ["src/renderer/**/*.ts", "src/renderer/**/*.tsx", "src/shared/**/*.ts", "tests/unit/renderer/**/*.ts", "tests/unit/renderer/**/*.tsx", "tests/helpers/renderer/**/*.ts", "tests/helpers/renderer/**/*.tsx", "tests/integration/renderer/**/*.ts"]
+  "include": ["./src/renderer/**/*.ts", "src/renderer/**/*.tsx", "src/shared/**/*.ts", "tests/unit/renderer/**/*.ts", "tests/unit/renderer/**/*.tsx", "tests/helpers/renderer/**/*.ts", "tests/helpers/renderer/**/*.tsx", "tests/integration/renderer/**/*.ts"]
 }

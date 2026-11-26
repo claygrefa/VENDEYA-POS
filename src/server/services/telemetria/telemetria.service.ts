@@ -8,13 +8,14 @@
 //   · Archivos en la carpeta de secretos: `telemetria.json` (consentimiento, id aleatorio de la instalación) y `telemetria-cola.json`.
 // ============================================================
 import { randomUUID } from "crypto";
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "fs";
 import path from "path";
 import { z } from "zod";
 import type { EstadoTelemetria, LoteTelemetria, ReporteError } from "../../../shared/types/telemetria.types";
 import { AppError } from "../appError.util";
 import { parsear } from "../validation.util";
 import { construirReporte, EntradaErrorSchema } from "./telemetria.util";
+import { renombrarConReintento } from "../archivo.util";
 
 export const MAX_COLA = 50;
 const ARCHIVO_CONFIG = "telemetria.json";
@@ -98,7 +99,7 @@ export class TelemetriaService {
     const destino = this.ruta(nombre);
     const temporal = `${destino}.tmp`;
     writeFileSync(temporal, JSON.stringify(datos), { mode: 0o600 });
-    renameSync(temporal, destino);
+    renombrarConReintento(temporal, destino);
   }
 
   private leerCola(): ReporteError[] {

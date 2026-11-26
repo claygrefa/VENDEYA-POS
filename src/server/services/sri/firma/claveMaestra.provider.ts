@@ -11,10 +11,11 @@
 //   preparar → escribe `master.key.nueva`; (el llamador re-cifra y confirma en la BD) ; confirmar → promueve la nueva.
 //   Si hay una clave pendiente, `candidatas()` la devuelve también para poder recuperarse.
 // ============================================================
-import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "fs";
 import path from "path";
 import { randomBytes } from "crypto";
 import { AppError } from "../../appError.util";
+import { renombrarConReintento } from "../../archivo.util";
 
 export interface ProteccionClave {
   /** Envuelve la clave (base64) con el almacén seguro del sistema */
@@ -89,7 +90,7 @@ export class ProveedorClaveMaestra {
   confirmarRotacion(): void {
     const pendiente = path.join(this.directorio, ARCHIVO_NUEVA);
     if (!existsSync(pendiente)) throw new AppError("ESTADO_INVALIDO", "No hay una rotación de clave pendiente");
-    renameSync(pendiente, path.join(this.directorio, ARCHIVO));
+    renombrarConReintento(pendiente, path.join(this.directorio, ARCHIVO));
   }
 
   /** Descarta una rotación que no llegó a confirmarse. */
@@ -139,6 +140,6 @@ export class ProveedorClaveMaestra {
     } catch {
       /* Windows: los permisos POSIX no aplican; el acceso lo controla la carpeta del perfil de usuario */
     }
-    renameSync(temporal, ruta);
+    renombrarConReintento(temporal, ruta);
   }
 }
