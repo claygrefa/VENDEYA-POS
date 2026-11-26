@@ -165,6 +165,7 @@ describe("Firma, publicación y CI", () => {
   });
 
   it("nada se publica sin firmar: forceCodeSigning en Windows y macOS, y notarización en macOS", () => {
+    expect(cfg.win).toMatchObject({ verifyUpdateCodeSignature: true });
     expect(release.match(/forceCodeSigning=true/g)).toHaveLength(2);
     expect(release).toContain("-c.mac.notarize=true");
   });

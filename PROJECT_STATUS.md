@@ -932,3 +932,9 @@ El plan de 24 semanas está ejecutado; **el producto no debe publicarse todavía
 - La configuración de Windows mantiene `verifyUpdateCodeSignature: false`, incluso cuando el flujo de release exige firmar el instalador. El destino de publicación configurado difiere de `origin`. Sigue pendiente verificar la autorización de una factura con el SRI y probar instalación, actualización y restauración en equipos limpios.
 - El cobro carece de idempotencia ante pérdida de respuesta después de confirmar la transacción. La prueba de estrés cubre un corte durante el envío, antes de completar la solicitud.
 - Archivo actualizado: `PROJECT_STATUS.md`. Siguiente tarea atómica: generar un instalador firmado de Windows con verificación de firma de actualizaciones habilitada y confirmar que inicia en un equipo limpio.
+
+### Firma de actualizaciones de Windows — 2026-11-26
+
+- `electron-builder.yml` habilita `win.verifyUpdateCodeSignature`. En una compilación firmada, electron-builder registra el editor del certificado en `app-update.yml`. `tests/unit/electron/paquete.test.ts` comprueba que la protección siga habilitada.
+- Pasaron los tres chequeos de TypeScript, las 1.118 pruebas en 76 archivos, `build:main` y `build:vite`. La compilación NSIS con firma obligatoria y publicación deshabilitada llegó a SignTool y se detuvo por falta de acceso al certificado de firma de código.
+- Siguiente tarea atómica: usar el certificado de VENDEYA para construir el NSIS, validar Authenticode y el editor en `app-update.yml`, e instalar y verificar el primer arranque en el Windows limpio.

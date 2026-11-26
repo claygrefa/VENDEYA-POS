@@ -81,9 +81,8 @@ win:
   requestedExecutionLevel: asInvoker
   signingHashAlgorithms:
     - sha256
-  # Activar (true) cuando exista el certificado de firma: entonces electron-updater verifica que cada actualización venga firmada por el
-  # mismo editor (publisherName) antes de instalarla.
-  verifyUpdateCodeSignature: false
+  # El paquete firmado incorpora el editor del certificado en app-update.yml.
+  verifyUpdateCodeSignature: true
 
 nsis:
   oneClick: true
