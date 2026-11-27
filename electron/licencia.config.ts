@@ -19,13 +19,19 @@ export interface OpcionesConfigLicencia {
   /** Rutas candidatas de `licencia.config.json` (la primera que exista) */
   rutas: string[];
   env: NodeJS.ProcessEnv;
+  /**
+   * Aplicación instalada: la URL, la clave pública y el destino de telemetría salen SOLO de `licencia.config.json` (el que se incrusta al
+   * compilar). Las variables de entorno se ignoran: quien controla el entorno de un equipo no puede apuntar la verificación a su propio
+   * servidor y su propia clave.
+   */
+  empaquetada?: boolean;
   registrar?: (mensaje: string) => void;
 }
 
 const ES_PEM = /^-----BEGIN PUBLIC KEY-----[\s\S]+-----END PUBLIC KEY-----\s*$/;
 
 export function cargarDestinoTelemetria(o: OpcionesConfigLicencia): string | undefined {
-  const env = o.env["TELEMETRY_URL"]?.trim() || o.env["VENDEYA_TELEMETRIA_URL"];
+  const env = o.empaquetada === true ? undefined : o.env["TELEMETRY_URL"]?.trim() || o.env["VENDEYA_TELEMETRIA_URL"];
   if (env) return env;
   const archivo = o.rutas.find((r) => existsSync(r));
   if (archivo) {
@@ -52,8 +58,9 @@ function urlValida(valor: string): string | null {
 
 export function cargarConfigLicencia(o: OpcionesConfigLicencia): ConfigLicencia | null {
   const aviso = o.registrar ?? ((): void => undefined);
-  let url = o.env["LICENSE_SERVER_URL"]?.trim() || o.env["VENDEYA_LICENCIAS_URL"];
-  let clave = (o.env["LICENSE_PUBLIC_KEY"]?.trim() || o.env["VENDEYA_LICENCIAS_CLAVE_PUBLICA"])?.replace(/\\n/g, "\n");
+  const variables: NodeJS.ProcessEnv = o.empaquetada === true ? {} : o.env;
+  let url = variables["LICENSE_SERVER_URL"]?.trim() || variables["VENDEYA_LICENCIAS_URL"];
+  let clave = (variables["LICENSE_PUBLIC_KEY"]?.trim() || variables["VENDEYA_LICENCIAS_CLAVE_PUBLICA"])?.replace(/\\n/g, "\n");
 
   if (url === undefined || url === "" || clave === undefined || clave === "") {
     const archivo = o.rutas.find((r) => existsSync(r));

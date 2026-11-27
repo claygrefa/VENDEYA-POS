@@ -5,6 +5,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -33,7 +34,26 @@ jobs:
           npx tsc --noEmit -p tsconfig.electron.json
       - name: Pruebas
         run: npm test
+      - name: Lint
+        run: npm run lint
+      - name: Dependencias de producción (lo que viaja en el instalador)
+        run: npm audit --omit=dev
       - name: Compilación
         run: |
           npm run build:main
           npm run build:vite
+
+  # Banco de estrés (25.000 productos, 1.000 ventas, 500 facturas sin red): mide tiempos, por eso no corre en cada cambio ni en `npm test`
+  estres:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm run test:estres

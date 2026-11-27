@@ -77,6 +77,14 @@ export class PosApi {
     return resultado;
   }
 
+  /**
+   * Cierra un cobro que la caja no logra confirmar. El servidor lo rechaza (409) si ya lo había registrado: en ese caso hay que recuperarlo.
+   * Si lo acepta, queda marcado y ningún reintento rezagado podrá crear la venta.
+   */
+  descartarCobro(intentoId: string): Promise<void> {
+    return this.http.post(`/api/cobros/${encodeURIComponent(intentoId)}/descartar`);
+  }
+
   reimprimir(ventaId: string): Promise<void> {
     return this.http.post(`/api/ventas/${ventaId}/imprimir`);
   }

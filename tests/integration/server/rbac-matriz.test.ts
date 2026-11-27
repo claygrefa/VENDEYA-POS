@@ -84,6 +84,7 @@ const RUTAS: ReadonlyArray<readonly [Metodo, string, Requisito]> = [
   ["POST", "/api/cuentas-por-pagar/:id/pagos", "proveedores:actualizar"],
   // ── Ventas y caja ──
   ["POST", "/api/ventas", "ventas:crear"],
+  ["POST", "/api/cobros/:intentoId/descartar", "ventas:crear"],
   ["POST", "/api/ventas/:id/anular", "ventas:anular"],
   ["GET", "/api/ventas/:id", "ventas:leer"],
   ["GET", "/api/ventas/:id/ride", "ventas:leer"],

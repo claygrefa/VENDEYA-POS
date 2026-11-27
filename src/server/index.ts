@@ -20,6 +20,7 @@ import { restaurarRespaldo, type RespaldoService } from "./services/respaldo.ser
 import { aplicarRestauracionPendiente } from "./services/restauracion.service";
 import { RespaldoWorker, type OpcionesRespaldoJob } from "./jobs/respaldo.job";
 import { LicenciaWorker, type OpcionesLicenciaWorker } from "./jobs/licencia.job";
+import { purgarIntentosCobro } from "./services/intentoCobro.service";
 import type { OpcionesLicencia } from "./services/licencia/licencia.service";
 
 /** Caché de páginas de SQLite en KB (64 MB) */
@@ -181,6 +182,7 @@ export async function iniciarBackend(opciones: BackendOptions): Promise<BackendH
   let worker: SriWorker | null = null;
   let licenciaWorker: LicenciaWorker | null = null;
   let respaldoWorker: RespaldoWorker | null = null;
+  let purgaIntentos: NodeJS.Timeout | null = null;
 
   const backupsDir = opciones.backupsDir ?? path.join(path.dirname(opciones.dbPath), "backups");
   let respaldos: RespaldoService | null = null;
@@ -243,6 +245,11 @@ export async function iniciarBackend(opciones: BackendOptions): Promise<BackendH
     licenciaWorker.iniciar();
     respaldoWorker?.iniciar();
     servicios.sync.iniciar();
+    // Los intentos de cobro resueltos guardan la respuesta completa de cada venta: se purgan los antiguos al arrancar y cada 24 h
+    const purgar = (): void => void purgarIntentosCobro(prisma).catch(() => undefined);
+    purgar();
+    purgaIntentos = setInterval(purgar, 24 * 3_600_000);
+    purgaIntentos.unref();
 
     return {
       server: servidor,
@@ -255,6 +262,7 @@ export async function iniciarBackend(opciones: BackendOptions): Promise<BackendH
       migraciones,
       respaldos,
       close: async () => {
+        if (purgaIntentos !== null) clearInterval(purgaIntentos);
         await licenciaWorker?.detener();
         await respaldoWorker?.detener();
         await worker?.detener();
@@ -264,6 +272,7 @@ export async function iniciarBackend(opciones: BackendOptions): Promise<BackendH
       },
     };
   } catch (e) {
+    if (purgaIntentos !== null) clearInterval(purgaIntentos);
     await worker?.detener().catch(() => undefined);
     await licenciaWorker?.detener().catch(() => undefined);
     await respaldoWorker?.detener().catch(() => undefined);

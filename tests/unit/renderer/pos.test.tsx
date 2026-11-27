@@ -455,6 +455,67 @@ describe("Cobro", () => {
     expect(reiniciado.llamadasA("POST /api/ventas").map((l) => l.cuerpo)).toEqual([solicitud]);
   });
 
+  it("con un error del servidor que no se resuelve, la caja puede descartar el cobro: el servidor lo cierra, el carrito se conserva y no queda nada pendiente", async () => {
+    const api = servidor((a) => a.en("POST /api/ventas", { status: 500, cuerpo: { error: "ERROR_INTERNO", mensaje: "Error interno del servidor" } }));
+    const { usuario, dialogo, unmount } = await conCafe(api);
+    await usuario.click(within(dialogo).getByRole("button", { name: "Confirmar cobro" }));
+    // el cobro queda pendiente; «Descartar» aparece recién tras el intento fallido
+    expect(await screen.findByText("Cobro pendiente de confirmación")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent("Error interno del servidor");
+    const intentoId = VentaInputSchema.parse(api.llamadasA("POST /api/ventas")[0]?.cuerpo).intentoId as string;
+    api.en(`POST /api/cobros/${intentoId}/descartar`, { cuerpo: { estado: "DESCARTADO" } });
+
+    await usuario.click(screen.getByRole("button", { name: "Descartar cobro pendiente" }));
+    const confirmar = await screen.findByRole("dialog", { name: "Descartar cobro pendiente" });
+    await usuario.click(within(confirmar).getByRole("button", { name: "Sí, descartar" }));
+
+    expect(await screen.findByText(/Cobro descartado: no se registró ninguna venta/)).toBeInTheDocument();
+    expect(screen.queryByText("Cobro pendiente de confirmación")).not.toBeInTheDocument();
+    expect(api.llamadasA(`POST /api/cobros/${intentoId}/descartar`)).toHaveLength(1);
+    expect(api.llamadasA("POST /api/ventas")).toHaveLength(1); // descartar no vuelve a cobrar
+    expect(useCarrito.getState().lineas).toHaveLength(1);
+    unmount();
+
+    // al reabrir la caja ya no hay nada que recuperar
+    renderizarPos({ api: servidor() });
+    await screen.findByLabelText("Buscar producto");
+    expect(screen.queryByRole("button", { name: "Recuperar cobro" })).not.toBeInTheDocument();
+  });
+
+  it("si el servidor ya había registrado el cobro, descartarlo se rechaza: sigue pendiente y se recupera", async () => {
+    const api = servidor((a) => a.en("POST /api/ventas", { status: 500, cuerpo: { error: "ERROR_INTERNO", mensaje: "Error interno del servidor" } }));
+    const { usuario, dialogo } = await conCafe(api);
+    await usuario.click(within(dialogo).getByRole("button", { name: "Confirmar cobro" }));
+    await screen.findByText("Cobro pendiente de confirmación");
+    const intentoId = VentaInputSchema.parse(api.llamadasA("POST /api/ventas")[0]?.cuerpo).intentoId as string;
+    api.en(`POST /api/cobros/${intentoId}/descartar`, { status: 409, cuerpo: { error: "ESTADO_INVALIDO", mensaje: "Este cobro ya se registró en el servidor: use «Recuperar cobro» para obtener la venta" } });
+
+    await usuario.click(await screen.findByRole("button", { name: "Descartar cobro pendiente" }));
+    await usuario.click(within(await screen.findByRole("dialog", { name: "Descartar cobro pendiente" })).getByRole("button", { name: "Sí, descartar" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/ya se registró en el servidor/);
+    expect(screen.getByText("Cobro pendiente de confirmación")).toBeInTheDocument();
+
+    // ahora el servidor responde: la recuperación entrega la venta
+    api.en("POST /api/ventas", { status: 201, cuerpo: { id: "v1", numero: "001-001-000000042", subtotal: 20, descuento: 0, iva: 3, propina: 0, total: 23, pagos: [{ formaPago: "EFECTIVO", monto: 23, cambio: 0 }], comprobante: null, advertencias: [] } });
+    await usuario.click(screen.getByRole("button", { name: "Recuperar cobro" }));
+    await screen.findByRole("region", { name: "Venta registrada" });
+  });
+
+  it("al reabrir la caja con un cobro pendiente solo se ofrece recuperarlo; descartar aparece después de un intento fallido", async () => {
+    const api = servidor((a) => a.en("POST /api/ventas", () => { throw new TypeError("fetch failed"); }));
+    const { usuario, dialogo, unmount } = await conCafe(api);
+    await usuario.click(within(dialogo).getByRole("button", { name: "Confirmar cobro" }));
+    await screen.findByText("Cobro pendiente de confirmación");
+    unmount();
+
+    const reiniciado = servidor((a) => a.en("POST /api/ventas", () => { throw new TypeError("fetch failed"); }));
+    const r = renderizarPos({ api: reiniciado });
+    const recuperar = await screen.findByRole("button", { name: "Recuperar cobro" });
+    expect(screen.queryByRole("button", { name: "Descartar cobro pendiente" })).not.toBeInTheDocument();
+    await r.usuario.click(recuperar);
+    expect(await screen.findByRole("button", { name: "Descartar cobro pendiente" })).toBeInTheDocument();
+  });
+
   it("si ya no hay turno abierto vuelve a la apertura y el carrito se conserva", async () => {
     const api = servidor((a) => a.en("POST /api/ventas", { status: 409, cuerpo: { error: "TURNO_REQUERIDO", mensaje: "Debe abrir un turno de caja" } }).en("GET /api/turnos/actual", { status: 409, cuerpo: { error: "TURNO_REQUERIDO", mensaje: "Sin turno" } }));
     const { usuario, dialogo } = await conCafe(api);

@@ -5,7 +5,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "fs";
 import os from "os";
 import path from "path";
 import { afterAll, describe, expect, it } from "vitest";
-import { cargarConfigLicencia } from "../../../electron/licencia.config";
+import { cargarConfigLicencia, cargarDestinoTelemetria } from "../../../electron/licencia.config";
 import { generarClavesLicencia } from "../../helpers/licencias.helper";
 
 const { publica } = generarClavesLicencia();
@@ -58,5 +58,24 @@ describe("Configuración del licenciamiento", () => {
     expect(cargarConfigLicencia({ rutas: [archivo("roto.json", "{ no es json")], registrar, env: {} })).toBeNull();
     expect(avisos).toHaveLength(3);
     expect(avisos[2]).toContain("el JSON es inválido");
+  });
+
+  describe("aplicación instalada: el entorno no manda", () => {
+    const { publica: ajena } = generarClavesLicencia();
+
+    it("ignora las variables de entorno (otra URL y otra clave) y usa solo la configuración incrustada", () => {
+      const ruta = archivo("instalada.json", { servidorUrl: "https://del-instalador.test", clavePublica: publica, telemetriaUrl: "https://del-instalador.test/v1/telemetria" });
+      const env = { LICENSE_SERVER_URL: "https://del-atacante.test", LICENSE_PUBLIC_KEY: ajena, VENDEYA_LICENCIAS_URL: "https://otro.test", TELEMETRY_URL: "https://del-atacante.test/t" };
+      expect(cargarConfigLicencia({ rutas: [ruta], env, empaquetada: true })).toEqual({ servidorUrl: "https://del-instalador.test", clavePublica: publica.trim() });
+      expect(cargarDestinoTelemetria({ rutas: [ruta], env, empaquetada: true })).toBe("https://del-instalador.test/v1/telemetria");
+      // en desarrollo (no instalada) las variables siguen mandando
+      expect(cargarConfigLicencia({ rutas: [ruta], env: { LICENSE_SERVER_URL: "https://de-desarrollo.test", LICENSE_PUBLIC_KEY: ajena }, empaquetada: false })).toMatchObject({ servidorUrl: "https://de-desarrollo.test" });
+    });
+
+    it("sin configuración incrustada no hay licenciamiento configurado aunque el entorno la traiga", () => {
+      const env = { LICENSE_SERVER_URL: "https://del-atacante.test", LICENSE_PUBLIC_KEY: ajena };
+      expect(cargarConfigLicencia({ rutas: [path.join(dir, "no-existe.json")], env, empaquetada: true })).toBeNull();
+      expect(cargarDestinoTelemetria({ rutas: [], env: { TELEMETRY_URL: "https://del-atacante.test/t" }, empaquetada: true })).toBeUndefined();
+    });
   });
 });

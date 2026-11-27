@@ -4,15 +4,11 @@
 // + Fastify) → IPC → ventana. Apagado limpio del backend al salir.
 // ============================================================
 
-import fs from "fs";
 import path from "path";
 import { app, BrowserWindow, dialog, safeStorage, shell } from "electron";
 
 function devLog(msg: string): void {
-  console.log(`[main] ${msg}`);
-  try {
-    fs.appendFileSync(path.join(__dirname, "../../electron-dev.log"), `[${new Date().toISOString()}] ${msg}\n`);
-  } catch {}
+  if (isDev) console.log(`[main] ${msg}`);
 }
 import { autoUpdater } from "electron-updater";
 import { iniciarBackend, type BackendHandle } from "../src/server";
@@ -82,13 +78,15 @@ function calcularRutas(): RutasApp {
 }
 
 /**
- * La app instalada verifica la licencia por defecto. VENDEYA_LICENCIA=on habilita las pruebas en desarrollo y off desactiva
- * la verificación. La URL y la clave pública se resuelven desde el entorno o los recursos de la instalación.
+ * La app instalada SIEMPRE verifica la licencia: ninguna variable de entorno la desactiva (VENDEYA_LICENCIA=on solo la habilita en
+ * desarrollo). Instalada, la URL y la clave pública salen únicamente de la configuración incrustada en los recursos; en desarrollo
+ * también se aceptan variables de entorno.
  */
 function configuracionServicios() {
   return {
     rutas: [path.join(process.resourcesPath ?? "", "licencia.config.json"), path.join(app.getAppPath(), "electron", "licencia.config.json")],
     env: process.env,
+    empaquetada: app.isPackaged,
     registrar: (m: string) => console.warn(`[servicios cloud] ${m}`),
   };
 }
@@ -96,7 +94,7 @@ function configuracionServicios() {
 function opcionesLicencia(rutas: RutasApp): NonNullable<Parameters<typeof iniciarBackend>[0]["licencia"]> {
   const config = cargarConfigLicencia(configuracionServicios());
   return {
-    requerida: process.env["VENDEYA_LICENCIA"] === "on" || (app.isPackaged && process.env["VENDEYA_LICENCIA"] !== "off"),
+    requerida: app.isPackaged || process.env["VENDEYA_LICENCIA"] === "on",
     cliente: config === null ? null : new ClienteLicenciasHttp(config.servidorUrl),
     clavePublica: config?.clavePublica ?? null,
     dispositivo: identificarDispositivo({ directorioSecretos: path.join(rutas.userData, "secretos"), version: app.getVersion() }),

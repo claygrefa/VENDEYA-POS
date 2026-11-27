@@ -33,6 +33,17 @@ const comunes = (l: Archivo[]): string[] => cadenas(l).filter((x) => !x.includes
 const bin = (...p: string[]): Buffer => readFileSync(path.join(RAIZ, cfg.directories.buildResources, ...p));
 
 describe("Qué entra en el paquete", () => {
+  it("el backend cloud (código y dependencias propias de PostgreSQL) no viaja en el instalador de escritorio", () => {
+    for (const lista of [cfg.files, cfg.win.files, cfg.mac.files]) {
+      const excluidos = cadenas(lista);
+      expect(excluidos).toContain("!dist-electron/src/server/cloud/**");
+      expect(excluidos).toContain("!node_modules/{pg,pg-*,pgpass,postgres-*,@fastify/rate-limit}/**");
+    }
+    // y esas dependencias solo las usa el backend cloud
+    const pkg = JSON.parse(leer("package.json")) as { dependencies: Record<string, string> };
+    expect(Object.keys(pkg.dependencies)).toEqual(expect.arrayContaining(["pg", "@fastify/rate-limit"]));
+  });
+
   it("la lista de archivos común está repetida igual en Windows y macOS (electron-builder ignora la global si la plataforma define la suya)", () => {
     expect(comunes(cfg.win.files)).toEqual(comunes(cfg.files));
     expect(comunes(cfg.mac.files)).toEqual(comunes(cfg.files));

@@ -13,8 +13,13 @@ export default defineConfig({
     pool: "forks",
     poolOptions: { forks: { maxForks: 6, minForks: 1 } },
     include: ["tests/**/*.{test,spec}.ts", "tests/**/*.{test,spec}.tsx"],
-    // El banco de rendimiento (tests/performance) tarda minutos y genera una base de cientos de MB: solo corre con `npm run test:rendimiento`
-    exclude: ["node_modules", "dist", "dist-electron", "release", "out", ...(process.env["VENDEYA_RENDIMIENTO"] === "1" ? [] : ["tests/performance/**"])],
+    // El banco de rendimiento (tests/performance) tarda minutos y genera una base de cientos de MB: solo corre con `npm run test:rendimiento`.
+    // La suite de estrés (tests/stress) tarda varios minutos y mide tiempos, así que depende de la carga de la máquina: solo corre con `npm run test:estres`
+    exclude: [
+      "node_modules", "dist", "dist-electron", "release", "out",
+      ...(process.env["VENDEYA_RENDIMIENTO"] === "1" ? [] : ["tests/performance/**"]),
+      ...(process.env["VENDEYA_ESTRES"] === "1" ? [] : ["tests/stress/**"]),
+    ],
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html"],

@@ -3,6 +3,7 @@
 // ============================================================
 import type { FastifyReply, FastifyRequest } from "fastify";
 import type { Servicios } from "../services/container.factory";
+import { descartarIntento } from "../services/intentoCobro.service";
 import { actorDe } from "./actor.util";
 
 export function crearVentaController(servicios: Servicios) {
@@ -14,6 +15,15 @@ export function crearVentaController(servicios: Servicios) {
       // El ticket y la gaveta se atienden aparte: la respuesta de la venta no espera a la impresora ni depende de ella
       if (!resultado.repetido) void servicios.impresion.alCobrar(resultado.valor.id, actor);
       return reply.status(201).send(resultado.valor);
+    },
+
+    /** La caja descarta un cobro que no logra confirmar. 409 si el servidor ya lo había registrado (hay que recuperarlo). */
+    descartarCobro: async (
+      req: FastifyRequest<{ Params: { intentoId: string } }>,
+      reply: FastifyReply
+    ): Promise<FastifyReply> => {
+      await descartarIntento(servicios.prisma, actorDe(req), req.params.intentoId);
+      return reply.send({ estado: "DESCARTADO" });
     },
 
     anular: async (

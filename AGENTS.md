@@ -36,14 +36,16 @@ Tu objetivo es diseñar, construir, probar y empaquetar **VENDEYA-POS**, un sist
   - *Restaurante / Cafetería:* Mapa de mesas, cuentas abiertas, división de cuentas y comandas a cocina/barra.
 
 ## 5. Prohibición Absoluta de Desorden (Clean Architecture & Folder Discipline)
-1. **Raíz Limpia:** Está estrictamente prohibido crear archivos `.ts`, `.tsx`, `.js`, `.sql` o scripts sueltos en la carpeta raíz `vedeya-pos/`. En la raíz solo pueden existir los archivos de configuración estándar (`package.json`, `tsconfig*.json`, `vite.config.ts`, `vitest.config.ts`, `electron-builder.yml`, `.gitignore`, `AGENTS.md`, `PROJECT_STATUS.md`).
+1. **Raíz Limpia:** Está estrictamente prohibido crear archivos `.ts`, `.tsx`, `.js`, `.sql` o scripts sueltos en la carpeta raíz `vedeya-pos/`. En la raíz solo pueden existir los archivos de configuración estándar (`package.json`, `tsconfig*.json`, `vite.config.ts`, `vitest.config.ts`, `electron-builder.yml`, `.gitignore`, `AGENTS.md`, `PROJECT_STATUS.md`). Los informes del auditor (`AUDIT_REPORT.md`, `REVIEWER_AGENT.md`) conviven en la raíz pero **no se versionan**; cualquier otro informe o guía va en `docs/`.
 2. **Estructura Obligatoria de Carpetas:** Todo el proyecto debe respetar exactamente esta jerarquía:
    - `electron/`: Proceso principal (`main.ts`), `preload.ts`, auto-updater (`updater/`), IPC handlers y acceso a hardware.
    - `prisma/`: `schema.prisma`, `seed.ts` y carpeta `migrations/`.
    - `src/shared/`: Tipos (`types/`), esquemas Zod (`schemas/`) y constantes SRI (`constants/`) compartidos.
    - `src/server/`: Servidor Fastify (`index.ts`), `config/`, `controllers/`, `services/` (incluyendo subcarpetas `sri/` y `hardware/`), `repositories/`, `routes/` y `jobs/`.
+   - `src/server/cloud/`: backend en la nube de licencias y telemetría (PostgreSQL), independiente del POS local; **no viaja en el instalador** (se excluye en `electron-builder.yml`). Su despliegue vive en `src/server/cloud/deploy/`.
    - `src/renderer/`: Interfaz React (`App.tsx`, `main.tsx`), `assets/`, `components/`, `hooks/`, `pages/`, `services/` y `store/`.
-   - `tests/`: Pruebas automatizadas (`unit/` e `integration/`) replicando la estructura de `src/`.
+   - `tests/`: Pruebas automatizadas (`unit/` e `integration/`) replicando la estructura de `src/`. Además: `helpers/` (utilidades de prueba), `smoke/` (verificaciones de paquete, instalación y SRI), `config/` (ESLint), y los bancos pesados `performance/` y `stress/`, que **no corren en `npm test`** (ver `npm run test:rendimiento` y `npm run test:estres`).
+   - `docs/`: guías e informes del proyecto (runbook de publicación, informe de estrés). Es solo documentación: no lleva código.
 3. **Nombres Profesionales y Consistentes:**
    - Componentes React en `PascalCase.tsx` (ej. `PosScreen.tsx`, `CartSummary.tsx`).
    - Servicios, controladores y utilidades en `camelCase` con sufijo de rol (ej. `venta.service.ts`, `sriWorker.job.ts`, `claveAcceso.util.ts`).

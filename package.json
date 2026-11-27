@@ -13,7 +13,7 @@
   "scripts": {
     "dev": "npm run build:main && concurrently -k \"npm run dev:vite\" \"npm run dev:electron\"",
     "dev:vite": "vite",
-    "dev:electron": "wait-on tcp:5173 && cross-env NODE_ENV=development electron .",
+    "dev:electron": "wait-on tcp:5173 && node electron/dev-runner.cjs",
     "build": "npm run prisma:generate && npm run build:tsc && npm run build:main && npm run build:vite && npm run build:electron",
     "build:tsc": "tsc --noEmit -p tsconfig.node.json",
     "build:main": "tsc -p tsconfig.electron.json && node -e \"require('fs').cpSync('src/server/services/sri/xsd','dist-electron/src/server/services/sri/xsd',{recursive:true})\"",
@@ -24,6 +24,7 @@
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.node.json",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:estres": "cross-env VENDEYA_ESTRES=1 vitest run tests/stress --testTimeout=600000 --hookTimeout=600000",
     "test:rendimiento": "cross-env VENDEYA_RENDIMIENTO=1 vitest run tests/performance/rendimiento.test.ts --testTimeout=1800000 --hookTimeout=3600000",
     "test:paquete": "node tests/smoke/paquete.smoke.js",
     "smoke-test-install": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests/smoke/smoke-test-install.ps1",

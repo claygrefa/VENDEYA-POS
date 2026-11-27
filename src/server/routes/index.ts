@@ -86,6 +86,8 @@ export function registrarRutas(server: FastifyInstance, servicios: Servicios): v
   const anularVenta = { preHandler: requerirSesion(servicios, { modulo: "ventas", accion: "anular" }) };
   const leerVentas = { preHandler: requerirSesion(servicios, { modulo: "ventas", accion: "leer" }) };
   server.post("/api/ventas", crearVenta, ventas.crear);
+  // Salida de un cobro que la caja no logra confirmar: lo cierra con una lápida (no crea ni duplica ventas); 409 si ya estaba registrado
+  server.post<{ Params: { intentoId: string } }>("/api/cobros/:intentoId/descartar", { preHandler: requerirSesion(servicios, { modulo: "ventas", accion: "crear" }) }, ventas.descartarCobro);
   server.post<{ Params: { id: string } }>("/api/ventas/:id/anular", anularVenta, ventas.anular);
   server.get<{ Params: { id: string } }>("/api/ventas/:id", leerVentas, ventas.obtener);
   // PDF de la factura de la venta (lo guarda quien cobró, con o sin impresora): permiso de ventas, no del monitor del SRI

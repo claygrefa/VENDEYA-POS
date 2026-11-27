@@ -33,6 +33,7 @@ files:
   - "!node_modules/.bin"
   - "!dist-electron/**/*.map"
   - "!dist-electron/src/server/cloud/**"
+  - "!node_modules/{pg,pg-*,pgpass,postgres-*,@fastify/rate-limit}/**"
   - "!dist-electron/electron/updater/release/**"
   # Lo que es del equipo de desarrollo NUNCA viaja en un instalador: código fuente, pruebas, salidas de compilación, informes internos,
   # variables de entorno y bases de datos de desarrollo. Las migraciones y el schema van aparte (extraResources). tests/unit/electron/paquete.test.ts lo vigila.
@@ -67,6 +68,7 @@ win:
     - "!node_modules/.bin"
     - "!dist-electron/**/*.map"
     - "!dist-electron/src/server/cloud/**"
+    - "!node_modules/{pg,pg-*,pgpass,postgres-*,@fastify/rate-limit}/**"
     - "!dist-electron/electron/updater/release/**"
     # Lo que es del equipo de desarrollo NUNCA viaja en un instalador: código fuente, pruebas, salidas de compilación, informes internos,
     # variables de entorno y bases de datos de desarrollo. Las migraciones y el schema van aparte (extraResources). tests/unit/electron/paquete.test.ts lo vigila.
@@ -128,6 +130,7 @@ mac:
     - "!node_modules/.bin"
     - "!dist-electron/**/*.map"
     - "!dist-electron/src/server/cloud/**"
+    - "!node_modules/{pg,pg-*,pgpass,postgres-*,@fastify/rate-limit}/**"
     - "!dist-electron/electron/updater/release/**"
     # Lo que es del equipo de desarrollo NUNCA viaja en un instalador: código fuente, pruebas, salidas de compilación, informes internos,
     # variables de entorno y bases de datos de desarrollo. Las migraciones y el schema van aparte (extraResources). tests/unit/electron/paquete.test.ts lo vigila.

@@ -14,6 +14,13 @@ const Lote = z.object({
   })).min(1).max(50),
 });
 
+/**
+ * Cuotas de telemetría por día: el endpoint no tiene autenticación (la aplicación instalada no guarda ningún secreto compartido), así que el
+ * límite por IP no basta para impedir que alguien llene el disco con identificadores inventados. Por instalación y en total.
+ */
+export const MAX_REPORTES_INSTALACION_DIA = 500;
+export const MAX_REPORTES_DIA = 50_000;
+
 export async function crearCloud(db: Pool, privada: string, proxy: false | number = false) {
   const app = Fastify({
     bodyLimit: 256 * 1024, trustProxy: proxy === false ? false : (_ip, salto) => salto < proxy,
@@ -53,6 +60,11 @@ export async function crearCloud(db: Pool, privada: string, proxy: false | numbe
       vista: r.vista === null ? null : limpiarTexto(r.vista, 40),
       version: limpiarTexto(r.version, 50), plataforma: limpiarTexto(r.plataforma, 50),
     }));
+    const { rows } = await db.query<{ instalacion: string; total: string }>(
+      `SELECT count(*) FILTER (WHERE installation = $1::uuid) AS instalacion, count(*) AS total
+         FROM telemetry_reports WHERE received_at > now() - interval '1 day'`, [lote.instalacion]);
+    if (Number(rows[0]?.instalacion ?? 0) + reportes.length > MAX_REPORTES_INSTALACION_DIA) return reply.code(429).send({ error: "CUOTA_INSTALACION" });
+    if (Number(rows[0]?.total ?? 0) + reportes.length > MAX_REPORTES_DIA) return reply.code(429).send({ error: "CUOTA_DIARIA" });
     await db.query(`INSERT INTO telemetry_reports (installation, id, report)
       SELECT $1::uuid, (r->>'id')::uuid, r FROM jsonb_array_elements($2::jsonb) AS r ON CONFLICT DO NOTHING`,
     [lote.instalacion, JSON.stringify(reportes)]);

@@ -447,6 +447,8 @@ model IntentoCobro {
   errorCodigo  String?
   errorMensaje String?
   creadoEn     DateTime @default(now())
+
+  @@index([creadoEn])
 }
 
 model Venta {

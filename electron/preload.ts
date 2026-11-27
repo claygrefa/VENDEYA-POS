@@ -6,13 +6,8 @@
 
 import { contextBridge, ipcRenderer } from "electron";
 
-/** Versión de la aplicación expuesta al renderer */
-const appVersion: string = process.env?.["npm_package_version"] ?? "1.0.0";
-
 /** API expuesta al renderer a través de contextBridge */
 export interface VendeyaAPI {
-  /** Versión del paquete */
-  readonly version: string;
   /** Plataforma del sistema operativo */
   readonly platform: NodeJS.Platform;
   /**
@@ -61,7 +56,6 @@ function isAllowedListen(channel: string): channel is AllowedListenChannel {
 }
 
 const vendeyaAPI: VendeyaAPI = {
-  version: appVersion,
   platform: process.platform,
 
   invoke: async <T = unknown>(channel: string, ...args: unknown[]): Promise<T> => {

@@ -11,7 +11,7 @@ import { CobroPendienteSchema, type CobroPendiente } from "../../shared/schemas/
 import { BuscadorProductos } from "../components/BuscadorProductos";
 import { CarritoPanel } from "../components/CarritoPanel";
 import { guardarArchivo } from "../components/Gestion";
-import { Aviso } from "../components/Modal";
+import { Aviso, Modal } from "../components/Modal";
 import { ModalCliente } from "../components/ModalCliente";
 import { ModalCobro, type DatosCobro } from "../components/ModalCobro";
 import { ModalLinea, type ResultadoLinea } from "../components/ModalLinea";
@@ -54,6 +54,7 @@ export function PosScreen(): React.JSX.Element {
   const [errorCobro, setErrorCobro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [pendiente, setPendiente] = useState<CobroPendiente | null>(null);
+  const [confirmandoDescarte, setConfirmandoDescarte] = useState(false);
   const [estadoAlmacen, setEstadoAlmacen] = useState<"leyendo" | "listo" | "error">("leyendo");
   const enCurso = useRef(false);
   const refBusqueda = useRef<HTMLInputElement>(null);
@@ -266,6 +267,29 @@ export function PosScreen(): React.JSX.Element {
     }
   };
 
+  /**
+   * Salida de un cobro que no se logra confirmar. Primero lo cierra el servidor (si ya lo había registrado lo dice y no se descarta);
+   * solo después se borra el intento guardado en esta caja. El carrito se conserva para volver a cobrar.
+   */
+  const descartarPendiente = async (): Promise<void> => {
+    if (usuario === null || pendiente === null || enCurso.current) return;
+    enCurso.current = true;
+    setEnviando(true);
+    try {
+      await api.descartarCobro(pendiente.intentoId);
+      await operarCobroPendiente(usuario, { tipo: "retirar", intentoId: pendiente.intentoId });
+      setPendiente(null);
+      setErrorCobro(null);
+      setAviso({ tipo: "info", texto: "Cobro descartado: no se registró ninguna venta. El carrito se conservó para volver a cobrar." });
+    } catch (e) {
+      setErrorCobro(e instanceof ApiError ? e.message : "No se pudo descartar el cobro. Intente de nuevo.");
+    } finally {
+      setConfirmandoDescarte(false);
+      enCurso.current = false;
+      setEnviando(false);
+    }
+  };
+
   const guardarFactura = async (): Promise<void> => {
     if (confirmacion === null) return;
     try {
@@ -317,6 +341,25 @@ export function PosScreen(): React.JSX.Element {
         <button type="button" className="btn-primary" disabled={enviando} onClick={() => void enviarCobro(pendiente)}>
           {enviando ? "Consultando…" : "Recuperar cobro"}
         </button>
+        {/* Solo tras un intento fallido: con la conexión caída lo normal es recuperarlo, no descartarlo */}
+        {errorCobro !== null && (
+          <button type="button" className="rounded-lg border border-red-500/60 px-4 py-2 text-sm text-red-200 hover:bg-red-950/40" disabled={enviando} onClick={() => setConfirmandoDescarte(true)}>
+            Descartar cobro pendiente
+          </button>
+        )}
+        {confirmandoDescarte && (
+          <Modal titulo="Descartar cobro pendiente" ancho="sm" ayuda="ESC cancela">
+            <div className="space-y-3">
+              <p className="text-sm text-slate-300">
+                El servidor verificará que el cobro no se haya registrado. Si no se registró, se cancela y no se creará ninguna venta con esta clave; el carrito se conserva. Si ya se registró, se le avisará y deberá usar «Recuperar cobro».
+              </p>
+              <div className="flex justify-end gap-2">
+                <button type="button" className="rounded-lg bg-slate-700 px-4 py-2 text-sm text-white" onClick={() => setConfirmandoDescarte(false)}>Cancelar</button>
+                <button type="button" className="rounded-lg bg-red-700 px-4 py-2 text-sm text-white" disabled={enviando} onClick={() => void descartarPendiente()}>Sí, descartar</button>
+              </div>
+            </div>
+          </Modal>
+        )}
       </div>
     );
   }
