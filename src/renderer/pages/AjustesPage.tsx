@@ -112,9 +112,12 @@ function SeccionEmpresa(): React.JSX.Element {
   const [f, setF] = useState<AjustesNegocio["empresa"] | null>(null);
   const [produccionConfirmada, setProduccionConfirmada] = useState(false);
   const [mensaje, setMensaje] = useState<Mensaje>(null);
+  // Se reinicia solo si los datos del servidor cambian de verdad: una recarga con los mismos datos no debe pisar lo que se está escribiendo
+  const empresaServidor = q.data === undefined ? null : JSON.stringify(q.data.empresa);
   useEffect(() => {
     if (q.data !== undefined) setF(q.data.empresa);
-  }, [q.data]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [empresaServidor]);
 
   const guardar = useMutation({
     mutationFn: (e: AjustesNegocio["empresa"]) => {
@@ -174,9 +177,12 @@ function SeccionModulos(): React.JSX.Element {
   const [giro, setGiro] = useState("");
   const [confirmar, setConfirmar] = useState(false);
   const [mensaje, setMensaje] = useState<Mensaje>(null);
+  // El giro elegido se reinicia solo cuando cambia el del servidor (p. ej. tras aplicarlo), no en cada recarga de los ajustes: activar un
+  // módulo vuelve a cargarlos y, si se reiniciara siempre, borraría la selección que la persona está haciendo.
+  const giroServidor = q.data?.giroNegocio;
   useEffect(() => {
-    if (q.data !== undefined) setGiro(q.data.giroNegocio);
-  }, [q.data]);
+    if (giroServidor !== undefined) setGiro(giroServidor);
+  }, [giroServidor]);
 
   const alExito = (texto: string) => async (): Promise<void> => {
     setMensaje({ tipo: "exito", texto });

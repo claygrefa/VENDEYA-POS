@@ -169,9 +169,10 @@ describe("Ajustes con el backend real", () => {
     await usuario.click(screen.getByRole("tab", { name: "Giro y módulos" }));
     await usuario.click(await screen.findByLabelText("Lotes de productos"));
     await waitFor(async () => expect((await b.prisma.configuracionGiro.findFirstOrThrow()).moduloLotes).toBe(true));
-    await usuario.selectOptions(screen.getByLabelText("Giro del negocio"), "FARMACIA");
-    await usuario.click(screen.getByLabelText("Entiendo que se reajustan los módulos"));
-    await usuario.click(screen.getByRole("button", { name: "Aplicar giro" }));
+    // la sección se vuelve a pintar al refrescar los ajustes: se espera cada control en vez de leerlo al instante
+    await usuario.selectOptions(await screen.findByLabelText("Giro del negocio"), "FARMACIA");
+    await usuario.click(await screen.findByLabelText("Entiendo que se reajustan los módulos"));
+    await usuario.click(await screen.findByRole("button", { name: "Aplicar giro" }));
     await screen.findByText(/Giro aplicado/);
     expect(await b.prisma.configuracionGiro.findFirstOrThrow()).toMatchObject({ giroNegocio: "FARMACIA", moduloVencimientos: true, moduloMesas: false });
 
@@ -202,7 +203,7 @@ describe("Ajustes con el backend real", () => {
     await usuario.click(screen.getByRole("tab", { name: "Certificado de firma" }));
     const estado = await screen.findByLabelText("Estado del certificado");
     await waitFor(() => expect(estado).toHaveTextContent("ANA TORRES"));
-    const cargar = screen.getByRole("form", { name: "Cargar certificado" });
+    const cargar = await screen.findByRole("form", { name: "Cargar certificado" });
     const ajeno = generarP12Prueba({ identificacion: "0992345678001", password: "Otra-1" });
     await usuario.upload(within(cargar).getByLabelText("Archivo del certificado"), archivoP12(ajeno));
     await escribir(usuario, "Contraseña del certificado", "Otra-1", cargar);
