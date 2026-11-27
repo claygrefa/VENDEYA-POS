@@ -2,6 +2,21 @@
 
 ## Estado General
 
+### Reparación de estabilidad y auditoría — 2026-11-26
+
+- [x] **Cobros.** Después de 30 días se archivan el UUID, el resultado mínimo y el folio antes de eliminar la respuesta completa. La reserva del UUID evita duplicar ventas, pagos o movimientos de inventario ante reintentos tardíos. Se pueden cerrar intentos `PENDING` preexistentes. El POS muestra el folio cuando recupera un cobro ya archivado. El archivo solo puede conservar intentos que todavía existan en la base al aplicar el cambio.
+- [x] **Durabilidad.** SQLite abre la conexión con `synchronous=FULL` y usa WAL. Se comprobó la recuperación tras perder la respuesta TCP, el reinicio del backend y el rollback completo ante un fallo de persistencia, incluido un fallo de inserción en la cola del SRI.
+- [x] **Servicios cloud.** El receptor de telemetría comprueba y aplica la cuota dentro de una transacción PostgreSQL, deduplica UUID y acepta reenvíos de reportes guardados aun con la cuota llena. Los logs de arranque identifican la etapa fallida sin imprimir credenciales.
+- [x] **Herramientas.** Se actualizaron Vite, Vitest, electron-builder y electron/rebuild. La configuración de Windows conserva la verificación de firma del actualizador y usa `win.signtoolOptions` para SHA-256.
+
+**Archivos modificados.** `prisma/schema.prisma`, `prisma/migrations/20261206090000_cobro_archivado/migration.sql`, `src/server/index.ts`, `src/server/services/{appError.util,intentoCobro.service}.ts`, `src/renderer/pages/PosScreen.tsx`, `src/server/cloud/{app,cli,database}.ts`, `package.json`, `package-lock.json`, `electron-builder.yml`, `vite.config.ts`, `vitest.config.ts` y las pruebas de backend, telemetría, cobro, POS, empaquetado y estrés. El informe local `AUDIT_REPORT.md` registra los hallazgos corregidos y queda fuera de Git.
+
+**Verificación.** TypeScript en los cuatro proyectos y ESLint sin errores. Pasaron 1.140 pruebas en 79 archivos y 5 pruebas de estrés en aislamiento. El banco confirmó el rollback de caja e inventario tras un fallo de la cola del SRI y recuperó 500 comprobantes al restablecer el servicio simulado. `npm audit` y `npm audit --omit=dev` reportaron 0 vulnerabilidades.
+
+**Comprobación del paquete de Windows.** Se construyó el paquete sin instalador. La prueba de humo pasó las 13 comprobaciones de contenido y backend empaquetado, incluidas 17 migraciones sobre una base nueva. El ejecutable y el binario de Electron original terminaron con el mismo código `0x80000003` en esta sesión, por lo que siguen pendientes las dos comprobaciones de primer arranque con ventana y perfil temporal.
+
+**Siguiente tarea atómica.** Revisar el primer error en los logs del despliegue `e59adc4` de `vendeya-cloud` en Render y validar el servicio con `cloud:verify` cuando responda por HTTPS. También quedan pendientes la prueba en equipos limpios, la firma comercial, la notarización, la autorización real en `celcer` y la aprobación del tag.
+
 ### Automatización de salida comercial v1.0.0 — 2026-11-26
 
 - [x] Backend cloud en `src/server/cloud/` con contrato de Electron, PostgreSQL, migración, Docker, Compose y Blueprint de Render. `cloud:init` genera una clave Ed25519 local. `cloud:verify` prueba el origen HTTPS, renueva una licencia verificable y registra telemetría.
@@ -42,7 +57,7 @@ El control vigente es `npm run release:publish` para validar evidencia y `npm ru
 - **Horizonte:** 6 Meses (24 Semanas)
 - **Fase Actual:** Candidata v1.0.0, pendiente de validación de campo. Ver «Bloqueos de pre-lanzamiento v1.0.0».
 - **Estado de Compilación:** ✅ `tsc --noEmit` → 0 errores | ✅ `tsconfig.node.json` → 0 errores | ✅ `tsconfig.electron.json` → 0 errores
-- **Tests:** ✅ 79/79 archivos (1136 pruebas) passed; la suite de estrés corre aparte con `npm run test:estres`
+- **Tests:** ✅ 1.140 pruebas en 79 archivos. La suite de estrés se ejecuta aparte con `npm run test:estres`.
 - **Entregable de pre-lanzamiento:** `fix: cierra bloqueos de prelanzamiento del POS` (2026-11-26). Tag pendiente de aprobar el candidato firmado.
 
 ---

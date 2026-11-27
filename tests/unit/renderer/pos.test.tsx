@@ -455,6 +455,17 @@ describe("Cobro", () => {
     expect(reiniciado.llamadasA("POST /api/ventas").map((l) => l.cuerpo)).toEqual([solicitud]);
   });
 
+  it("un cobro confirmado que ya se archivó muestra el folio y vacía el carrito para no recobrarlo", async () => {
+    const mensaje = "La venta 001-001-000000042 ya se registró. Consulte el historial de ventas.";
+    const api = servidor((a) => a.en("POST /api/ventas", { status: 409, cuerpo: { error: "COBRO_ARCHIVADO", mensaje } }));
+    const { usuario, dialogo } = await conCafe(api);
+    await usuario.click(within(dialogo).getByRole("button", { name: "Confirmar cobro" }));
+    expect(await screen.findByText(mensaje)).toBeInTheDocument();
+    expect(useCarrito.getState().lineas).toHaveLength(0);
+    expect(screen.queryByRole("dialog", { name: "Cobrar" })).not.toBeInTheDocument();
+    expect(api.llamadasA("POST /api/ventas")).toHaveLength(1);
+  });
+
   it("con un error del servidor que no se resuelve, la caja puede descartar el cobro: el servidor lo cierra, el carrito se conserva y no queda nada pendiente", async () => {
     const api = servidor((a) => a.en("POST /api/ventas", { status: 500, cuerpo: { error: "ERROR_INTERNO", mensaje: "Error interno del servidor" } }));
     const { usuario, dialogo, unmount } = await conCafe(api);

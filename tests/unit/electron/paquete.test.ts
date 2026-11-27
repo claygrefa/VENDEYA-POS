@@ -20,7 +20,7 @@ interface Config {
   npmRebuild: boolean;
   files: Archivo[];
   extraResources: Array<{ from: string; to: string }>;
-  win: { target: Array<{ target: string; arch: string[] }>; icon: string; files: Archivo[]; requestedExecutionLevel: string; signingHashAlgorithms: string[] };
+  win: { target: Array<{ target: string; arch: string[] }>; icon: string; files: Archivo[]; requestedExecutionLevel: string; signtoolOptions: { signingHashAlgorithms: string[] } };
   nsis: Record<string, unknown>;
   mac: { target: Array<{ target: string; arch: string[] }>; icon: string; files: Archivo[]; hardenedRuntime: boolean; entitlements: string; entitlementsInherit: string; artifactName: string };
   publish: { provider: string; owner: string; repo: string };
@@ -118,7 +118,7 @@ describe("Instalador de Windows (NSIS)", () => {
     expect(cfg.win.target).toEqual([{ target: "nsis", arch: ["x64"] }]);
     expect(cfg.nsis).toMatchObject({ oneClick: true, perMachine: false, createDesktopShortcut: "always", createStartMenuShortcut: true, shortcutName: "vendeyapos", runAfterFinish: true });
     expect(cfg.win.requestedExecutionLevel).toBe("asInvoker");
-    expect(cfg.win.signingHashAlgorithms).toEqual(["sha256"]);
+    expect(cfg.win.signtoolOptions.signingHashAlgorithms).toEqual(["sha256"]);
   });
 
   it("desinstalar NO borra los datos del negocio, está en español y el archivo no lleva espacios (debe coincidir con latest.yml)", () => {

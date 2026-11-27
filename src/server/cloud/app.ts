@@ -4,6 +4,7 @@ import type { Pool } from "pg";
 import { z } from "zod";
 import { limpiarTexto, MAX_MENSAJE, MAX_PILA } from "../services/telemetria/telemetria.util";
 import { Activacion, Destino, LicenciasCloud, RechazoLicencia, Token, Validacion } from "./licencia.service";
+import { transaccion } from "./database";
 
 const Lote = z.object({
   instalacion: z.uuid(),
@@ -60,14 +61,25 @@ export async function crearCloud(db: Pool, privada: string, proxy: false | numbe
       vista: r.vista === null ? null : limpiarTexto(r.vista, 40),
       version: limpiarTexto(r.version, 50), plataforma: limpiarTexto(r.plataforma, 50),
     }));
-    const { rows } = await db.query<{ instalacion: string; total: string }>(
-      `SELECT count(*) FILTER (WHERE installation = $1::uuid) AS instalacion, count(*) AS total
-         FROM telemetry_reports WHERE received_at > now() - interval '1 day'`, [lote.instalacion]);
-    if (Number(rows[0]?.instalacion ?? 0) + reportes.length > MAX_REPORTES_INSTALACION_DIA) return reply.code(429).send({ error: "CUOTA_INSTALACION" });
-    if (Number(rows[0]?.total ?? 0) + reportes.length > MAX_REPORTES_DIA) return reply.code(429).send({ error: "CUOTA_DIARIA" });
-    await db.query(`INSERT INTO telemetry_reports (installation, id, report)
-      SELECT $1::uuid, (r->>'id')::uuid, r FROM jsonb_array_elements($2::jsonb) AS r ON CONFLICT DO NOTHING`,
-    [lote.instalacion, JSON.stringify(reportes)]);
+    const resultado = await transaccion(db, async (tx) => {
+      // Serializa la comprobación y la escritura de la cuota global entre todas las instancias.
+      await tx.query("SELECT pg_advisory_xact_lock(721583072)");
+      const ids = [...new Set(reportes.map((r) => r.id.toLowerCase()))];
+      const existentes = await tx.query<{ id: string }>(
+        "SELECT id FROM telemetry_reports WHERE installation = $1::uuid AND id = ANY($2::uuid[])", [lote.instalacion, ids]);
+      const nuevos = ids.length - existentes.rows.length;
+      if (nuevos === 0) return null;
+      const { rows } = await tx.query<{ instalacion: string; total: string }>(
+        `SELECT count(*) FILTER (WHERE installation = $1::uuid) AS instalacion, count(*) AS total
+           FROM telemetry_reports WHERE received_at > now() - interval '1 day'`, [lote.instalacion]);
+      if (Number(rows[0]?.instalacion ?? 0) + nuevos > MAX_REPORTES_INSTALACION_DIA) return "CUOTA_INSTALACION";
+      if (Number(rows[0]?.total ?? 0) + nuevos > MAX_REPORTES_DIA) return "CUOTA_DIARIA";
+      await tx.query(`INSERT INTO telemetry_reports (installation, id, report)
+        SELECT $1::uuid, (r->>'id')::uuid, r FROM jsonb_array_elements($2::jsonb) AS r ON CONFLICT DO NOTHING`,
+      [lote.instalacion, JSON.stringify(reportes)]);
+      return null;
+    });
+    if (resultado !== null) return reply.code(429).send({ error: resultado });
     return reply.code(204).send();
   });
   return app;

@@ -31,6 +31,7 @@ async function ejecutar([comando = "serve", ...args]: string[]): Promise<void> {
   if (!["serve", "migrate", "issue", "revoke"].includes(comando)) throw new Error("Comandos: init, serve, migrate, issue, revoke");
   const pool = conectar();
   let atendiendo = false;
+  let etapa = "migración PostgreSQL";
   try {
     await migrar(pool);
     if (comando === "migrate") {
@@ -38,6 +39,7 @@ async function ejecutar([comando = "serve", ...args]: string[]): Promise<void> {
       return;
     }
     if (comando === "issue") {
+      etapa = "alta de licencia";
       const ruc = Ruc.parse(args[0]);
       const dias = z.coerce.number().int().min(1).max(3650).parse(args[1]);
       const equipos = z.coerce.number().int().min(1).max(1000).parse(args[2]);
@@ -50,26 +52,31 @@ async function ejecutar([comando = "serve", ...args]: string[]): Promise<void> {
       return;
     }
     if (comando === "revoke") {
+      etapa = "revocación de licencia";
       const r = await pool.query("UPDATE licenses SET revoked_at=COALESCE(revoked_at, now()) WHERE id=$1", [z.uuid().parse(args[0])]);
       if (!r.rowCount) throw new Error("Licencia inexistente");
       console.log("Licencia revocada.");
       return;
     }
 
+    etapa = "validación de PORT y CLOUD_TRUST_PROXY_HOPS";
     const puerto = z.coerce.number().int().min(1).max(65535).parse(process.env["PORT"] ?? 8080);
     const proxy = z.coerce.number().int().min(0).max(3).parse(process.env["CLOUD_TRUST_PROXY_HOPS"] ?? 0);
+    etapa = "carga de la clave Ed25519 y creación del servidor HTTP";
     const clave = process.env["LICENSE_SIGNING_KEY_BASE64"];
     if (!clave) throw new Error("Configura LICENSE_SIGNING_KEY_BASE64");
     const app = await crearCloud(pool, Buffer.from(clave, "base64").toString("utf8"), proxy || false);
     const purgar = async (): Promise<void> => {
       await pool.query("DELETE FROM telemetry_reports WHERE received_at < now() - interval '30 days'");
     };
+    etapa = "depuración inicial de telemetría";
     await purgar();
     let mantenimiento: NodeJS.Timeout | undefined;
     app.addHook("onClose", async () => {
       clearInterval(mantenimiento);
       await pool.end();
     });
+    etapa = "apertura del puerto HTTP";
     await app.listen({ host: "0.0.0.0", port: puerto });
     atendiendo = true;
     console.log(`Backend de licencias y telemetría listo en puerto ${puerto}`);
@@ -77,12 +84,20 @@ async function ejecutar([comando = "serve", ...args]: string[]): Promise<void> {
     const cerrar = () => void app.close().catch(() => { process.exitCode = 1; });
     process.once("SIGINT", cerrar);
     process.once("SIGTERM", cerrar);
+  } catch (error) {
+    const codigo = error instanceof Error && "code" in error && typeof error.code === "string" &&
+      /^[A-Z0-9_]{1,50}$/.test(error.code) ? ` (${error.code})` : "";
+    throw new Error(`Operación cloud fallida durante: ${etapa}${codigo}.`);
   } finally {
     if (!atendiendo) await pool.end();
   }
 }
 
-if (require.main === module) void ejecutar(process.argv.slice(2)).catch(() => {
-  console.error("Operación cloud fallida. Revisa los argumentos, las variables de entorno y PostgreSQL.");
+if (require.main === module) void ejecutar(process.argv.slice(2)).catch((error: unknown) => {
+  if (error instanceof Error && /^(Operación cloud fallida durante:|Configura CLOUD_DATABASE_URL$)/.test(error.message)) {
+    console.error(error.message);
+  } else {
+    console.error("Operación cloud fallida. Revisa el comando o los archivos de inicialización.");
+  }
   process.exitCode = 1;
 });

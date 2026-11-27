@@ -253,7 +253,13 @@ export function PosScreen(): React.JSX.Element {
             return;
           }
           setPendiente(null);
-          if (modal === null) setAviso({ tipo: "error", texto: e.message });
+          if (e.codigo === "COBRO_ARCHIVADO") {
+            carrito.getState().vaciar();
+            setModal(null);
+            setAviso({ tipo: "info", texto: e.message });
+            void qc.invalidateQueries({ queryKey: ["productos"] });
+            void qc.invalidateQueries({ queryKey: ["colaSri"] });
+          } else if (modal === null) setAviso({ tipo: "error", texto: e.message });
         } else setModal(null);
         // Sin turno abierto (lo cerraron desde otra caja o un supervisor): se vuelve a la apertura; el carrito se conserva
         if (e.codigo === "TURNO_REQUERIDO") fijarTurno(null);

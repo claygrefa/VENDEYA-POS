@@ -85,8 +85,9 @@ win:
     # serialport trae binarios de todas las plataformas: en Windows solo se necesita x64
     - "!node_modules/@serialport/bindings-cpp/prebuilds/{android-*,darwin-*,linux-*,win32-arm64,win32-ia32}"
   requestedExecutionLevel: asInvoker
-  signingHashAlgorithms:
-    - sha256
+  signtoolOptions:
+    signingHashAlgorithms:
+      - sha256
   # El paquete firmado incorpora el editor del certificado en app-update.yml.
   verifyUpdateCodeSignature: true
 

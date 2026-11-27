@@ -62,6 +62,8 @@ describe("iniciarBackend", () => {
     expect(backend.port).toBeGreaterThan(0);
     const modo = await backend.prisma.$queryRawUnsafe<Array<{ journal_mode: string }>>("PRAGMA journal_mode");
     expect(modo[0]?.journal_mode).toBe("wal");
+    const sincronizacion = await backend.prisma.$queryRaw<Array<{ synchronous: bigint }>>`PRAGMA synchronous`;
+    expect(Number(sincronizacion[0]?.synchronous)).toBe(2); // SQLite FULL
   });
 
   it("responde por HTTP real (fetch) en la URL publicada", async () => {

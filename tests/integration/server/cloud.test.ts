@@ -67,7 +67,11 @@ it("limita la telemetría por instalación y en total cada día (el endpoint no 
     await db.query(
       "INSERT INTO telemetry_reports (installation, id, report) SELECT $1::uuid, gen_random_uuid(), '{}'::jsonb FROM generate_series(1, $2)",
       [voraz, MAX_REPORTES_INSTALACION_DIA - 1]);
-    expect((await enviar(voraz)).statusCode).toBe(204); // el 500.º
+    const final = { ...reporte(), id: "e3023314-daa8-4db4-a390-259d7c18aeef" };
+    const ultimo = { instalacion: voraz, reportes: [final, { ...final, id: final.id.toUpperCase() }] };
+    const repetir = (payload: typeof ultimo) => app.inject({ method: "POST", url: "/v1/telemetria", payload });
+    expect((await repetir(ultimo)).statusCode).toBe(204); // el 500.º
+    expect((await repetir(ultimo)).statusCode).toBe(204); // un reenvío tras perder el 204 no usa otra plaza
     const rechazado = await enviar(voraz);
     expect(rechazado.statusCode).toBe(429);
     expect(rechazado.json()).toEqual({ error: "CUOTA_INSTALACION" });

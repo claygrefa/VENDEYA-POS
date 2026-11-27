@@ -35,6 +35,7 @@ const HTTP_POR_CODIGO: Record<CodigoError, number> = {
   STOCK_INSUFICIENTE: 409,
   TURNO_REQUERIDO: 409,
   ESTADO_INVALIDO: 409,
+  COBRO_ARCHIVADO: 409,
   LIMITE_CREDITO_EXCEDIDO: 409,
   SIN_PERMISO: 403,
   MODULO_DESHABILITADO: 403,
@@ -192,6 +193,8 @@ export async function iniciarBackend(opciones: BackendOptions): Promise<BackendH
     const restaurada = aplicarRestauracionPendiente(opciones.dbPath);
     if (restaurada !== null) console.warn(`[backend] base restaurada desde «${restaurada.archivo}»; la anterior se conserva en ${restaurada.copiaAnterior ?? "(no había)"}`);
 
+    // SQLite aplica synchronous por conexión. FULL sincroniza cada commit de ventas y de la cola SRI en WAL.
+    await prisma.$executeRaw`PRAGMA synchronous=FULL`;
     const migraciones = await new MigrationService(prisma, {
       migrationsDir: opciones.migrationsDir,
       backupsDir,
@@ -245,8 +248,10 @@ export async function iniciarBackend(opciones: BackendOptions): Promise<BackendH
     licenciaWorker.iniciar();
     respaldoWorker?.iniciar();
     servicios.sync.iniciar();
-    // Los intentos de cobro resueltos guardan la respuesta completa de cada venta: se purgan los antiguos al arrancar y cada 24 h
-    const purgar = (): void => void purgarIntentosCobro(prisma).catch(() => undefined);
+    // Al archivar se elimina la respuesta antigua y el UUID queda reservado.
+    const purgar = (): void => void purgarIntentosCobro(prisma).catch((err: unknown) => {
+      servidor.log.error({ err }, "No se pudieron archivar los intentos de cobro");
+    });
     purgar();
     purgaIntentos = setInterval(purgar, 24 * 3_600_000);
     purgaIntentos.unref();

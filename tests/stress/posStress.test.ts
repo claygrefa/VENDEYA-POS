@@ -102,7 +102,7 @@ afterAll(async () => {
   }
 }, 30_000);
 
-describe.sequential("Estrés POS con SQLite, Fastify y firma reales", () => {
+describe("Estrés POS con SQLite, Fastify y firma reales", { concurrent: false }, () => {
   it("consulta 25.000 productos por código exacto y nombre parcial en menos de 50 ms por consulta", async () => {
     expect(await env.prisma.$queryRaw`PRAGMA journal_mode`).toEqual([{ journal_mode: "wal" }]);
     expect(await env.prisma.$queryRaw`PRAGMA busy_timeout`).toEqual([{ timeout: 5_000n }]);

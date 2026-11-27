@@ -12,16 +12,22 @@ export function conectar(env = process.env): Pool {
 
 export async function transaccion<T>(pool: Pool, ejecutar: (db: PoolClient) => Promise<T>): Promise<T> {
   const db = await pool.connect();
+  let descartarConexion = false;
   try {
     await db.query("BEGIN");
     const resultado = await ejecutar(db);
     await db.query("COMMIT");
     return resultado;
   } catch (error) {
-    await db.query("ROLLBACK");
+    try {
+      await db.query("ROLLBACK");
+    } catch {
+      // Una conexión cuyo estado transaccional ya no se puede comprobar no vuelve al pool.
+      descartarConexion = true;
+    }
     throw error;
   } finally {
-    db.release();
+    db.release(descartarConexion);
   }
 }
 

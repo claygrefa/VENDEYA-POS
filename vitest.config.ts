@@ -11,7 +11,7 @@ export default defineConfig({
     testTimeout: 30_000,
     hookTimeout: 60_000,
     pool: "forks",
-    poolOptions: { forks: { maxForks: 6, minForks: 1 } },
+    maxWorkers: 6,
     include: ["tests/**/*.{test,spec}.ts", "tests/**/*.{test,spec}.tsx"],
     // El banco de rendimiento (tests/performance) tarda minutos y genera una base de cientos de MB: solo corre con `npm run test:rendimiento`.
     // La suite de estrés (tests/stress) tarda varios minutos y mide tiempos, así que depende de la carga de la máquina: solo corre con `npm run test:estres`

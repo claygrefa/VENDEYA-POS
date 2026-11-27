@@ -107,6 +107,16 @@ describe("POST /api/cobros/:intentoId/descartar", () => {
     expect((await api("/api/cobros/no-es-un-uuid/descartar", tokenA)).statusCode).toBe(400);
     expect((await api(`/api/cobros/${randomUUID()}/descartar`, null)).statusCode).toBe(401);
   });
+
+  it("cierra un intento pendiente que ya existía en una base anterior", async () => {
+    const id = randomUUID();
+    const cajero = await env.prisma.usuario.findFirstOrThrow({ where: { username: "cajero.a" } });
+    await env.prisma.intentoCobro.create({ data: { id, empresaId: env.seed.empresaId, cajeroId: cajero.id, huella: "anterior", estado: "PENDING" } });
+    expect((await api(`/api/cobros/${id}/descartar`, tokenA)).statusCode).toBe(200);
+    expect(await env.prisma.intentoCobro.findUniqueOrThrow({ where: { id } })).toMatchObject({
+      estado: "FAILED", huella: "descartado", errorCodigo: "COBRO_DESCARTADO",
+    });
+  });
 });
 
 describe("purga de intentos de cobro", () => {
@@ -132,16 +142,54 @@ describe("purga de intentos de cobro", () => {
 
   it("purga la fila de un cobro REAL (fecha en el formato por defecto de SQLite) cuando envejece", async () => {
     const intentoId = randomUUID();
-    expect((await api("/api/ventas", tokenA, venta(intentoId))).statusCode).toBe(201);
+    const creada = await api("/api/ventas", tokenA, venta(intentoId));
+    expect(creada.statusCode).toBe(201);
+    const folio = creada.json<{ numero: string }>().numero;
     expect(await purgarIntentosCobro(env.prisma)).toBe(0); // recién creado: se conserva
     await env.prisma.$executeRaw`UPDATE "IntentoCobro" SET "creadoEn" = datetime('now', '-40 days') WHERE "id" = ${intentoId}`;
     expect(await purgarIntentosCobro(env.prisma)).toBe(1);
     expect(await env.prisma.intentoCobro.findUnique({ where: { id: intentoId } })).toBeNull();
+    expect(await env.prisma.intentoCobroArchivado.findUniqueOrThrow({ where: { id: intentoId } }))
+      .toMatchObject({ confirmado: true, numeroVenta: folio });
+    const antes = await ventasDelProducto();
+    const repetida = await api("/api/ventas", tokenA, venta(intentoId));
+    expect(repetida.statusCode).toBe(409);
+    expect(repetida.json()).toMatchObject({ error: "COBRO_ARCHIVADO", mensaje: expect.stringContaining(folio) });
+    expect((await api(`/api/cobros/${intentoId}/descartar`, tokenA)).statusCode).toBe(409);
+    expect((await api(`/api/cobros/${intentoId}/descartar`, tokenB)).statusCode).toBe(404);
+    expect(await ventasDelProducto()).toBe(antes);
+  });
+
+  it("conserva el bloqueo de un cobro descartado después de archivar el intento", async () => {
+    const intentoId = randomUUID();
+    const ruta = `/api/cobros/${intentoId}/descartar`;
+    expect((await api(ruta, tokenA)).statusCode).toBe(200);
+    await env.prisma.$executeRaw`UPDATE "IntentoCobro" SET "creadoEn" = datetime('now', '-40 days') WHERE "id" = ${intentoId}`;
+    expect(await purgarIntentosCobro(env.prisma)).toBe(1);
+    const antes = await ventasDelProducto();
+    expect((await api("/api/ventas", tokenA, venta(intentoId))).json()).toMatchObject({ error: "DUPLICADO" });
+    expect((await api(ruta, tokenA)).statusCode).toBe(200);
+    expect(await ventasDelProducto()).toBe(antes);
   });
 
   it("la purga acepta otro plazo y no toca los intentos de las pruebas anteriores recién creados", async () => {
     const antes = await env.prisma.intentoCobro.count();
     expect(await purgarIntentosCobro(env.prisma, new Date(), 365)).toBe(0);
     expect(await env.prisma.intentoCobro.count()).toBe(antes);
+  });
+
+  it("revierte el archivo entero si falla la eliminación del intento activo", async () => {
+    const id = randomUUID();
+    await fila(id, "FAILED", DIAS_RETENCION_INTENTOS + 2);
+    await env.prisma.$executeRaw`CREATE TEMP TRIGGER "fallo_archivado" BEFORE DELETE ON "IntentoCobro"
+      BEGIN SELECT RAISE(ABORT, 'fallo de prueba'); END`;
+    try {
+      await expect(purgarIntentosCobro(env.prisma)).rejects.toThrow();
+      expect(await env.prisma.intentoCobroArchivado.findUnique({ where: { id } })).toBeNull();
+      expect(await env.prisma.intentoCobro.findUnique({ where: { id } })).not.toBeNull();
+    } finally {
+      await env.prisma.$executeRaw`DROP TRIGGER "fallo_archivado"`;
+    }
+    expect(await purgarIntentosCobro(env.prisma)).toBe(1);
   });
 });

@@ -451,6 +451,15 @@ model IntentoCobro {
   @@index([creadoEn])
 }
 
+model IntentoCobroArchivado {
+  id          String  @id
+  empresaId   String
+  cajeroId    String
+  huella      String
+  confirmado  Boolean
+  numeroVenta String?
+}
+
 model Venta {
   id              String   @id @default(uuid())
   numero          String                         // "001-001-000000001" (único por punto de emisión)

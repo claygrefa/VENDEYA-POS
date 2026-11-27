@@ -70,7 +70,7 @@
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.6.0",
-    "@electron/rebuild": "^3.7.1",
+    "@electron/rebuild": "^4.2.1",
     "@tanstack/react-query": "^5.62.3",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/jest-dom": "^6.6.3",
@@ -86,13 +86,13 @@
     "@types/react-dom": "^18.3.1",
     "@types/ws": "^8.18.2",
     "@types/xml2js": "^0.4.14",
-    "@vitejs/plugin-react": "^4.3.3",
-    "@vitest/coverage-v8": "^2.1.5",
+    "@vitejs/plugin-react": "^6.3.0",
+    "@vitest/coverage-v8": "^5.1.2",
     "autoprefixer": "^10.4.20",
     "concurrently": "^9.1.0",
     "cross-env": "^7.0.3",
     "electron": "^45.5.0",
-    "electron-builder": "^25.1.8",
+    "electron-builder": "^26.18.0",
     "eslint": "^10.15.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "js-yaml": "^4.1.0",
@@ -106,16 +106,18 @@
     "ts-node": "^10.9.2",
     "typescript": "^5.6.3",
     "typescript-eslint": "^8.74.0",
-    "vite": "^5.4.11",
-    "vitest": "^2.1.5",
+    "vite": "^8.4.0",
+    "vitest": "^5.1.2",
     "wait-on": "^8.0.1",
     "zustand": "^5.0.1"
+  },
+  "overrides": {
+    "minimatch@>=9 <11.0.1": "^11.0.9"
   },
   "allowScripts": {
     "@prisma/client@5.22.0": true,
     "electron@45.5.0": true,
     "prisma@5.22.0": true,
-    "@prisma/engines@5.22.0": true,
-    "esbuild@0.21.5": true
+    "@prisma/engines@5.22.0": true
   }
 }
