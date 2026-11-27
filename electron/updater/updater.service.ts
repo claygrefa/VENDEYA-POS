@@ -96,7 +96,7 @@ export class ActualizadorApp {
       this.fijar({ tipo: "descargando", version, porcentaje: Math.max(0, Math.min(100, Math.round(porcentajeDe(p)))) });
     });
     u.on("update-downloaded", (info) => void this.alDescargar(versionDe(info)));
-    u.on("error", (e) => this.alFallar(e));
+    u.on("error", () => this.alFallar());
 
     this.primera = setTimeout(() => void this.buscar(), this.o.primeraRevisionMs ?? 60_000);
     this.periodico = setInterval(() => void this.buscar(), this.o.intervaloMs ?? CUATRO_HORAS_MS);
@@ -118,8 +118,8 @@ export class ActualizadorApp {
     this.fijar({ tipo: "buscando" });
     try {
       await this.o.updater.checkForUpdates();
-    } catch (e) {
-      this.alFallar(e);
+    } catch {
+      this.alFallar();
     }
     return this.actual;
   }
@@ -176,11 +176,9 @@ export class ActualizadorApp {
     this.fijar({ tipo: "lista", version, respaldo, aviso });
   }
 
-  private alFallar(e: unknown): void {
-    // 100 % silencioso para la interfaz: se registra y se vuelve al estado anterior; la búsqueda periódica reintenta.
-    this.o.registrar?.(`Error de actualización (ignorado): ${detalleDe(e)}`);
-    // Una actualización ya descargada y respaldada sigue siendo válida aunque falle una búsqueda posterior
-    if (this.actual.tipo === "lista") return;
+  private alFallar(): void {
+    // electron-updater puede emitir «error» y rechazar la misma promesa. Solo se restablece el estado una vez.
+    if (this.actual.tipo !== "buscando" && this.actual.tipo !== "descargando") return;
     this.fijar(this.alDia ?? { tipo: "inactivo" });
   }
 

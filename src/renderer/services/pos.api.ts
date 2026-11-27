@@ -47,8 +47,8 @@ export class PosApi {
     return this.http.post("/api/turnos/abrir", { sucursalId, montoApertura });
   }
 
-  productos(search: string, pageSize = 24): Promise<Pagina<ProductoPos>> {
-    return this.http.get(`/api/productos${consulta({ search: search.trim(), pageSize })}`);
+  productos(search: string, pageSize = 24, categoriaId?: string): Promise<Pagina<ProductoPos>> {
+    return this.http.get(`/api/productos${consulta({ search: search.trim(), pageSize, categoriaId })}`);
   }
 
   clientes(search: string): Promise<Pagina<ClientePos>> {

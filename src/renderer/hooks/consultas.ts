@@ -5,11 +5,19 @@ import { useQuery } from "@tanstack/react-query";
 import { usePos } from "../services/contexto";
 import { RETRASO_BUSQUEDA_MS, useDiferido } from "./useDiferido";
 
-export function useProductos(busqueda: string) {
+export const claveProductos = (texto: string, categoriaId?: string): string[] =>
+  categoriaId === undefined ? ["productos", texto] : ["productos", texto, categoriaId];
+
+export function useProductos(busqueda: string, categoriaId?: string) {
   const { api } = usePos();
   // Se consulta cuando el cajero hace una pausa al teclear: con un catálogo grande, una consulta por tecla es desperdicio
   const texto = useDiferido(busqueda.trim(), RETRASO_BUSQUEDA_MS);
-  return useQuery({ queryKey: ["productos", texto], queryFn: () => api.productos(texto), staleTime: 15_000, placeholderData: (previo) => previo });
+  return useQuery({
+    queryKey: claveProductos(texto, categoriaId),
+    queryFn: () => api.productos(texto, undefined, categoriaId),
+    staleTime: 15_000,
+    placeholderData: (previo, consulta) => consulta?.queryKey[2] === categoriaId ? previo : undefined,
+  });
 }
 
 export function useClientes(busqueda: string, activo: boolean) {

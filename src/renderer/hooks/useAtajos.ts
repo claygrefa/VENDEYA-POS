@@ -1,9 +1,9 @@
 // ============================================================
-// src/renderer/hooks/useAtajos.ts — Atajos de teclado globales del POS (F2, F4, F8, ESC…)
+// src/renderer/hooks/useAtajos.ts — Atajos de teclado globales del POS (F2, F4, F6, F8, ESC…)
 // ============================================================
 import { useEffect, useRef } from "react";
 
-export type MapaAtajos = Partial<Record<"F2" | "F4" | "F8" | "Escape" | "F9" | "F10", () => void>>;
+export type MapaAtajos = Partial<Record<"F2" | "F4" | "F6" | "F8" | "Escape" | "F9" | "F10", () => void>>;
 
 /**
  * Registra los atajos en la ventana. Las teclas de función se atienden aunque el foco esté en un campo de texto (el cajero

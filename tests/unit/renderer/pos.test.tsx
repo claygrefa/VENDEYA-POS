@@ -2,12 +2,12 @@
 // ============================================================
 // tests/unit/renderer/pos.test.tsx — Pantalla de venta: búsqueda, escáner, atajos, cobro y errores del servidor
 // ============================================================
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { VentaInputSchema } from "../../../src/shared/schemas/venta.schema";
 import { useCarrito } from "../../../src/renderer/store/carrito.store";
 import { useSesion } from "../../../src/renderer/store/sesion.store";
-import { ApiSimulada, CAFE, PUNTO, QUESO, renderizarPos, servidorBasico } from "../../helpers/renderer/entorno";
+import { ApiSimulada, CAFE, LACTEOS, PUNTO, QUESO, renderizarPos, servidorBasico, USUARIO } from "../../helpers/renderer/entorno";
 
 const dineroRx = (n: string): RegExp => new RegExp(n.replace(".", "[.,]"));
 const total = (): HTMLElement => screen.getByTestId("total");
@@ -40,7 +40,10 @@ describe("Búsqueda y carrito", () => {
     expect(total()).toHaveTextContent(dineroRx("23.00"));
     await usuario.click(screen.getByRole("button", { name: "Agregar Arroz 1kg" }));
     expect(total()).toHaveTextContent(dineroRx("24.20")); // arroz 0 %
-    expect(within(screen.getByLabelText("Totales")).getByText("IVA 15%")).toBeInTheDocument();
+    const desglose = within(screen.getByLabelText("Totales"));
+    expect(desglose.getByText("Subtotal 15%").parentElement).toHaveTextContent(dineroRx("20.00"));
+    expect(desglose.getByText("Subtotal 0%").parentElement).toHaveTextContent(dineroRx("1.20"));
+    expect(desglose.getByText("IVA 15%").parentElement).toHaveTextContent(dineroRx("3.00"));
   });
 
   it("aumentar, disminuir (hasta quitar) y quitar líneas", async () => {
@@ -70,6 +73,21 @@ describe("Búsqueda y carrito", () => {
     expect(await screen.findByText(/Sin resultados/, undefined, { timeout: 8_000 })).toBeInTheDocument();
   });
 
+  it("aplica el filtro de categoría al catálogo y marca el stock mínimo en la tarjeta", async () => {
+    const api = servidor();
+    const { usuario } = renderizarPos({ api });
+    const filtros = within(await screen.findByRole("group", { name: "Filtrar por categoría" }));
+    const lacteos = await filtros.findByRole("button", { name: "Lácteos" });
+    await usuario.click(lacteos);
+    expect(lacteos).toHaveAttribute("aria-pressed", "true");
+    const tarjeta = await screen.findByRole("button", { name: "Agregar Queso fresco" });
+    expect(tarjeta).toHaveAccessibleDescription(/Stock bajo/);
+    expect(screen.queryByRole("button", { name: "Agregar Café molido 250g" })).not.toBeInTheDocument();
+    expect(api.llamadasA("GET /api/productos").some((l) => l.parametros.get("categoriaId") === LACTEOS.id)).toBe(true);
+    await usuario.click(filtros.getByRole("button", { name: "Todos" }));
+    expect(await screen.findByRole("button", { name: "Agregar Café molido 250g" })).toBeInTheDocument();
+  });
+
   it("editar una línea: descuento en porcentaje y cantidad recalculan los totales; un descuento inválido se rechaza", async () => {
     const { usuario } = renderizarPos({ api: servidor() });
     await usuario.click(await screen.findByRole("button", { name: "Agregar Café molido 250g" }));
@@ -82,6 +100,10 @@ describe("Búsqueda y carrito", () => {
     await usuario.click(within(dialogo).getByRole("button", { name: "Aceptar" }));
     expect(total()).toHaveTextContent(dineroRx("20.70")); // 20 - 10 % = 18 + 15 %
     expect(screen.getByText(/desc\. 10%/)).toBeInTheDocument();
+    const desglose = within(screen.getByLabelText("Totales"));
+    expect(desglose.getByText("Subtotal 15%").parentElement).toHaveTextContent(dineroRx("18.00"));
+    expect(desglose.getByText("Descuento").parentElement).toHaveTextContent(dineroRx("2.00"));
+    expect(desglose.getByText("IVA 15%").parentElement).toHaveTextContent(dineroRx("2.70"));
 
     await usuario.click(screen.getByRole("button", { name: "Editar Café molido 250g" }));
     const d2 = screen.getByRole("dialog");
@@ -89,6 +111,57 @@ describe("Búsqueda y carrito", () => {
     await usuario.type(within(d2).getByLabelText("Descuento"), "150");
     await usuario.click(within(d2).getByRole("button", { name: "Aceptar" }));
     expect(within(d2).getByRole("alert")).toHaveTextContent(/no puede superar 100%/);
+  });
+});
+
+describe("Carritos en espera", () => {
+  it("F6 suspende por cajero, conserva los datos al remontar y permite intercambiar carritos sin cobrar", async () => {
+    const api = servidor();
+    const primera = renderizarPos({ api });
+    await primera.usuario.click(await screen.findByRole("button", { name: "Agregar Café molido 250g" }));
+    await primera.usuario.click(screen.getByRole("button", { name: "Aumentar Café molido 250g" }));
+    const cliente = { id: "cliente1", razonSocial: "Mercado Central", identificacion: "1234567890", tipoIdentificacion: "05" };
+    act(() => {
+      const carrito = useCarrito.getState();
+      carrito.fijarCliente(cliente);
+      carrito.fijarDescuento(carrito.lineas[0]!.clave, 10, "PORCENTAJE");
+    });
+    await primera.usuario.keyboard("{F6}");
+    const espera = screen.getByRole("dialog", { name: "Carritos en espera" });
+    await primera.usuario.click(within(espera).getByRole("button", { name: "Poner carrito actual en espera" }));
+    expect(useCarrito.getState().lineas).toHaveLength(0);
+    primera.unmount();
+
+    const otra = renderizarPos({ api, usuario: { ...USUARIO, id: "otro-cajero" } });
+    await otra.usuario.click(await screen.findByRole("button", { name: "En espera (F6)" }));
+    expect(screen.getByText("No hay carritos en espera.")).toBeInTheDocument();
+    otra.unmount();
+
+    const segunda = renderizarPos({ api });
+    await segunda.usuario.click(await screen.findByRole("button", { name: "Agregar Arroz 1kg" }));
+    await segunda.usuario.keyboard("{F6}");
+    await segunda.usuario.click(screen.getByRole("button", { name: /Recuperar.*Café molido/ }));
+    expect(screen.getByLabelText("Cantidad de Café molido 250g")).toHaveTextContent("2");
+    expect(screen.getByText("Mercado Central")).toBeInTheDocument();
+    expect(total()).toHaveTextContent(dineroRx("20.70"));
+    expect(screen.queryByLabelText("Cantidad de Arroz 1kg")).not.toBeInTheDocument();
+    await segunda.usuario.keyboard("{F6}");
+    expect(screen.getByRole("button", { name: /Recuperar.*Arroz 1kg/ })).toBeInTheDocument();
+    expect(api.llamadasA("POST /api/ventas")).toHaveLength(0);
+  });
+
+  it("conserva el carrito activo si falla la escritura local", async () => {
+    const { usuario } = renderizarPos({ api: servidor() });
+    await usuario.click(await screen.findByRole("button", { name: "Agregar Arroz 1kg" }));
+    await usuario.keyboard("{F6}");
+    const guardar = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("Sin espacio"); });
+    try {
+      await usuario.click(screen.getByRole("button", { name: "Poner carrito actual en espera" }));
+      expect(screen.getByRole("alert")).toHaveTextContent("El carrito actual sigue disponible");
+      expect(useCarrito.getState().lineas[0]?.nombre).toBe("Arroz 1kg");
+    } finally {
+      guardar.mockRestore();
+    }
   });
 });
 

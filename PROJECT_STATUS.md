@@ -2,6 +2,18 @@
 
 ## Estado General
 
+### Pulido de la pantalla de venta — 2026-11-26
+
+- [x] Electron muestra el título «VendeYa POS» y oculta el menú nativo en producción. Los fallos de búsqueda o descarga de actualizaciones vuelven al último estado estable sin mostrar errores, incluidos los 404 y los fallos reportados por evento y promesa. El flujo de respaldo e instalación conserva sus avisos.
+- [x] Se añadieron iconos Lucide a las nueve secciones. El catálogo de Venta filtra por categoría en el servidor antes de paginar. Las tarjetas destacan el precio y muestran «Stock bajo» según el mínimo configurado o «Sin stock».
+- [x] El carrito muestra las bases netas al 15 % y 0 %, el descuento aplicado, el IVA al 15 % y el total. También muestra las otras tarifas presentes. F6 suspende y recupera borradores guardados localmente por empresa y cajero, con sus líneas, cantidades, cliente y descuentos. Si hay un carrito activo, al recuperar otro se guarda el actual en la misma escritura.
+
+**Archivos modificados.** `electron/main.ts`, `electron/updater/updater.service.ts`, `src/renderer/index.html`, `components/{Shell,BuscadorProductos,CarritoPanel,ModalCarritosEnEspera}.tsx`, `pages/{PosScreen.tsx,ayuda.contenido.ts}`, `hooks/{consultas,useAtajos}.ts`, `services/{carritosEnEspera,pos.api,tipos}.ts` del renderer, `src/server/{repositories/producto.repository,services/producto.service}.ts` y pruebas de POS, API, actualizador e instalación.
+
+**Verificación.** TypeScript del renderer, backend y Electron sin errores, ESLint y `build:vite` correctos, y 1.145 pruebas en 79 archivos. Se revisó el catálogo, el panel de cobro y el diálogo de espera en Chrome a 1024 × 600 con un catálogo ficticio. PowerShell validó la sintaxis del smoke de instalación, que verifica el nuevo título del candidato y permite actualizar desde un instalador previo con el título anterior.
+
+**Siguiente tarea atómica.** Verificar el título y el menú en el candidato instalado con `smoke-test-install` en una VM Windows limpia.
+
 ### Reparación de estabilidad y auditoría — 2026-11-26
 
 - [x] **Cobros.** Después de 30 días se archivan el UUID, el resultado mínimo y el folio antes de eliminar la respuesta completa. La reserva del UUID evita duplicar ventas, pagos o movimientos de inventario ante reintentos tardíos. Se pueden cerrar intentos `PENDING` preexistentes. El POS muestra el folio cuando recupera un cobro ya archivado. El archivo solo puede conservar intentos que todavía existan en la base al aplicar el cambio.
@@ -57,7 +69,7 @@ El control vigente es `npm run release:publish` para validar evidencia y `npm ru
 - **Horizonte:** 6 Meses (24 Semanas)
 - **Fase Actual:** Candidata v1.0.0, pendiente de validación de campo. Ver «Bloqueos de pre-lanzamiento v1.0.0».
 - **Estado de Compilación:** ✅ `tsc --noEmit` → 0 errores | ✅ `tsconfig.node.json` → 0 errores | ✅ `tsconfig.electron.json` → 0 errores
-- **Tests:** ✅ 1.140 pruebas en 79 archivos. La suite de estrés se ejecuta aparte con `npm run test:estres`.
+- **Tests:** ✅ 1.145 pruebas en 79 archivos. La suite de estrés se ejecuta aparte con `npm run test:estres`.
 - **Entregable de pre-lanzamiento:** `fix: cierra bloqueos de prelanzamiento del POS` (2026-11-26). Tag pendiente de aprobar el candidato firmado.
 
 ---

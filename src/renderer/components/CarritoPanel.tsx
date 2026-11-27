@@ -17,6 +17,9 @@ interface Props {
 
 export function CarritoPanel({ lineas, calculo, clienteNombre, tactil, onMas, onMenos, onQuitar, onEditar }: Props): React.JSX.Element {
   const boton = `rounded-lg bg-slate-700 text-white active:bg-slate-600 ${tactil ? "h-12 w-12 text-xl" : "h-8 w-8"}`;
+  const general = calculo.ivaPorTarifa.find((t) => t.porcentaje === 15);
+  const tarifaCero = calculo.ivaPorTarifa.find((t) => t.porcentaje === 0);
+  const otrasTarifas = calculo.ivaPorTarifa.filter((t) => t.porcentaje !== 0 && t.porcentaje !== 15);
   return (
     <section aria-label="Carrito" className="flex min-h-0 flex-1 flex-col">
       <p className="mb-2 text-xs uppercase tracking-wider text-slate-400">
@@ -58,15 +61,14 @@ export function CarritoPanel({ lineas, calculo, clienteNombre, tactil, onMas, on
         })}
       </ul>
 
-      <dl className="mt-3 space-y-1 border-t border-slate-700 pt-3 text-sm" aria-label="Totales">
-        <Fila etiqueta="Subtotal" valor={dinero(calculo.totales.subtotal)} />
-        {calculo.totales.descuento > 0 ? <Fila etiqueta="Descuento" valor={`-${dinero(calculo.totales.descuento)}`} /> : null}
-        {calculo.ivaPorTarifa
-          .filter((t) => t.porcentaje > 0)
-          .map((t) => (
-            <Fila key={t.porcentaje} etiqueta={`IVA ${t.porcentaje}%`} valor={dinero(t.iva)} />
-          ))}
-        <div className="flex items-baseline justify-between pt-1 text-white">
+      <dl className="mt-3 space-y-1 rounded-xl border border-slate-700 bg-slate-900/60 p-3 text-sm tabular-nums" aria-label="Totales">
+        <Fila etiqueta="Subtotal 15%" valor={dinero(general?.base ?? 0)} />
+        <Fila etiqueta="Subtotal 0%" valor={dinero(tarifaCero?.base ?? 0)} />
+        {otrasTarifas.map((t) => <Fila key={t.porcentaje} etiqueta={`Subtotal ${t.porcentaje}%`} valor={dinero(t.base)} />)}
+        <Fila etiqueta={<>Descuento <span className="text-xs text-slate-400">aplicado</span></>} valor={dinero(calculo.totales.descuento)} />
+        <Fila etiqueta="IVA 15%" valor={dinero(general?.iva ?? 0)} />
+        {otrasTarifas.map((t) => <Fila key={t.porcentaje} etiqueta={`IVA ${t.porcentaje}%`} valor={dinero(t.iva)} />)}
+        <div className="flex items-baseline justify-between border-t border-slate-700 pt-2 text-white">
           <dt className="text-base font-semibold">Total</dt>
           <dd data-testid="total" className={`font-bold ${tactil ? "text-4xl" : "text-3xl"}`}>
             {dinero(calculo.totales.total)}
@@ -82,7 +84,7 @@ export function CarritoPanel({ lineas, calculo, clienteNombre, tactil, onMas, on
   );
 }
 
-function Fila({ etiqueta, valor }: { etiqueta: string; valor: string }): React.JSX.Element {
+function Fila({ etiqueta, valor }: { etiqueta: React.ReactNode; valor: string }): React.JSX.Element {
   return (
     <div className="flex justify-between text-slate-300">
       <dt>{etiqueta}</dt>

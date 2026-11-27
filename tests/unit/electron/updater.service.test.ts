@@ -188,6 +188,18 @@ describe("Búsqueda y descarga silenciosa", () => {
     expect(m.estados.map((e) => e.tipo)).not.toContain("error");
   });
 
+  it("un 404 emitido y rechazado por la misma búsqueda solo restablece el estado una vez", async () => {
+    const m = montar();
+    m.a.iniciar();
+    m.u.alBuscar = async () => {
+      const e = new Error("404 Not Found");
+      m.u.emitir("error", e);
+      throw e;
+    };
+    expect(await m.a.buscar()).toEqual({ tipo: "inactivo" });
+    expect(m.estados.map((e) => e.tipo)).toEqual(["buscando", "inactivo"]);
+  });
+
   it("no vuelve a buscar mientras ya busca, descarga o tiene una actualización lista", async () => {
     const m = montar();
     m.a.iniciar();

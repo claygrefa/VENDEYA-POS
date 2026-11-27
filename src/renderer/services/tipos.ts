@@ -20,6 +20,8 @@ export interface ProductoPos {
   tipo: string;
   precioVenta: number;
   stockActual: number;
+  stockMinimo: number;
+  categoriaId: string;
   aplicaIva: boolean;
   codigoIvaSRI: string;
   unidadMedida: { codigo: string; nombre: string; permiteDecimales: boolean };

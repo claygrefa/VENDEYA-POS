@@ -5,7 +5,7 @@
 // ============================================================
 
 import path from "path";
-import { app, BrowserWindow, dialog, safeStorage, shell } from "electron";
+import { app, BrowserWindow, dialog, Menu, safeStorage, shell } from "electron";
 
 function devLog(msg: string): void {
   if (isDev) console.log(`[main] ${msg}`);
@@ -114,12 +114,14 @@ function transporteTelemetria(): TransporteHttp | null {
 }
 
 function createWindow(): BrowserWindow {
+  if (!isDev) Menu.setApplicationMenu(null);
   const win = new BrowserWindow({
     width: 1280,
     height: 800,
     minWidth: 1024,
     minHeight: 600,
-    title: "vendeyapos",
+    title: "VendeYa POS",
+    autoHideMenuBar: !isDev,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,

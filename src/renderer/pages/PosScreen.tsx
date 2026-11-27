@@ -1,24 +1,27 @@
 // ============================================================
 // src/renderer/pages/PosScreen.tsx — Pantalla principal de venta
 //
-// Teclado: F2 buscar · F4 cliente · F8 cobrar · ESC cierra/cancela · Enter en la búsqueda agrega el producto.
+// Teclado: F2 buscar · F4 cliente · F6 carritos en espera · F8 cobrar · ESC cierra/cancela.
 // Escáner: una ráfaga rápida terminada en Enter se resuelve en el servidor (producto, presentación o etiqueta de balanza);
 // lo que escribe una persona se busca como texto.
 // ============================================================
 import { useQueryClient } from "@tanstack/react-query";
+import { Pause } from "lucide-react";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CobroPendienteSchema, type CobroPendiente } from "../../shared/schemas/venta.schema";
 import { BuscadorProductos } from "../components/BuscadorProductos";
 import { CarritoPanel } from "../components/CarritoPanel";
 import { guardarArchivo } from "../components/Gestion";
 import { Aviso, Modal } from "../components/Modal";
+import { ModalCarritosEnEspera } from "../components/ModalCarritosEnEspera";
 import { ModalCliente } from "../components/ModalCliente";
 import { ModalCobro, type DatosCobro } from "../components/ModalCobro";
 import { ModalLinea, type ResultadoLinea } from "../components/ModalLinea";
-import { useBalanza } from "../hooks/consultas";
+import { claveProductos, useBalanza } from "../hooks/consultas";
 import { useAtajos } from "../hooks/useAtajos";
 import { useEscaneo } from "../hooks/useEscaneo";
 import { ApiError } from "../services/api";
+import { guardarCarritosEnEspera, leerCarritosEnEspera, type CarritoEnEspera } from "../services/carritosEnEspera";
 import { operarCobroPendiente } from "../services/cobroPendiente";
 import { usePos } from "../services/contexto";
 import type { PresentacionPos, ProductoPos, VentaEmitidaPos } from "../services/tipos";
@@ -29,6 +32,7 @@ import { useSesion } from "../store/sesion.store";
 type Modal =
   | { tipo: "cobro" }
   | { tipo: "cliente" }
+  | { tipo: "espera"; carritos: CarritoEnEspera[]; error: string | null }
   | { tipo: "linea"; clave: string }
   | { tipo: "nueva"; producto: ProductoPos; presentacion: PresentacionPos | null };
 
@@ -48,6 +52,7 @@ export function PosScreen(): React.JSX.Element {
   const balanza = useBalanza();
 
   const [busqueda, setBusqueda] = useState("");
+  const [categoriaId, setCategoriaId] = useState<string>();
   const [modal, setModal] = useState<Modal | null>(null);
   const [aviso, setAviso] = useState<{ tipo: "error" | "exito" | "info"; texto: string } | null>(null);
   const [confirmacion, setConfirmacion] = useState<VentaEmitidaPos | null>(null);
@@ -57,6 +62,7 @@ export function PosScreen(): React.JSX.Element {
   const [confirmandoDescarte, setConfirmandoDescarte] = useState(false);
   const [estadoAlmacen, setEstadoAlmacen] = useState<"leyendo" | "listo" | "error">("leyendo");
   const enCurso = useRef(false);
+  const revisionCarrito = useRef(0);
   const refBusqueda = useRef<HTMLInputElement>(null);
   const modalAbierto = useRef(false);
   modalAbierto.current = modal !== null || pendiente !== null || estadoAlmacen !== "listo";
@@ -106,9 +112,11 @@ export function PosScreen(): React.JSX.Element {
   const escanear = useCallback(
     async (codigo: string): Promise<void> => {
       if (modalAbierto.current) return; // con un diálogo abierto el lector no debe tocar el carrito de fondo
+      const revision = revisionCarrito.current;
       setBusqueda("");
       try {
         const r = await api.escanear(codigo);
+        if (modalAbierto.current || revision !== revisionCarrito.current) return;
         if (r.tipo === "PRODUCTO") elegirProducto(r.producto);
         else elegirProducto(r.producto, r.presentacion, r.cantidad);
         if (r.tipo === "BALANZA") setAviso({ tipo: "exito", texto: `${r.producto.nombre}: ${r.cantidad} ${r.producto.unidadMedida.codigo}` });
@@ -122,9 +130,11 @@ export function PosScreen(): React.JSX.Element {
   const digitar = useCallback(
     async (texto: string): Promise<void> => {
       if (modalAbierto.current) return;
+      const revision = revisionCarrito.current;
       const t = texto.trim();
       try {
-        const r = await qc.fetchQuery({ queryKey: ["productos", t], queryFn: () => api.productos(t), staleTime: 15_000 });
+        const r = await qc.fetchQuery({ queryKey: claveProductos(t, categoriaId), queryFn: () => api.productos(t, undefined, categoriaId), staleTime: 15_000 });
+        if (modalAbierto.current || revision !== revisionCarrito.current) return;
         const exacto = r.items.find((p) => p.codigo === t || p.codigoBarras === t);
         const elegido = exacto ?? (r.items.length === 1 ? r.items[0] : undefined);
         if (elegido !== undefined) elegirProducto(elegido);
@@ -133,7 +143,7 @@ export function PosScreen(): React.JSX.Element {
         setAviso({ tipo: "error", texto: e instanceof ApiError ? e.message : "No se pudo buscar" });
       }
     },
-    [api, qc, elegirProducto, escanear]
+    [api, qc, categoriaId, elegirProducto, escanear]
   );
 
   const { procesarTecla } = useEscaneo({ alEscanear: (c) => void escanear(c), alDigitar: (t) => void digitar(t) });
@@ -151,6 +161,45 @@ export function PosScreen(): React.JSX.Element {
     enfocarBusqueda();
   };
 
+  const abrirEnEspera = (): void => {
+    if (usuario === null || modalAbierto.current || enCurso.current) return;
+    try {
+      const carritos = leerCarritosEnEspera(usuario);
+      revisionCarrito.current += 1;
+      setModal({ tipo: "espera", carritos, error: null });
+    } catch {
+      setAviso({ tipo: "error", texto: "No se pudieron leer los carritos en espera de esta caja" });
+    }
+  };
+
+  const cambiarCarritoEnEspera = (id?: string): void => {
+    if (usuario === null || modal?.tipo !== "espera" || pendiente !== null || enCurso.current) return;
+    const actual = carrito.getState();
+    if (id === undefined && actual.lineas.length === 0) return;
+    try {
+      const guardados = leerCarritosEnEspera(usuario);
+      const recuperado = guardados.find((c) => c.id === id);
+      if (id !== undefined && recuperado === undefined) {
+        setModal({ tipo: "espera", carritos: guardados, error: "Ese carrito ya no está disponible" });
+        return;
+      }
+      const siguientes = guardados.filter((c) => c.id !== id);
+      if (actual.lineas.length > 0) {
+        siguientes.unshift({
+          id: globalThis.crypto.randomUUID(), guardadoEn: new Date().toISOString(), lineas: actual.lineas, cliente: actual.cliente,
+        });
+      }
+      guardarCarritosEnEspera(usuario, siguientes);
+      carrito.setState({ lineas: recuperado?.lineas ?? [], cliente: recuperado?.cliente ?? null });
+      setBusqueda("");
+      setConfirmacion(null);
+      setModal(null);
+      setAviso({ tipo: "exito", texto: recuperado === undefined ? "Carrito guardado en espera" : "Carrito recuperado" });
+    } catch {
+      setModal({ ...modal, error: "No se pudieron guardar los cambios. El carrito actual sigue disponible." });
+    }
+  };
+
   useAtajos({
     F2: () => {
       if (modal === null) enfocarBusqueda();
@@ -158,6 +207,7 @@ export function PosScreen(): React.JSX.Element {
     F4: () => {
       if (modal === null && pendiente === null) setModal({ tipo: "cliente" });
     },
+    F6: abrirEnEspera,
     F8: abrirCobro,
     Escape: () => {
       if (modal !== null) {
@@ -380,10 +430,10 @@ export function PosScreen(): React.JSX.Element {
 
       <div className="flex min-h-0 flex-1 gap-4 p-4">
         <div className="flex min-w-0 flex-1 flex-col">
-          <BuscadorProductos ref={refBusqueda} busqueda={busqueda} onBusqueda={setBusqueda} onTecla={(k) => procesarTecla(k)} onElegir={(p) => elegirProducto(p)} tactil={tactil} />
+          <BuscadorProductos ref={refBusqueda} busqueda={busqueda} categoriaId={categoriaId} onCategoria={setCategoriaId} onBusqueda={setBusqueda} onTecla={(k) => procesarTecla(k)} onElegir={(p) => elegirProducto(p)} tactil={tactil} />
         </div>
 
-        <aside className="flex w-[26rem] min-w-[22rem] flex-col rounded-2xl border border-slate-700 bg-slate-800/60 p-4">
+        <aside className="flex w-[clamp(20rem,34vw,26rem)] shrink-0 flex-col rounded-2xl border border-slate-700 bg-slate-800/60 p-4">
           {confirmacion !== null ? (
             <Confirmacion venta={confirmacion} onNueva={nuevaVenta} onReimprimir={() => void reimprimir()} onGuardar={() => void guardarFactura()} />
           ) : (
@@ -398,14 +448,17 @@ export function PosScreen(): React.JSX.Element {
                 onQuitar={(l) => carrito.getState().quitar(l.clave)}
                 onEditar={(l) => setModal({ tipo: "linea", clave: l.clave })}
               />
-              <div className="mt-3 grid grid-cols-3 gap-2">
-                <button type="button" onClick={() => setModal({ tipo: "cliente" })} className={`rounded-xl bg-slate-700 text-white ${tactil ? "h-16" : "h-12"}`}>
+              <div className="mt-3 grid shrink-0 grid-cols-3 gap-2 text-sm">
+                <button type="button" onClick={() => setModal({ tipo: "cliente" })} className={`rounded-xl bg-slate-700 px-2 text-white hover:bg-slate-600 ${tactil ? "min-h-14" : "min-h-10"}`}>
                   Cliente (F4)
                 </button>
-                <button type="button" onClick={() => carrito.getState().vaciar()} disabled={lineas.length === 0} className={`rounded-xl bg-slate-700 text-white disabled:opacity-40 ${tactil ? "h-16" : "h-12"}`}>
+                <button type="button" onClick={abrirEnEspera} className={`inline-flex items-center justify-center gap-1 rounded-xl border border-slate-600 px-2 text-white hover:bg-slate-700 ${tactil ? "min-h-14" : "min-h-10"}`}>
+                  <Pause className="h-4 w-4 shrink-0" aria-hidden="true" /> En espera (F6)
+                </button>
+                <button type="button" onClick={() => carrito.getState().vaciar()} disabled={lineas.length === 0} className={`rounded-xl bg-slate-700 px-2 text-white hover:bg-slate-600 disabled:opacity-40 ${tactil ? "min-h-14" : "min-h-10"}`}>
                   Vaciar
                 </button>
-                <button type="button" onClick={abrirCobro} disabled={lineas.length === 0} className={`rounded-xl bg-emerald-600 font-semibold text-white disabled:opacity-40 ${tactil ? "h-16 text-lg" : "h-12"}`}>
+                <button type="button" onClick={abrirCobro} disabled={lineas.length === 0} className={`col-span-3 rounded-xl bg-emerald-700 font-semibold text-white hover:bg-emerald-600 disabled:opacity-40 ${tactil ? "min-h-14 text-lg" : "min-h-11 text-base"}`}>
                   Cobrar (F8)
                 </button>
               </div>
@@ -425,6 +478,10 @@ export function PosScreen(): React.JSX.Element {
           onConfirmar={(d) => void cobrar(d)}
           onCancelar={() => setModal(null)}
         />
+      ) : null}
+      {modal?.tipo === "espera" ? (
+        <ModalCarritosEnEspera carritos={modal.carritos} hayCarrito={lineas.length > 0} error={modal.error}
+          onSuspender={() => cambiarCarritoEnEspera()} onRecuperar={(c) => cambiarCarritoEnEspera(c.id)} onCerrar={() => setModal(null)} />
       ) : null}
       {modal?.tipo === "cliente" ? (
         <ModalCliente

@@ -54,7 +54,7 @@ function Install-Candidate($Info) {
     [pscustomobject]@{ Exe = $exe; Version = $version }
 }
 
-function Invoke-FirstBoot($Installed, [bool]$Configured, [scriptblock]$Check) {
+function Invoke-FirstBoot($Installed, [bool]$Configured, [scriptblock]$Check, [switch]$AllowLegacyTitle) {
     $listener = New-Object System.Net.Sockets.TcpListener ([Net.IPAddress]::Loopback), 0
     try {
         $listener.Start()
@@ -80,7 +80,8 @@ function Invoke-FirstBoot($Installed, [bool]$Configured, [scriptblock]$Check) {
             $db = $profiles | ForEach-Object { Join-Path $_ 'data\vendeya.db' } | Where-Object {
                 (Test-Path -LiteralPath $_ -PathType Leaf) -and (Get-Item -LiteralPath $_).Length -gt 0
             } | Select-Object -First 1
-            if ($db -and $process.MainWindowHandle -ne [IntPtr]::Zero -and $process.MainWindowTitle -eq 'vendeyapos') {
+            $title = $process.MainWindowTitle
+            if ($db -and $process.MainWindowHandle -ne [IntPtr]::Zero -and ($title -ceq 'VendeYa POS' -or ($AllowLegacyTitle -and $title -ceq 'vendeyapos'))) {
                 $health = $null
                 $setup = $null
                 try {
@@ -127,7 +128,7 @@ if ($BaselineInstaller) {
             admin = @{ username = $account.username; password = $account.password; nombre = 'Smoke'; apellido = 'Upgrade' }
         }
         Invoke-RestMethod "$base/api/setup" -Method Post -ContentType 'application/json' -Body ($setup | ConvertTo-Json -Depth 5) -TimeoutSec 15
-    }
+    } -AllowLegacyTitle
     $installed = Install-Candidate $candidate
     if ([version]$installed.Version -le [version]$older.Version) { throw 'Candidate must have a newer stable version.' }
     $updated = Invoke-FirstBoot $installed $true {

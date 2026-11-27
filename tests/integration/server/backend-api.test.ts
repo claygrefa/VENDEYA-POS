@@ -109,6 +109,30 @@ describe("API /api", () => {
     expect(r.json()).toMatchObject({ status: "ok", db: "ok" });
   });
 
+  it("filtra por categoría antes de paginar, con y sin búsqueda de texto", async () => {
+    const general = await backend.prisma.categoria.findFirstOrThrow({ where: { nombre: "General" } });
+    const otra = await backend.prisma.categoria.create({ data: { nombre: "Prueba de filtro" } });
+    const unidad = await backend.prisma.unidadMedida.findUniqueOrThrow({ where: { codigo: "UN" } });
+    const producto = await backend.servicios.productos.crear({
+      codigo: "P002", nombre: "Arroz integral 1kg", tipo: "BIEN",
+      categoriaId: otra.id, unidadMedidaId: unidad.id, precioCompra: 0.8, precioVenta: 1,
+    });
+
+    try {
+      for (const filtro of ["", "&search=arroz", "&search=1k"]) {
+        const resultado = await get(`/api/productos?categoriaId=${otra.id}&pageSize=1${filtro}`, tokenAdmin);
+        expect(resultado.statusCode).toBe(200);
+        expect(resultado.json()).toMatchObject({ total: 1, items: [{ codigo: "P002", categoriaId: otra.id }] });
+      }
+      const paginaVacia = await get(`/api/productos?categoriaId=${general.id}&search=arroz&page=2&pageSize=1`, tokenAdmin);
+      expect(paginaVacia.json()).toMatchObject({ total: 1, items: [] });
+      expect((await get("/api/productos?categoriaId=invalida", tokenAdmin)).statusCode).toBe(400);
+    } finally {
+      await backend.prisma.producto.delete({ where: { id: producto.id } });
+      await backend.prisma.categoria.delete({ where: { id: otra.id } });
+    }
+  });
+
   it("login correcto devuelve token y usuario con permisos", async () => {
     const r = await backend.server.inject({ method: "POST", url: "/api/auth/login", payload: { username: "admin", password: "ClaveDePrueba1" } });
     const cuerpo = r.json() as { token: string; usuario: { rol: string; permisos: string[] } };

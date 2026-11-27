@@ -2,12 +2,15 @@
 // src/server/services/producto.service.ts
 // ============================================================
 import type { PresentacionProducto, Producto } from "@prisma/client";
+import { z } from "zod";
 import { PaginacionSchema } from "../../shared/schemas/paginacion.schema";
 import { ProductoSchema } from "../../shared/schemas/producto.schema";
 import type { ProductoConDetalle, ProductoRepository, ResultadoPaginado } from "../repositories/producto.repository";
 import { AppError } from "./appError.util";
 import { omitUndefined } from "./object.util";
 import { parsear } from "./validation.util";
+
+const BusquedaProductosSchema = PaginacionSchema.extend({ categoriaId: z.uuid().optional() });
 
 export class ProductoService {
   constructor(private readonly repo: ProductoRepository) {}
@@ -60,8 +63,8 @@ export class ProductoService {
 
   /** Búsqueda paginada por nombre, código, código de barras o principio activo. */
   async buscar(entrada: unknown): Promise<ResultadoPaginado<ProductoConDetalle>> {
-    const p = parsear(PaginacionSchema, entrada ?? {});
-    return this.repo.buscar({ page: p.page, pageSize: p.pageSize, ...(p.search !== undefined ? { search: p.search } : {}) });
+    const { page, pageSize, search, categoriaId } = parsear(BusquedaProductosSchema, entrada ?? {});
+    return this.repo.buscar(omitUndefined({ page, pageSize, search, categoriaId }));
   }
 
   /**

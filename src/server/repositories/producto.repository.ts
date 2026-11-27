@@ -23,6 +23,7 @@ export interface FiltroProductos {
   page: number;
   pageSize: number;
   search?: string;
+  categoriaId?: string;
 }
 
 export class ProductoRepository {
@@ -62,23 +63,26 @@ export class ProductoRepository {
   }
 
   async buscar(filtro: FiltroProductos): Promise<ResultadoPaginado<ProductoConDetalle>> {
-    const { search, page, pageSize } = filtro;
+    const { search, page, pageSize, categoriaId } = filtro;
     const offset = (page - 1) * pageSize;
     if (search !== undefined && search !== "") {
       const patron = `%${search}%`;
       // Usa frases literales en FTS5. Los patrones LIKE con comodines del usuario conservan su semántica anterior.
       const frase = `"${search.replaceAll('"', '""')}"`;
+      const categoria = categoriaId === undefined ? Prisma.empty : Prisma.sql`AND p.categoriaId = ${categoriaId}`;
       // eslint-disable-next-line no-control-regex -- SQLite FTS no admite NUL en la consulta.
       const coincidencias = /^([^%_\x00]){3,}$/u.test(search)
         ? Prisma.sql`
           SELECT p.id, p.nombre FROM ProductoBusqueda
           JOIN Producto p ON p.rowid = ProductoBusqueda.rowid
           WHERE ProductoBusqueda MATCH ${frase} AND p.status = 'ACTIVO'
+            ${categoria}
             AND (p.nombre LIKE ${patron} OR p.codigo LIKE ${patron} OR p.codigoBarras LIKE ${patron} OR p.principioActivo LIKE ${patron})
         `
         : Prisma.sql`
-          SELECT id, nombre FROM Producto WHERE status = 'ACTIVO'
-            AND (nombre LIKE ${patron} OR codigo LIKE ${patron} OR codigoBarras LIKE ${patron} OR principioActivo LIKE ${patron})
+          SELECT p.id, p.nombre FROM Producto p WHERE p.status = 'ACTIVO'
+            ${categoria}
+            AND (p.nombre LIKE ${patron} OR p.codigo LIKE ${patron} OR p.codigoBarras LIKE ${patron} OR p.principioActivo LIKE ${patron})
         `;
       return this.prisma.$transaction(async (tx) => {
         // Reutiliza el conjunto encontrado para obtener el total y la página de una misma lectura.
@@ -97,7 +101,7 @@ export class ProductoRepository {
         return { items, total: Number(filas[0]?.total ?? 0), page, pageSize };
       });
     }
-    const where = { status: "ACTIVO" };
+    const where = { status: "ACTIVO", ...(categoriaId === undefined ? {} : { categoriaId }) };
     const [items, total] = await this.prisma.$transaction([
       this.prisma.producto.findMany({
         where,

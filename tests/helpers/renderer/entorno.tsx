@@ -113,12 +113,17 @@ export const usuarioDe = (rol: keyof typeof PERMISOS): UsuarioSesion => ({ ...US
 export const PUNTO: PuntoEmisionPos = { id: "11111111-1111-4111-8111-111111111111", codigo: "001", descripcion: "Caja 1", sucursal: { id: "22222222-2222-4222-8222-222222222222", codigo: "001", nombre: "Matriz" } };
 export const TURNO: TurnoPos = { id: "33333333-3333-4333-8333-333333333333", sucursalId: PUNTO.sucursal.id, estado: "ABIERTO", montoApertura: 100 };
 
+export const ABARROTES = { id: "10000000-0000-4000-8000-000000000001", nombre: "Abarrotes" };
+export const LACTEOS = { id: "10000000-0000-4000-8000-000000000002", nombre: "Lácteos" };
+
 export function producto(extra: Partial<ProductoPos> & { id: string; codigo: string; nombre: string }): ProductoPos {
   return {
     codigoBarras: null,
     tipo: "BIEN",
     precioVenta: 10,
     stockActual: 50,
+    stockMinimo: 0,
+    categoriaId: ABARROTES.id,
     aplicaIva: true,
     codigoIvaSRI: "4",
     unidadMedida: { codigo: "UN", nombre: "Unidad", permiteDecimales: false },
@@ -129,7 +134,7 @@ export function producto(extra: Partial<ProductoPos> & { id: string; codigo: str
 
 export const CAFE = producto({ id: "a0000000-0000-4000-8000-000000000001", codigo: "CAFE", nombre: "Café molido 250g", precioVenta: 10, codigoBarras: "7861234567890" });
 export const ARROZ = producto({ id: "a0000000-0000-4000-8000-000000000002", codigo: "ARROZ", nombre: "Arroz 1kg", precioVenta: 1.2, aplicaIva: false, codigoIvaSRI: "0" });
-export const QUESO = producto({ id: "a0000000-0000-4000-8000-000000000003", codigo: "QUESO", nombre: "Queso fresco", precioVenta: 8, aplicaIva: false, codigoIvaSRI: "0", unidadMedida: { codigo: "KG", nombre: "Kilogramo", permiteDecimales: true } });
+export const QUESO = producto({ id: "a0000000-0000-4000-8000-000000000003", categoriaId: LACTEOS.id, codigo: "QUESO", nombre: "Queso fresco", precioVenta: 8, stockActual: 2, stockMinimo: 2, aplicaIva: false, codigoIvaSRI: "0", unidadMedida: { codigo: "KG", nombre: "Kilogramo", permiteDecimales: true } });
 export const CATALOGO = [CAFE, ARROZ, QUESO];
 
 /** Respuestas habituales de un servidor sano: catálogo con búsqueda, puntos, balanza, impresora y cola del SRI. */
@@ -137,9 +142,12 @@ export function servidorBasico(api: ApiSimulada, catalogo: ProductoPos[] = CATAL
   return api
     .en("GET /api/productos", (p) => {
       const q = (p.parametros.get("search") ?? "").toLowerCase();
-      const items = catalogo.filter((x) => q === "" || [x.nombre, x.codigo, x.codigoBarras ?? ""].some((t) => t.toLowerCase().includes(q)));
+      const categoria = p.parametros.get("categoriaId");
+      const items = catalogo.filter((x) => (categoria === null || x.categoriaId === categoria) &&
+        (q === "" || [x.nombre, x.codigo, x.codigoBarras ?? ""].some((t) => t.toLowerCase().includes(q))));
       return { cuerpo: { items, total: items.length, page: 1, pageSize: 24 } };
     })
+    .en("GET /api/catalogos", { cuerpo: { categorias: [ABARROTES, LACTEOS], unidades: [] } })
     .en("GET /api/setup/estado", { cuerpo: { configurado: true } })
     .en("GET /api/licencia", { cuerpo: { tipo: "NO_REQUERIDA", permiteOperar: true, mensaje: "Licenciamiento no requerido en esta instalación", plan: null, vence: null, diasParaVencer: null, ultimaValidacion: null, diasGraciaRestantes: null, maxDispositivos: null, claveEnmascarada: null, dispositivoId: null } })
     .en("GET /api/puntos-emision", { cuerpo: { items: [PUNTO] } })

@@ -40,6 +40,7 @@ export const ARTICULOS: ReadonlyArray<ArticuloAyuda> = [
     pasos: [
       "F2: va a la búsqueda de productos.",
       "F4: elige o cambia el cliente de la venta.",
+      "F6: guarda o recupera carritos en espera de esta caja.",
       "F8: abre el cobro.",
       "ESC: cierra la ventana abierta o cancela.",
       "Enter en la búsqueda: agrega el producto encontrado (también funciona con el lector de códigos de barras).",
