@@ -1,6 +1,6 @@
 // ============================================================
-// src/renderer/components/BannerActualizacion.tsx — Aviso de nueva versión (descarga silenciosa, lista para instalar, error)
-// No aparece si no hay nada que decir (al día, buscando, desactivado): no distrae al cajero.
+// src/renderer/components/BannerActualizacion.tsx — Aviso de nueva versión (descarga silenciosa y lista para instalar)
+// No aparece si no hay nada que decir (al día, buscando, desactivado) ni muestra nunca errores de comprobación: no distrae al cajero.
 // ============================================================
 import React, { useState } from "react";
 import type { ActualizacionVista } from "../hooks/useActualizacion";
@@ -8,7 +8,6 @@ import type { ActualizacionVista } from "../hooks/useActualizacion";
 export function BannerActualizacion({ actualizacion, ocupado }: { actualizacion: ActualizacionVista; ocupado: boolean }): React.JSX.Element | null {
   const { estado } = actualizacion;
   const [rechazo, setRechazo] = useState<string | null>(null);
-  const [descartado, setDescartado] = useState<string | null>(null);
   if (estado === null) return null;
 
   const instalar = async (): Promise<void> => setRechazo(await actualizacion.instalar());
@@ -42,20 +41,5 @@ export function BannerActualizacion({ actualizacion, ocupado }: { actualizacion:
     );
   }
 
-  if (estado.tipo === "error" && descartado !== estado.mensaje) {
-    return (
-      <div role="alert" aria-label="Actualización" className="flex items-center justify-between gap-4 border-b border-amber-800 bg-amber-950 px-4 py-1.5 text-sm text-amber-100">
-        <span>{estado.mensaje}</span>
-        <span className="flex gap-3">
-          <button type="button" onClick={() => void actualizacion.buscar()} className="rounded-lg border border-amber-600 px-3 py-1 hover:bg-amber-900">
-            Reintentar
-          </button>
-          <button type="button" onClick={() => setDescartado(estado.mensaje)} className="px-2 py-1 text-amber-300 hover:text-white">
-            Cerrar
-          </button>
-        </span>
-      </div>
-    );
-  }
   return null;
 }

@@ -423,7 +423,6 @@ export function textoDeEstado(e: EstadoActualizacion | null): string {
     case "al-dia": return `Tiene la última versión (revisado el ${new Date(e.revisado).toLocaleString("es-EC")})`;
     case "descargando": return `Descargando la versión ${e.version}… ${e.porcentaje}%`;
     case "lista": return e.aviso ?? `La versión ${e.version} está lista: se instalará al cerrar la aplicación`;
-    case "error": return e.mensaje;
   }
 }
 

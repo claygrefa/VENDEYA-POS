@@ -95,17 +95,15 @@ describe("Banner de actualización", () => {
     expect(await within(banner).findByRole("alert")).toHaveTextContent("disco lleno");
   });
 
-  it("un error se muestra con «Reintentar» (vuelve a buscar) y se puede cerrar", async () => {
+  it("nunca muestra banners de error al cajero, aunque llegue un estado de error por el puente", async () => {
     const p = instalarPuente();
-    const { usuario } = renderizarPos({ usuario: ADMIN });
+    renderizarPos({ usuario: ADMIN });
     await screen.findByRole("navigation", { name: "Menú principal" });
-    p.emitir({ tipo: "error", mensaje: "No se pudo comprobar las actualizaciones (sin red). Se reintentará más tarde." });
-    const banner = await screen.findByRole("alert", { name: "Actualización" });
-    expect(banner).toHaveTextContent("sin red");
-    await usuario.click(within(banner).getByRole("button", { name: "Reintentar" }));
-    expect(p.invocaciones.filter((i) => i.canal === "updater:check")).toHaveLength(1);
-    await usuario.click(within(banner).getByRole("button", { name: "Cerrar" }));
+    p.emitir({ tipo: "error", mensaje: "No se pudo comprobar las actualizaciones (HttpError: 404). Se reintentará más tarde." } as never);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.queryByLabelText("Actualización")).toBeNull();
     expect(screen.queryByRole("alert", { name: "Actualización" })).toBeNull();
+    expect(screen.queryByText(/404/)).toBeNull();
   });
 });
 

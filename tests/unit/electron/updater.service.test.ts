@@ -156,14 +156,15 @@ describe("Búsqueda y descarga silenciosa", () => {
     expect(m.a.estado()).toEqual({ tipo: "al-dia", revisado: "2026-11-24T12:00:00.000Z" });
   });
 
-  it("un fallo de red se informa como error, no lanza, y se reintenta en la siguiente búsqueda", async () => {
+  it("un fallo de red es silencioso (nunca publica un error a la interfaz), no lanza, y se reintenta en la siguiente búsqueda", async () => {
     const m = montar();
     m.a.iniciar();
     m.u.alBuscar = async () => {
       throw new Error("getaddrinfo ENOTFOUND github.com");
     };
-    expect(await m.a.buscar()).toMatchObject({ tipo: "error", mensaje: expect.stringContaining("ENOTFOUND") });
-    expect(m.a.estado()).toMatchObject({ tipo: "error", mensaje: expect.stringContaining("Se reintentará más tarde") });
+    expect(await m.a.buscar()).toEqual({ tipo: "inactivo" });
+    expect(m.a.estado()).toEqual({ tipo: "inactivo" });
+    expect(m.estados.map((e) => e.tipo)).not.toContain("error");
     // la red vuelve: la búsqueda periódica funciona
     m.u.alBuscar = async () => undefined;
     await vi.advanceTimersByTimeAsync(4 * 60 * 60 * 1000);
@@ -171,13 +172,20 @@ describe("Búsqueda y descarga silenciosa", () => {
     expect(m.a.estado().tipo).toBe("al-dia");
   });
 
-  it("el evento de error del actualizador también se refleja, con el texto acotado", async () => {
+  it("un 404 (aún no hay releases) o el evento de error del actualizador no muestran nada: se vuelve al estado anterior", async () => {
     const m = montar();
     m.a.iniciar();
-    m.u.emitir("error", new Error("x".repeat(500)));
-    const e = m.a.estado();
-    expect(e.tipo).toBe("error");
-    expect(e.tipo === "error" && e.mensaje.length).toBeLessThan(300);
+    m.u.emitir("update-not-available");
+    const alDia = m.a.estado();
+    expect(alDia.tipo).toBe("al-dia");
+    m.u.alBuscar = async () => {
+      throw new Error("HttpError: 404 Not Found " + "x".repeat(500));
+    };
+    await m.a.buscar();
+    expect(m.a.estado()).toEqual(alDia);
+    m.u.emitir("error", new Error("net::ERR_INTERNET_DISCONNECTED"));
+    expect(m.a.estado()).toEqual(alDia);
+    expect(m.estados.map((e) => e.tipo)).not.toContain("error");
   });
 
   it("no vuelve a buscar mientras ya busca, descarga o tiene una actualización lista", async () => {

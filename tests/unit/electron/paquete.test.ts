@@ -163,6 +163,10 @@ describe("Firma, publicación y CI", () => {
 
   it("las actualizaciones se publican como GitHub Release (latest.yml), con canal beta para las versiones con sufijo", () => {
     expect(cfg.publish).toMatchObject({ provider: "github", owner: "claygrefa", repo: "VENDEYA-POS" });
+    // el repositorio de releases es el mismo de package.json (de donde el actualizador lee latest.yml) y el del flujo de publicación
+    const pkg = JSON.parse(leer("package.json")) as { repository: { url: string } };
+    expect(pkg.repository.url).toBe(`https://github.com/${cfg.publish.owner}/${cfg.publish.repo}.git`);
+    expect(leer("electron", "updater", "release", "publicar.ts")).toContain(`const Repo = "${cfg.publish.owner}/${cfg.publish.repo}"`);
     expect(release).toContain("--publish never");
     expect(release).toContain("release:publish -- --promote");
   });

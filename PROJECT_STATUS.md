@@ -981,6 +981,12 @@ El auditor aprobó el código salvo un defecto alto y varias mejoras; todo lo si
 - **No aplicado a propósito:** fijar las acciones de GitHub por SHA de commit (hay que consultarlas en GitHub, no se pueden resolver sin red) y validar `event.senderFrame` en los manejadores IPC (no se puede probar con Electron abierto en este entorno y un fallo dejaría la aplicación sin IPC; está mitigado porque la ventana solo carga `file://` y la navegación está bloqueada).
 - **Cambios de otro proceso confirmados:** `electron/dev-runner.cjs` y el script `dev:electron` (lanzan Electron sin `ELECTRON_RUN_AS_NODE`) y la limpieza del registro `electron-dev.log` en `electron/main.ts`.
 
+### Actualizador silencioso — `fix:`
+- El repositorio de releases ya era el correcto en todas las fuentes (`electron-builder.yml` → `claygrefa/VENDEYA-POS`, igual a `package.json › repository`, al remoto `origin` y a `publicar.ts`); `paquete.test.ts` ahora comprueba que las tres coincidan. Un `app-update.yml` con `owner: vendeya` solo existe en `release/v1.0.0/` (artefacto viejo, ignorado por Git).
+- **Los fallos al comprobar actualizaciones (404 por no haber releases, sin red, evento `error`) ya no llegan a la interfaz:** se eliminó el estado `error` de `EstadoActualizacion`, `ActualizadorApp.alFallar` solo registra y vuelve al estado anterior (`al-dia` o `inactivo`) y se quitó el banner de error. La búsqueda periódica (4 h) reintenta.
+- Archivos: `electron/updater/updater.service.ts`, `src/shared/types/actualizacion.types.ts`, `src/renderer/components/BannerActualizacion.tsx`, `src/renderer/pages/AjustesPage.tsx`, tests de `updater.service`, `actualizacion` y `paquete`.
+- **Verificación:** `tsc` ×3 = 0 errores; comportamiento comprobado con un script (404 y error de red: sin estado `error`). **Las pruebas de Vitest NO se pudieron ejecutar:** con Vitest 5.1.2 / Vite 8.4.0 (commit `2f685a9`) hasta un test mínimo falla con «Vitest failed to find the runner» en `tests/setup.ts`, también en HEAD sin mis cambios. Pendiente de resolver antes de dar la suite por verde.
+
 ### Auditoría de estrés POS — 2026-11-26
 
 - Se añadió `tests/stress/posStress.test.ts` con SQLite temporal, 25.000 productos, 1.000 ventas consecutivas, 50 peticiones simultáneas, 500 facturas offline, fallos controlados de persistencia y corte TCP antes de completar un cobro.

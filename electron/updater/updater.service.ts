@@ -54,6 +54,8 @@ export class ActualizadorApp {
   private actual: EstadoActualizacion;
   private ocupado = false;
   private instalando = false;
+  /** Última vez que se confirmó estar al día: al fallar una búsqueda se vuelve a este estado en vez de mostrar un error */
+  private alDia: EstadoActualizacion | null = null;
   private iniciado = false;
   private primera: ReturnType<typeof setTimeout> | null = null;
   private periodico: ReturnType<typeof setInterval> | null = null;
@@ -85,7 +87,9 @@ export class ActualizadorApp {
     });
     u.on("update-available", (info) => this.fijar({ tipo: "descargando", version: versionDe(info), porcentaje: 0 }));
     u.on("update-not-available", () => {
-      if (this.actual.tipo !== "lista") this.fijar({ tipo: "al-dia", revisado: (this.o.ahora?.() ?? new Date()).toISOString() });
+      if (this.actual.tipo === "lista") return;
+      this.alDia = { tipo: "al-dia", revisado: (this.o.ahora?.() ?? new Date()).toISOString() };
+      this.fijar(this.alDia);
     });
     u.on("download-progress", (p) => {
       const version = this.actual.tipo === "descargando" ? this.actual.version : "";
@@ -173,10 +177,11 @@ export class ActualizadorApp {
   }
 
   private alFallar(e: unknown): void {
-    this.o.registrar?.("Error de actualización", e);
+    // 100 % silencioso para la interfaz: se registra y se vuelve al estado anterior; la búsqueda periódica reintenta.
+    this.o.registrar?.(`Error de actualización (ignorado): ${detalleDe(e)}`);
     // Una actualización ya descargada y respaldada sigue siendo válida aunque falle una búsqueda posterior
     if (this.actual.tipo === "lista") return;
-    this.fijar({ tipo: "error", mensaje: `No se pudo comprobar las actualizaciones (${detalleDe(e)}). Se reintentará más tarde.` });
+    this.fijar(this.alDia ?? { tipo: "inactivo" });
   }
 
   private fijar(estado: EstadoActualizacion): void {
