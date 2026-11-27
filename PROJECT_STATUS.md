@@ -2,6 +2,13 @@
 
 ## Estado General
 
+### Candidata de actualización v1.0.1 — 2026-11-27
+
+- [x] La instalación Windows existente informa 1.0.0, consulta `vendeya/vendeya-pos` y espera el editor `vendeyapos (prueba)`. La transición al GitHub actual requiere instalar una vez el instalador comercial y verificar que conserva los datos. El runbook documenta el respaldo previo y la comprobación del canal desde Ajustes.
+- [x] `package.json`, `package-lock.json` y `docs/RELEASE_V1_RUNBOOK.md` preparados para 1.0.1. El repositorio `claygrefa/VENDEYA-POS` todavía no tiene tags ni Releases. Render respondió 200 en `/health` con la base operativa y 401 en `/api/license/verify` con un token inválido de prueba.
+- [x] TypeScript, ESLint y 1.145 pruebas correctos. El instalador NSIS local de inspección en `out/v1.0.1-inspeccion/` indica 1.0.1 y su manifiesto apunta al repositorio actual. Pasaron 13 comprobaciones de backend y contenido del paquete, incluidas las 17 migraciones. Este binario de inspección carece de firma y el primer arranque de la aplicación completa queda pendiente en la VM.
+- [ ] **Siguiente tarea atómica.** Subir una rama de la candidata una vez autorizada y ejecutar **Release** en GitHub Actions con las credenciales comerciales. El validador de publicación se detiene al faltar `evidence/candidate/windows/signing.json`. Siguen pendientes la firma, la verificación positiva de licencias y telemetría, la autorización SRI y los recibos de instalación y actualización en VM.
+
 ### Pulido de la pantalla de venta — 2026-11-26
 
 - [x] Electron muestra el título «VendeYa POS» y oculta el menú nativo en producción. Los fallos de búsqueda o descarga de actualizaciones vuelven al último estado estable sin mostrar errores, incluidos los 404 y los fallos reportados por evento y promesa. El flujo de respaldo e instalación conserva sus avisos.
@@ -67,7 +74,7 @@ El control vigente es `npm run release:publish` para validar evidencia y `npm ru
 
 - **Proyecto:** VENDEYA POS (Sistema Punto de Venta Multi-Giro & Facturación Electrónica SRI Ecuador)
 - **Horizonte:** 6 Meses (24 Semanas)
-- **Fase Actual:** Candidata v1.0.0, pendiente de validación de campo. Ver «Bloqueos de pre-lanzamiento v1.0.0».
+- **Fase Actual:** Candidata v1.0.1, pendiente de validación de campo. Ver «Candidata de actualización v1.0.1».
 - **Estado de Compilación:** ✅ `tsc --noEmit` → 0 errores | ✅ `tsconfig.node.json` → 0 errores | ✅ `tsconfig.electron.json` → 0 errores
 - **Tests:** ✅ 1.145 pruebas en 79 archivos. La suite de estrés se ejecuta aparte con `npm run test:estres`.
 - **Entregable de pre-lanzamiento:** `fix: cierra bloqueos de prelanzamiento del POS` (2026-11-26). Tag pendiente de aprobar el candidato firmado.

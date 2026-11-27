@@ -1,6 +1,8 @@
-# Runbook de VendeYa POS v1.0.0
+# Runbook de VendeYa POS v1.0.1
 
 El asistente `npm.cmd run release:runbook` propone el primer paso con evidencia pendiente. Ejecuta los comandos de PowerShell desde la raíz del repositorio. Usa GitHub CLI autenticado para descargar y publicar el candidato. `evidence/` es una carpeta local privada, excluida de Git.
+
+La instalación de prueba 1.0.0 revisada en Windows consulta `vendeya/vendeya-pos` y espera el editor `vendeyapos (prueba)`. Para pasar al canal `claygrefa/VENDEYA-POS`, verifica primero el instalador comercial 1.0.1 en una VM. En la caja, haz un respaldo desde **Ajustes → Respaldos**, cierra el POS y ejecuta el instalador aprobado sobre la instalación existente. Confirma que vuelve a abrir los datos y que **Ajustes → Actualizaciones** indica 1.0.1. A partir de esa instalación, las siguientes versiones firmadas con el editor de confianza llegarán desde el repositorio actual.
 
 ## 1. Licencias y telemetría por HTTPS
 
@@ -27,7 +29,7 @@ El asistente `npm.cmd run release:runbook` propone el primer paso con evidencia 
    ```powershell
    $base = 'https://TU-SERVICIO.onrender.com'
    curl.exe --proto '=https' --fail --silent --show-error "$base/health"
-   '{"token":"invalid","dispositivo":{"id":"smoke","nombre":"Smoke","plataforma":"cli","version":"1.0.0"}}' | curl.exe --proto '=https' --silent --show-error -w '\nHTTP %{http_code}\n' -H 'Content-Type: application/json' --data-binary '@-' "$base/api/license/verify"
+   '{"token":"invalid","dispositivo":{"id":"smoke","nombre":"Smoke","plataforma":"cli","version":"1.0.1"}}' | curl.exe --proto '=https' --silent --show-error -w '\nHTTP %{http_code}\n' -H 'Content-Type: application/json' --data-binary '@-' "$base/api/license/verify"
    npm.cmd run cloud:verify -- $base RUC_DE_PRUEBA
    ```
 
@@ -92,11 +94,11 @@ El asistente `npm.cmd run release:runbook` propone el primer paso con evidencia 
 3. Ejecuta la primera línea en la primera sesión limpia. Abre una segunda sesión limpia y ejecuta la segunda línea.
 
    ```powershell
-   powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\SmokeInput\smoke-test-install.ps1 -Installer C:\SmokeInput\vendeyapos-Setup-1.0.0.exe -EvidenceDirectory C:\SmokeResults
-   powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\SmokeInput\smoke-test-install.ps1 -Installer C:\SmokeInput\vendeyapos-Setup-1.0.0.exe -BaselineInstaller C:\SmokeInput\baseline.exe -EvidenceDirectory C:\SmokeResults
+   powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\SmokeInput\smoke-test-install.ps1 -Installer C:\SmokeInput\vendeyapos-Setup-1.0.1.exe -EvidenceDirectory C:\SmokeResults
+   powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\SmokeInput\smoke-test-install.ps1 -Installer C:\SmokeInput\vendeyapos-Setup-1.0.1.exe -BaselineInstaller C:\SmokeInput\baseline.exe -EvidenceDirectory C:\SmokeResults
    ```
 
-   El upgrade instala la base firmada v0.9.99 del ensayo, crea un usuario en la API local e instala encima v1.0.0. Comprueba el inicio de sesión y que la SQLite sea la misma. Esto ejercita NSIS. La descarga de actualizaciones por `electron-updater` requiere su feed publicado.
+   El upgrade instala la base firmada v0.9.99 del ensayo, crea un usuario en la API local e instala encima v1.0.1. Comprueba el inicio de sesión y que la SQLite sea la misma. Esto ejercita NSIS. La descarga de actualizaciones por `electron-updater` requiere su feed publicado.
 
 4. Importa los resultados al host.
 
@@ -129,7 +131,7 @@ En **Variables**, crea `LICENSE_SERVER_URL` con el origen HTTPS probado, `TELEME
 
 En **Settings → Environments**, configura `release-production` con revisores requeridos y limita el despliegue a tags de versión si tu plan lo permite. Revisa en Actions la firma Authenticode con timestamp, la notarización y los tickets de las apps para ambas arquitecturas de macOS y la firma de los DMG. Los ZIP permiten las actualizaciones de macOS. Abre el DMG en un Mac correspondiente para comprobar el primer arranque cuando tengas el equipo. Los `signing.json` de Actions son la evidencia del pipeline.
 
-## 5. Aprobar y publicar v1.0.0
+## 5. Aprobar y publicar v1.0.1
 
 Usa el commit firmado por Actions. El control exige evidencia del HTTPS, SRI, instalación limpia, upgrade y firma para ambos sistemas. Compara los hashes del instalador probado con los de Actions. El modo de comprobación deja el tag pendiente. El modo de publicación descarga la ejecución autenticada, crea el tag anotado y lo sube. El push de `v*` activa la promoción de los mismos binarios.
 
