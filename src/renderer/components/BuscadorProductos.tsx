@@ -90,6 +90,7 @@ function TarjetaProducto({ producto: p, categoria, tactil, onElegir }: { product
           {categoria && <span className="truncate text-xs text-slate-300">{categoria}</span>}
         </span>
         <span className="line-clamp-2 text-sm font-medium text-white">{p.nombre}</span>
+        <span className="truncate text-xs tabular-nums text-slate-500">{p.codigoBarras ?? p.codigo}</span>
         <span id={`detalle-producto-${p.id}`} className="mt-auto flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1">
           <span className="text-xl font-bold tabular-nums text-brand-200">{dinero(p.precioVenta)}</span>
           <span className={`inline-flex items-center gap-1 text-xs ${agotado ? "text-red-300" : bajo ? "text-amber-300" : "text-slate-400"}`}>

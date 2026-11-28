@@ -116,14 +116,14 @@ function transporteTelemetria(): TransporteHttp | null {
 }
 
 function createWindow(): BrowserWindow {
-  if (!isDev) Menu.setApplicationMenu(null);
+  Menu.setApplicationMenu(null); // sin la barra nativa (File, Edit, View, Window)
   const win = new BrowserWindow({
     width: 1280,
     height: 800,
     minWidth: 1024,
     minHeight: 600,
     title: "VendeYa POS",
-    autoHideMenuBar: !isDev,
+    autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,

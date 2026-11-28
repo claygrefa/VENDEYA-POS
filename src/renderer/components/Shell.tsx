@@ -2,6 +2,7 @@
 // src/renderer/components/Shell.tsx — Marco de la aplicación: barra de estado, menú por permisos y la vista activa
 // ============================================================
 import { Archive, BadgeHelp, ChartNoAxesColumn, FileCheck2, Settings, ShoppingBag, ShoppingCart, Users, Wallet, type LucideIcon } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import React, { useEffect } from "react";
 import { useActualizacion } from "../hooks/useActualizacion";
 import { useLicencia } from "../hooks/useLicencia";
@@ -82,18 +83,35 @@ export function Shell({ baseUrl, onSalir }: { baseUrl: string; onSalir: () => vo
     return () => window.removeEventListener("keydown", manejar);
   }, [menu, ir]);
 
+  // Versión instalada (solo existe dentro de Electron; en el navegador no se muestra)
+  const version = useQuery({
+    queryKey: ["ajustes", "version"],
+    queryFn: () => (window as Partial<Window>).vendeya?.invoke<string>("app:get-version") ?? Promise.resolve(null),
+    staleTime: Infinity,
+    retry: false,
+  });
+
   return (
     <div className="flex h-screen flex-col bg-slate-900 text-white">
       <BannerLicencia />
       <BannerActualizacion actualizacion={actualizacion} ocupado={ventaEnCurso} />
       <BarraEstado sync={sync} onSalir={onSalir} />
       <div className="flex min-h-0 flex-1">
-        <nav aria-label="Menú principal" className="flex w-48 shrink-0 flex-col gap-1 overflow-y-auto border-r border-slate-700 bg-slate-800/60 p-2">
+        <nav aria-label="Menú principal" className="flex w-52 shrink-0 flex-col gap-1 overflow-y-auto border-r border-slate-700 bg-slate-800/60 p-2">
+          <div className="mb-2 flex items-center gap-3 border-b border-slate-700 px-2 pb-3 pt-1" data-testid="marca">
+            <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-400 to-brand-700 text-lg font-black text-white shadow-lg">
+              V
+            </span>
+            <span className="min-w-0 leading-tight">
+              <span className="block truncate text-base font-bold tracking-tight text-white">VendeYa <span className="text-brand-300">POS</span></span>
+              {version.data ? <span className="block text-xs tabular-nums text-slate-400">v{version.data}</span> : null}
+            </span>
+          </div>
           {menu.map((m, i) => {
             const Icono = ICONOS[m.id];
             return (
-              <button key={m.id} type="button" onClick={() => ir(m.id)} aria-current={m.id === activa ? "page" : undefined} title={`Ctrl+${i + 1}`} className={`flex items-center gap-2.5 rounded-lg px-3 py-3 text-left text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-400 ${m.id === activa ? "bg-brand-600 text-white" : "text-slate-300 hover:bg-slate-700"}`}>
-                <Icono className="h-[1.125rem] w-[1.125rem] shrink-0" aria-hidden="true" />
+              <button key={m.id} type="button" onClick={() => ir(m.id)} aria-current={m.id === activa ? "page" : undefined} title={`Ctrl+${i + 1}`} className={`flex items-center gap-2.5 rounded-lg border-l-4 px-3 py-3 text-left text-sm font-medium transition-colors duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-400 ${m.id === activa ? "border-brand-400 bg-brand-500/15 text-white" : "border-transparent text-slate-300 hover:bg-slate-700/70 hover:text-white"}`}>
+                <Icono className={`h-[1.125rem] w-[1.125rem] shrink-0 ${m.id === activa ? "text-brand-300" : ""}`} aria-hidden="true" />
                 {m.titulo}
               </button>
             );

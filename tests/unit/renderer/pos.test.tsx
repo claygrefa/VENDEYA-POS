@@ -643,6 +643,19 @@ describe("Barra de estado", () => {
     expect(await screen.findByTestId("estado-impresora")).toHaveTextContent("Impresora lista");
   });
 
+  it("los estados son píldoras e incluyen el turno de caja; la marca y el código de barras del producto se ven", async () => {
+    const { usuario } = renderizarPos({ api: servidor() });
+    expect(await screen.findByTestId("estado-turno")).toHaveTextContent("Turno abierto");
+    expect(screen.getByTestId("estado-sync")).toHaveClass("rounded-full");
+    expect(screen.getByTestId("marca")).toHaveTextContent("VendeYa POS");
+    // la tarjeta muestra el código de barras (o el código interno si no tiene)
+    const tarjeta = await screen.findByRole("button", { name: "Agregar Café molido 250g" });
+    expect(tarjeta).toHaveTextContent("7861234567890");
+    // la tarjeta del cliente trae su atajo para cambiarlo (F4)
+    await usuario.click(screen.getByRole("button", { name: "Cambiar cliente" }));
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+  });
+
   it("comprobantes pendientes y sin impresora; sin permiso para ver la cola del SRI no se muestra", async () => {
     const api = servidor((a) =>
       a

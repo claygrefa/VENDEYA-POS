@@ -1007,6 +1007,15 @@ El auditor aprobó el código salvo un defecto alto y varias mejoras; todo lo si
 - **Verificación:** `tsc` ×3 = 0 errores; `npm test` **79/79 archivos · 1140/1140 pruebas ✅** (incluye las pruebas nuevas del actualizador silencioso).
 - **Fallo del ejecutor («Vitest failed to find the runner») — causa y solución:** no eran las versiones (Vitest 5.1.2 + Vite 8.4.0 son compatibles y se mantienen). Ocurre solo cuando la carpeta de trabajo llega con la **letra de unidad en minúscula** (`c:\Users\…`, como abre la terminal de VS Code): Vitest 5 carga dos copias del módulo `vitest`. Desde `C:\Users\…` (mayúscula) todo pasa. Ejecuta las pruebas desde `cd "C:/Users/elder/Desktop/VENDEYA-POS"`. Se probó normalizar la ruta en `vitest.config.ts` (`root`, `setupFiles`) y no basta, por eso no se tocó la configuración ni `package.json`.
 
+### Rediseño visual comercial — v1.1.0 — `feat(ui):`
+- **Ventana (`electron/main.ts`):** sin barra de menú nativa en cualquier modo (`Menu.setApplicationMenu(null)` + `autoHideMenuBar: true`; antes se mostraba en desarrollo) y título «VendeYa POS». El actualizador ya era silencioso (ver «Actualizador silencioso»).
+- **Menú lateral (`Shell.tsx`):** encabezado con isotipo «V», «VendeYa POS» y la versión instalada (`app:get-version`, solo dentro de Electron); ítems con ícono `lucide-react`, borde izquierdo iluminado, fondo sutil y transición para el activo.
+- **Cabecera (`BarraEstado.tsx`):** los estados son píldoras con punto luminoso (Sincronizada, SRI, Impresora y **Turno de caja**: «Turno abierto» / «Turno: sin abrir»); el cajero y el punto de emisión quedan a la izquierda.
+- **Venta:** las pestañas de categorías, el avatar por categoría, la alerta ámbar/roja de stock bajo, el precio con `tabular-nums`, el desglose Subtotal/Descuento/IVA/Total y «En espera (F6)» ya existían; se añadió el **código de barras** (o el código interno) en la tarjeta y la **tarjeta del cliente** con su botón «Cambiar F4».
+- **Sin cambios de lógica de negocio.** Prueba nueva en `pos.test.tsx`.
+- **Verificación:** `tsc` ×3, ESLint y `npm test` (ver resultado abajo); `build:main` y `build:vite` compilan. No se generó instalador (exige licencia; ver sección de licenciamiento).
+- **Versión 1.1.0 (`package.json`). NO se creó el tag `v1.1.0`:** `release.yml` solo promueve un tag **anotado** con el recibo JSON de un candidato firmado y verificado en Actions (`electron/updater/release/publicar.ts`); sin certificado de firma, licencias y evidencia, un tag simple solo haría fallar el workflow. Pendiente: ejecutar «Release» manualmente con credenciales y luego `npm run release:publish -- --publish`.
+
 ### Auditoría de estrés POS — 2026-11-26
 
 - Se añadió `tests/stress/posStress.test.ts` con SQLite temporal, 25.000 productos, 1.000 ventas consecutivas, 50 peticiones simultáneas, 500 facturas offline, fallos controlados de persistencia y corte TCP antes de completar un cobro.

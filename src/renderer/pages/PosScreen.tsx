@@ -447,6 +447,7 @@ export function PosScreen(): React.JSX.Element {
                 onMenos={(l) => carrito.getState().fijarCantidad(l.clave, l.cantidad - 1)}
                 onQuitar={(l) => carrito.getState().quitar(l.clave)}
                 onEditar={(l) => setModal({ tipo: "linea", clave: l.clave })}
+                onCliente={() => setModal({ tipo: "cliente" })}
               />
               <div className="mt-3 grid shrink-0 grid-cols-3 gap-2 text-sm">
                 <button type="button" onClick={() => setModal({ tipo: "cliente" })} className={`rounded-xl bg-slate-700 px-2 text-white hover:bg-slate-600 ${tactil ? "min-h-14" : "min-h-10"}`}>

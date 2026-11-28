@@ -1,6 +1,7 @@
 // ============================================================
 // src/renderer/components/CarritoPanel.tsx — Líneas de la venta y totales
 // ============================================================
+import { UserRound } from "lucide-react";
 import React from "react";
 import { cantidadTexto, dinero, type CalculoCarrito, type LineaCarrito } from "../services/totales";
 
@@ -13,18 +14,28 @@ interface Props {
   onMenos: (l: LineaCarrito) => void;
   onQuitar: (l: LineaCarrito) => void;
   onEditar: (l: LineaCarrito) => void;
+  /** Abre la búsqueda/cambio de cliente (F4) */
+  onCliente: () => void;
 }
 
-export function CarritoPanel({ lineas, calculo, clienteNombre, tactil, onMas, onMenos, onQuitar, onEditar }: Props): React.JSX.Element {
+export function CarritoPanel({ lineas, calculo, clienteNombre, tactil, onMas, onMenos, onQuitar, onEditar, onCliente }: Props): React.JSX.Element {
   const boton = `rounded-lg bg-slate-700 text-white active:bg-slate-600 ${tactil ? "h-12 w-12 text-xl" : "h-8 w-8"}`;
   const general = calculo.ivaPorTarifa.find((t) => t.porcentaje === 15);
   const tarifaCero = calculo.ivaPorTarifa.find((t) => t.porcentaje === 0);
   const otrasTarifas = calculo.ivaPorTarifa.filter((t) => t.porcentaje !== 0 && t.porcentaje !== 15);
   return (
     <section aria-label="Carrito" className="flex min-h-0 flex-1 flex-col">
-      <p className="mb-2 text-xs uppercase tracking-wider text-slate-400">
-        Cliente: <span className="font-semibold text-slate-200">{clienteNombre}</span>
-      </p>
+      <div className="mb-3 flex items-center gap-3 rounded-xl border border-slate-700 bg-slate-800 p-3">
+        <span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-500/15 text-brand-200">
+          <UserRound className="h-5 w-5" />
+        </span>
+        <p className="min-w-0 flex-1 text-xs uppercase tracking-wider text-slate-400">
+          Cliente: <span className="block truncate text-sm font-semibold normal-case tracking-normal text-slate-100">{clienteNombre}</span>
+        </p>
+        <button type="button" onClick={onCliente} aria-label="Cambiar cliente" title="Buscar o cambiar cliente (F4)" className="shrink-0 rounded-lg border border-slate-600 px-2.5 py-1 text-xs text-slate-200 hover:bg-slate-700">
+          Cambiar <kbd className="ml-1 text-slate-400">F4</kbd>
+        </button>
+      </div>
       <ul role="list" aria-label="Líneas de la venta" className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
         {lineas.length === 0 ? <li className="p-6 text-center text-slate-500">Escanee o busque un producto para empezar</li> : null}
         {lineas.map((l, i) => {
