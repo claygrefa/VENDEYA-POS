@@ -6,7 +6,7 @@
 // lo que escribe una persona se busca como texto.
 // ============================================================
 import { useQueryClient } from "@tanstack/react-query";
-import { Pause } from "lucide-react";
+import { Banknote, Pause, Trash2 } from "lucide-react";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CobroPendienteSchema, type CobroPendiente } from "../../shared/schemas/venta.schema";
 import { BuscadorProductos } from "../components/BuscadorProductos";
@@ -449,18 +449,15 @@ export function PosScreen(): React.JSX.Element {
                 onEditar={(l) => setModal({ tipo: "linea", clave: l.clave })}
                 onCliente={() => setModal({ tipo: "cliente" })}
               />
-              <div className="mt-3 grid shrink-0 grid-cols-3 gap-2 text-sm">
-                <button type="button" onClick={() => setModal({ tipo: "cliente" })} className={`rounded-xl bg-slate-700 px-2 text-ink hover:bg-slate-600 ${tactil ? "min-h-14" : "min-h-10"}`}>
-                  Cliente (F4)
-                </button>
-                <button type="button" onClick={abrirEnEspera} className={`inline-flex items-center justify-center gap-1 rounded-xl border border-slate-600 px-2 text-ink hover:bg-slate-700 ${tactil ? "min-h-14" : "min-h-10"}`}>
+              <div className="mt-3 grid shrink-0 grid-cols-2 gap-2 text-sm">
+                <button type="button" onClick={abrirEnEspera} className={`inline-flex items-center justify-center gap-2 rounded-xl border border-slate-600 px-2 text-ink hover:bg-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-400 ${tactil ? "min-h-14" : "min-h-11"}`}>
                   <Pause className="h-4 w-4 shrink-0" aria-hidden="true" /> En espera (F6)
                 </button>
-                <button type="button" onClick={() => carrito.getState().vaciar()} disabled={lineas.length === 0} className={`rounded-xl bg-slate-700 px-2 text-ink hover:bg-slate-600 disabled:opacity-40 ${tactil ? "min-h-14" : "min-h-10"}`}>
-                  Vaciar
+                <button type="button" onClick={() => carrito.getState().vaciar()} disabled={lineas.length === 0} className={`inline-flex items-center justify-center gap-2 rounded-xl border border-slate-600 px-2 text-ink hover:bg-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-400 disabled:opacity-40 ${tactil ? "min-h-14" : "min-h-11"}`}>
+                  <Trash2 className="h-4 w-4 shrink-0" aria-hidden="true" /> Vaciar
                 </button>
-                <button type="button" onClick={abrirCobro} disabled={lineas.length === 0} className={`col-span-3 rounded-xl bg-emerald-700 font-semibold text-white hover:bg-emerald-600 disabled:opacity-40 ${tactil ? "min-h-14 text-lg" : "min-h-11 text-base"}`}>
-                  Cobrar (F8)
+                <button type="button" onClick={abrirCobro} disabled={lineas.length === 0} className={`col-span-2 inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 font-semibold text-white shadow-lg shadow-emerald-900/30 hover:bg-emerald-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400 disabled:shadow-none ${tactil ? "min-h-16 text-xl" : "min-h-14 text-lg"}`}>
+                  <Banknote className="h-5 w-5 shrink-0" aria-hidden="true" /> Cobrar (F8)
                 </button>
               </div>
             </>
