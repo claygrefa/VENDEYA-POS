@@ -75,9 +75,9 @@ export function Paginador({ pagina, total, porPagina, onCambio }: { pagina: numb
 
 export function Pestanas<T extends string>({ etiqueta, opciones, activa, onCambio }: { etiqueta: string; opciones: ReadonlyArray<{ id: T; titulo: string }>; activa: T; onCambio: (id: T) => void }): React.JSX.Element {
   return (
-    <div role="tablist" aria-label={etiqueta} className="mb-4 flex gap-1 border-b border-slate-700">
+    <div role="tablist" aria-label={etiqueta} className="mb-4 flex flex-wrap gap-x-1 border-b border-slate-700">
       {opciones.map((o) => (
-        <button key={o.id} role="tab" type="button" aria-selected={o.id === activa} onClick={() => onCambio(o.id)} className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${o.id === activa ? "border-brand-400 text-ink" : "border-transparent text-slate-400 hover:text-slate-200"}`}>
+        <button key={o.id} role="tab" type="button" aria-selected={o.id === activa} onClick={() => onCambio(o.id)} className={`-mb-px whitespace-nowrap border-b-2 px-3.5 py-2 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-400 ${o.id === activa ? "border-brand-400 text-ink" : "border-transparent text-slate-400 hover:text-slate-200"}`}>
           {o.titulo}
         </button>
       ))}
