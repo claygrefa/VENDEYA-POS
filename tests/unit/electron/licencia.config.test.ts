@@ -5,7 +5,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "fs";
 import os from "os";
 import path from "path";
 import { afterAll, describe, expect, it } from "vitest";
-import { cargarConfigLicencia, cargarDestinoTelemetria } from "../../../electron/licencia.config";
+import { cargarConfigLicencia, cargarDestinoTelemetria, esCompilacionDePrueba } from "../../../electron/licencia.config";
 import { generarClavesLicencia } from "../../helpers/licencias.helper";
 
 const { publica } = generarClavesLicencia();
@@ -77,5 +77,15 @@ describe("Configuración del licenciamiento", () => {
       expect(cargarConfigLicencia({ rutas: [path.join(dir, "no-existe.json")], env, empaquetada: true })).toBeNull();
       expect(cargarDestinoTelemetria({ rutas: [], env: { TELEMETRY_URL: "https://del-atacante.test/t" }, empaquetada: true })).toBeUndefined();
     });
+  });
+});
+
+describe("Compilación de prueba sin licenciamiento", () => {
+  it("solo la marca «modoPrueba: true» del archivo incrustado la activa; sin archivo, con otro valor o con JSON roto no", () => {
+    expect(esCompilacionDePrueba({ rutas: [archivo("prueba.json", { modoPrueba: true })] })).toBe(true);
+    expect(esCompilacionDePrueba({ rutas: [archivo("prueba-no.json", { modoPrueba: "true" })] })).toBe(false);
+    expect(esCompilacionDePrueba({ rutas: [archivo("normal.json", { servidorUrl: "https://licencias.ejemplo.ec", clavePublica: publica })] })).toBe(false);
+    expect(esCompilacionDePrueba({ rutas: [archivo("roto.json", "{ no es json")] })).toBe(false);
+    expect(esCompilacionDePrueba({ rutas: [path.join(dir, "no-existe.json")] })).toBe(false);
   });
 });

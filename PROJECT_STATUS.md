@@ -1016,6 +1016,12 @@ El auditor aprobó el código salvo un defecto alto y varias mejoras; todo lo si
 - **Verificación:** `tsc` ×3, ESLint y `npm test` (ver resultado abajo); `build:main` y `build:vite` compilan. No se generó instalador (exige licencia; ver sección de licenciamiento).
 - **Versión 1.1.0 (`package.json`). NO se creó el tag `v1.1.0`:** `release.yml` solo promueve un tag **anotado** con el recibo JSON de un candidato firmado y verificado en Actions (`electron/updater/release/publicar.ts`); sin certificado de firma, licencias y evidencia, un tag simple solo haría fallar el workflow. Pendiente: ejecutar «Release» manualmente con credenciales y luego `npm run release:publish -- --publish`.
 
+### Instalador de prueba sin licencia — `feat:`
+- **Para qué:** ver y usar la interfaz nueva (v1.1.0) en una máquina sin servidor de licencias. **No es un entregable comercial.**
+- **Cómo:** `electron/licencia.config.ts › esCompilacionDePrueba` lee la marca `"modoPrueba": true` del `licencia.config.json` incrustado en el paquete; `electron/main.ts` solo entonces deja `requerida: false`. Nunca se lee del entorno (la app instalada sigue sin poder apagar la licencia con variables, auditoría 3.2). El archivo está en `.gitignore` y `artefactos.ts config` (flujo de release) lo regenera sin la marca, así que un release firmado siempre exige licencia. Prueba en `licencia.config.test.ts`.
+- **Generación:** se escribió `electron/licencia.config.json` con `{"modoPrueba": true}`, `build:main`, `build:vite` y `electron-builder --win --x64 --publish never` con `electronDist`/`electronVersion` locales; el archivo se borró después. Resultado: `out/instalador-prueba/vendeyapos-Setup-1.1.0.exe` (sin firmar; `out/` no se versiona). Contenido verificado: `app-update.yml` → `claygrefa/VENDEYA-POS`, marca de prueba y la interfaz nueva dentro del `app.asar`, sin `pg` ni `rate-limit`.
+- **No verificado:** abrir el instalador/aplicación (este entorno no ejecuta Electron) ni la conservación de datos al instalar sobre la versión actual.
+
 ### Auditoría de estrés POS — 2026-11-26
 
 - Se añadió `tests/stress/posStress.test.ts` con SQLite temporal, 25.000 productos, 1.000 ventas consecutivas, 50 peticiones simultáneas, 500 facturas offline, fallos controlados de persistencia y corte TCP antes de completar un cobro.

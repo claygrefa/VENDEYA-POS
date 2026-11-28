@@ -28,6 +28,21 @@ export interface OpcionesConfigLicencia {
   registrar?: (mensaje: string) => void;
 }
 
+/**
+ * Compilación de PRUEBA sin licenciamiento: solo si el `licencia.config.json` incrustado en el paquete trae `"modoPrueba": true`.
+ * Nunca se lee del entorno (en la app instalada nadie puede apagar la licencia con variables) y el flujo de release regenera ese archivo
+ * con `artefactos.ts config`, que no escribe la marca; además el archivo no se versiona.
+ */
+export function esCompilacionDePrueba(o: Pick<OpcionesConfigLicencia, "rutas">): boolean {
+  const archivo = o.rutas.find((r) => existsSync(r));
+  if (archivo === undefined) return false;
+  try {
+    return (JSON.parse(readFileSync(archivo, "utf8")) as { modoPrueba?: unknown }).modoPrueba === true;
+  } catch {
+    return false;
+  }
+}
+
 const ES_PEM = /^-----BEGIN PUBLIC KEY-----[\s\S]+-----END PUBLIC KEY-----\s*$/;
 
 export function cargarDestinoTelemetria(o: OpcionesConfigLicencia): string | undefined {

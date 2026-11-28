@@ -18,7 +18,7 @@ import { liberarIpcUpdater, registrarIpcUpdater } from "./ipc/updater.ipc";
 import { MigracionFallidaError } from "../src/server/services/migration.service";
 import { ActualizadorApp, type AutoUpdaterLike } from "./updater/updater.service";
 import { esEstadoActualizacion } from "../src/shared/types/actualizacion.types";
-import { cargarConfigLicencia, cargarDestinoTelemetria } from "./licencia.config";
+import { cargarConfigLicencia, cargarDestinoTelemetria, esCompilacionDePrueba } from "./licencia.config";
 import { ClienteLicenciasHttp } from "../src/server/services/licencia/licencia.cliente";
 import { TransporteHttp } from "../src/server/services/telemetria/telemetria.service";
 import { esEnlaceExternoSeguro, esNavegacionPermitida } from "./navegacion.seguridad";
@@ -94,9 +94,12 @@ function configuracionServicios() {
 }
 
 function opcionesLicencia(rutas: RutasApp): NonNullable<Parameters<typeof iniciarBackend>[0]["licencia"]> {
-  const config = cargarConfigLicencia(configuracionServicios());
+  const servicios = configuracionServicios();
+  const config = cargarConfigLicencia(servicios);
+  // Solo un paquete de prueba (marca `modoPrueba` incrustada al compilar) puede ir sin licencia; nunca por variables de entorno
+  const pruebaSinLicencia = app.isPackaged && esCompilacionDePrueba(servicios);
   return {
-    requerida: app.isPackaged || process.env["VENDEYA_LICENCIA"] === "on",
+    requerida: (app.isPackaged && !pruebaSinLicencia) || process.env["VENDEYA_LICENCIA"] === "on",
     cliente: config === null ? null : new ClienteLicenciasHttp(config.servidorUrl),
     clavePublica: config?.clavePublica ?? null,
     dispositivo: identificarDispositivo({ directorioSecretos: path.join(rutas.userData, "secretos"), version: app.getVersion() }),
