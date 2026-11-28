@@ -1032,6 +1032,9 @@ Auditoría previa: 320 clases `slate-*` y 126 de color fijas en 29 archivos, sin
 - **Verificación:** `tsc` ×3 y ESLint sin errores; `npm test` 82/82 archivos · 1162 pruebas ✅ (desde `C:\…`, ver nota del ejecutor).
 - **Pendiente / no hecho:** fotos de productos (requiere migración + subida + sincronización: pide autorización aparte); el color de fondo de la ventana de Electron al abrir sigue oscuro (parpadeo breve en tema claro); un instalador nuevo (los cambios aún no están en lo instalado).
 
+### Instalador de prueba 1.1.1 (rediseño) — sin licencia
+- Versión **1.1.1** (`package.json`) para distinguirlo del 1.1.0 ya instalado. Mismo procedimiento que el instalador de prueba anterior (marca `modoPrueba` en un `licencia.config.json` temporal, borrado después): `out/instalador-prueba/vendeyapos-Setup-1.1.1.exe`, sin firmar, `app-update.yml` → `claygrefa/VENDEYA-POS`. No es un entregable comercial. No se abrió ni se probó la instalación (este entorno no ejecuta Electron).
+
 ### Auditoría de estrés POS — 2026-11-26
 
 - Se añadió `tests/stress/posStress.test.ts` con SQLite temporal, 25.000 productos, 1.000 ventas consecutivas, 50 peticiones simultáneas, 500 facturas offline, fallos controlados de persistencia y corte TCP antes de completar un cobro.
