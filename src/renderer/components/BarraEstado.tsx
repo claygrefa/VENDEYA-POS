@@ -1,11 +1,13 @@
 // ============================================================
 // src/renderer/components/BarraEstado.tsx — Cajero, turno y estado de la conexión, la cola del SRI y la impresora
 // ============================================================
+import { LogOut } from "lucide-react";
 import React, { useState } from "react";
 import type { EstadoCliente } from "../../server/services/sync/syncCliente";
 import { useColaSri, useImpresora } from "../hooks/consultas";
 import { useSesion } from "../store/sesion.store";
 import { CambiarPassword } from "./CambiarPassword";
+import { MenuPreferencias } from "./MenuPreferencias";
 
 interface Props {
   sync: { estado: EstadoCliente; desactivada: boolean };
@@ -35,8 +37,6 @@ export function BarraEstado({ sync, onSalir }: Props): React.JSX.Element {
   const usuario = useSesion((s) => s.usuario);
   const punto = useSesion((s) => s.puntoEmision);
   const turno = useSesion((s) => s.turno);
-  const tactil = useSesion((s) => s.modoTactil);
-  const alternarTactil = useSesion((s) => s.alternarTactil);
   const cola = useColaSri();
   const impresora = useImpresora();
   const [cambiandoPassword, setCambiandoPassword] = useState(false);
@@ -78,15 +78,12 @@ export function BarraEstado({ sync, onSalir }: Props): React.JSX.Element {
         <Pildora tono={turno === null ? "gris" : "verde"} testid="estado-turno">
           {turno === null ? "Turno: sin abrir" : "Turno abierto"}
         </Pildora>
-        <button type="button" onClick={alternarTactil} aria-pressed={tactil} className="ml-2 rounded-lg border border-slate-600 px-3 py-1 hover:bg-slate-700">
-          Modo táctil: {tactil ? "sí" : "no"}
-        </button>
-        <button type="button" onClick={() => setCambiandoPassword(true)} className="rounded-lg border border-slate-600 px-3 py-1 hover:bg-slate-700">
-          Mi contraseña
-        </button>
-        <button type="button" onClick={onSalir} className="rounded-lg px-3 py-1 text-red-300 hover:bg-slate-700">
-          Salir
-        </button>
+        <span className="ml-2 flex items-center gap-2">
+          <MenuPreferencias onCambiarPassword={() => setCambiandoPassword(true)} />
+          <button type="button" onClick={onSalir} className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm text-red-300 hover:bg-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-400">
+            <LogOut className="h-4 w-4" aria-hidden="true" /> Salir
+          </button>
+        </span>
       </div>
       {cambiandoPassword ? <CambiarPassword onCerrar={() => setCambiandoPassword(false)} /> : null}
     </header>

@@ -613,6 +613,7 @@ describe("Cobro", () => {
 describe("Modo táctil", () => {
   it("el teclado numérico en pantalla edita el monto del cobro", async () => {
     const { usuario } = renderizarPos({ api: servidor() });
+    await usuario.click(await screen.findByRole("button", { name: "Preferencias" }));
     await usuario.click(await screen.findByRole("button", { name: "Modo táctil: no" }));
     await usuario.click(screen.getByRole("button", { name: "Agregar Arroz 1kg" }));
     await usuario.click(screen.getByRole("button", { name: /Cobrar \(F8\)/ }));
