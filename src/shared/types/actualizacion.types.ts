@@ -18,6 +18,16 @@ export type EstadoActualizacion =
 // No existe un estado «error»: un fallo al comprobar (404 si aún no hay releases, sin red, SRI de GitHub caído…) es silencioso para
 // el cajero; solo queda en el registro y se reintenta en la siguiente búsqueda.
 
+const TIPOS_VISIBLES: ReadonlySet<string> = new Set(["desactivado", "inactivo", "buscando", "al-dia", "descargando", "lista"]);
+
+/**
+ * Solo los estados conocidos llegan a la pantalla: cualquier otro (p. ej. un «error» de una versión anterior del proceso principal)
+ * se ignora, para que un 404 o un fallo de conexión al comprobar nunca se muestre al cajero.
+ */
+export function esEstadoActualizacion(valor: unknown): valor is EstadoActualizacion {
+  return typeof valor === "object" && valor !== null && TIPOS_VISIBLES.has((valor as { tipo?: unknown }).tipo as string);
+}
+
 export type MotivoRechazoInstalacion = "ocupado" | "no-lista" | "respaldo";
 
 export type ResultadoInstalacion = { ok: true } | { ok: false; motivo: MotivoRechazoInstalacion; mensaje: string };

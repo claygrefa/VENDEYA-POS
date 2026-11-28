@@ -5,6 +5,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { EstadoActualizacion } from "../../../src/shared/types/actualizacion.types";
 import { ActualizadorApp, configurarCanal, type AutoUpdaterLike } from "../../../electron/updater/updater.service";
+import { esEstadoActualizacion } from "../../../src/shared/types/actualizacion.types";
 import { liberarIpcUpdater, registrarIpcUpdater, type IpcMainLike } from "../../../electron/ipc/updater.ipc";
 
 class UpdaterFalso implements AutoUpdaterLike {
@@ -220,6 +221,16 @@ describe("Búsqueda y descarga silenciosa", () => {
     await dejarLista(m);
     m.u.emitir("error", new Error("se cayó la red"));
     expect(m.a.estado()).toMatchObject({ tipo: "lista", version: "1.2.0" });
+  });
+});
+
+describe("esEstadoActualizacion", () => {
+  it("acepta los estados conocidos y rechaza «error» o cualquier valor raro, para que nunca se muestren fallos de comprobación", () => {
+    expect(esEstadoActualizacion({ tipo: "al-dia", revisado: "2026-11-27T00:00:00Z" })).toBe(true);
+    expect(esEstadoActualizacion({ tipo: "lista", version: "1.2.0", respaldo: null, aviso: null })).toBe(true);
+    expect(esEstadoActualizacion({ tipo: "error", mensaje: "HttpError: 404" })).toBe(false);
+    expect(esEstadoActualizacion(null)).toBe(false);
+    expect(esEstadoActualizacion("error")).toBe(false);
   });
 });
 

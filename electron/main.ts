@@ -17,6 +17,7 @@ import { liberarIpcImpresoras, registrarIpcImpresoras } from "./ipc/printer.ipc"
 import { liberarIpcUpdater, registrarIpcUpdater } from "./ipc/updater.ipc";
 import { MigracionFallidaError } from "../src/server/services/migration.service";
 import { ActualizadorApp, type AutoUpdaterLike } from "./updater/updater.service";
+import { esEstadoActualizacion } from "../src/shared/types/actualizacion.types";
 import { cargarConfigLicencia, cargarDestinoTelemetria } from "./licencia.config";
 import { ClienteLicenciasHttp } from "../src/server/services/licencia/licencia.cliente";
 import { TransporteHttp } from "../src/server/services/telemetria/telemetria.service";
@@ -43,6 +44,7 @@ function iniciarActualizador(): void {
   actualizador = new ActualizadorApp({
     updater: autoUpdater as unknown as AutoUpdaterLike,
     publicar: (estado) => {
+      if (!esEstadoActualizacion(estado)) return; // nunca se envían errores de comprobación a la pantalla
       for (const ventana of BrowserWindow.getAllWindows()) {
         if (!ventana.isDestroyed()) ventana.webContents.send("updater:status", estado);
       }
@@ -51,7 +53,7 @@ function iniciarActualizador(): void {
     habilitado,
     canal: process.env["VENDEYA_CANAL"],
     motivoDeshabilitado: apagado ? "Desactivadas con VENDEYA_UPDATES=off" : "Solo se buscan actualizaciones en la aplicación instalada",
-    registrar: (mensaje, error) => console.error(`[updater] ${mensaje}`, error ?? ""),
+    registrar: (mensaje, error) => console.warn(`[updater] ${mensaje}`, error ?? ""),
   });
   registrarIpcUpdater(actualizador);
   actualizador.iniciar();

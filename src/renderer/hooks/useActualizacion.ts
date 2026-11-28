@@ -3,7 +3,7 @@
 // Fuera de Electron (navegador, pruebas, otras cajas sin puente) no hay actualizaciones: `disponible` es false.
 // ============================================================
 import { useCallback, useEffect, useState } from "react";
-import type { EstadoActualizacion, ResultadoInstalacion } from "../../shared/types/actualizacion.types";
+import { esEstadoActualizacion, type EstadoActualizacion, type ResultadoInstalacion } from "../../shared/types/actualizacion.types";
 
 export interface ActualizacionVista {
   /** Hay puente con Electron */
@@ -29,9 +29,11 @@ export function useActualizacion(ocupado: boolean | null = null): ActualizacionV
     let vivo = true;
     puente
       .invoke<EstadoActualizacion>("updater:get-status")
-      .then((e) => vivo && setEstado(e))
+      .then((e) => vivo && esEstadoActualizacion(e) && setEstado(e))
       .catch(() => undefined);
-    const quitar = puente.on("updater:status", (e) => setEstado(e as EstadoActualizacion));
+    const quitar = puente.on("updater:status", (e) => {
+      if (esEstadoActualizacion(e)) setEstado(e);
+    });
     return () => {
       vivo = false;
       quitar();
@@ -53,7 +55,8 @@ export function useActualizacion(ocupado: boolean | null = null): ActualizacionV
   const buscar = useCallback(async (): Promise<void> => {
     if (puente === undefined) return;
     try {
-      setEstado(await puente.invoke<EstadoActualizacion>("updater:check"));
+      const e = await puente.invoke<unknown>("updater:check");
+      if (esEstadoActualizacion(e)) setEstado(e);
     } catch {
       /* el estado real llega por updater:status */
     }

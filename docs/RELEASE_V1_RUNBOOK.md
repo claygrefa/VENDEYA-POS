@@ -2,7 +2,7 @@
 
 El asistente `npm.cmd run release:runbook` propone el primer paso con evidencia pendiente. Ejecuta los comandos de PowerShell desde la raíz del repositorio. Usa GitHub CLI autenticado para descargar y publicar el candidato. `evidence/` es una carpeta local privada, excluida de Git.
 
-La instalación de prueba 1.0.0 revisada en Windows consulta `vendeya/vendeya-pos` y espera el editor `vendeyapos (prueba)`. Para pasar al canal `claygrefa/VENDEYA-POS`, verifica primero el instalador comercial 1.0.1 en una VM. En la caja, haz un respaldo desde **Ajustes → Respaldos**, cierra el POS y ejecuta el instalador aprobado sobre la instalación existente. Confirma que vuelve a abrir los datos y que **Ajustes → Actualizaciones** indica 1.0.1. A partir de esa instalación, las siguientes versiones firmadas con el editor de confianza llegarán desde el repositorio actual.
+La instalación de prueba 1.0.0 revisada en Windows consulta `claygrefa/VENDEYA-POS` y espera el editor `vendeyapos (prueba)`. Para pasar al canal `claygrefa/VENDEYA-POS`, verifica primero el instalador comercial 1.0.1 en una VM. En la caja, haz un respaldo desde **Ajustes → Respaldos**, cierra el POS y ejecuta el instalador aprobado sobre la instalación existente. Confirma que vuelve a abrir los datos y que **Ajustes → Actualizaciones** indica 1.0.1. A partir de esa instalación, las siguientes versiones firmadas con el editor de confianza llegarán desde el repositorio actual.
 
 ## 1. Licencias y telemetría por HTTPS
 
