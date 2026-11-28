@@ -25,7 +25,7 @@ export const BuscadorProductos = forwardRef<HTMLInputElement, Props>(function Bu
   const { data, isError, error, isFetching } = useProductos(busqueda, categoriaId);
   const categorias = catalogos.data?.categorias ?? [];
   const nombres = new Map(categorias.map(({ id, nombre }) => [id, nombre]));
-  const botonFiltro = (activo: boolean): string => `inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-400 ${tactil ? "min-h-11" : "min-h-9"} ${activo ? "border-brand-500 bg-brand-600/20 text-brand-200" : "border-slate-700 bg-slate-800 text-slate-300 hover:border-slate-500 hover:text-white"}`;
+  const botonFiltro = (activo: boolean): string => `inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-400 ${tactil ? "min-h-11" : "min-h-9"} ${activo ? "border-brand-500 bg-brand-600/20 text-brand-200" : "border-slate-700 bg-slate-800 text-slate-300 hover:border-slate-500 hover:text-ink"}`;
 
   return (
     <section aria-label="Productos" className="flex min-h-0 flex-1 flex-col gap-3">
@@ -40,7 +40,7 @@ export const BuscadorProductos = forwardRef<HTMLInputElement, Props>(function Bu
           spellCheck={false}
           onChange={(e) => onBusqueda(e.target.value)}
           onKeyDown={(e) => onTecla(e.key)}
-          className={`w-full rounded-xl border border-slate-600 bg-slate-800/60 pl-11 pr-4 text-white placeholder-slate-400 outline-none focus:border-brand-400 ${tactil ? "h-16 text-xl" : "h-12 text-base"}`}
+          className={`w-full rounded-xl border border-slate-600 bg-slate-800/60 pl-11 pr-4 text-ink placeholder-slate-400 outline-none focus:border-brand-400 ${tactil ? "h-16 text-xl" : "h-12 text-base"}`}
         />
       </div>
       <div role="group" aria-label="Filtrar por categoría" className="flex shrink-0 gap-2 overflow-x-auto p-1">
@@ -89,7 +89,7 @@ function TarjetaProducto({ producto: p, categoria, tactil, onElegir }: { product
           </span>
           {categoria && <span className="truncate text-xs text-slate-300">{categoria}</span>}
         </span>
-        <span className="line-clamp-2 text-sm font-medium text-white">{p.nombre}</span>
+        <span className="line-clamp-2 text-sm font-medium text-ink">{p.nombre}</span>
         <span className="truncate text-xs tabular-nums text-slate-500">{p.codigoBarras ?? p.codigo}</span>
         <span id={`detalle-producto-${p.id}`} className="mt-auto flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1">
           <span className="text-xl font-bold tabular-nums text-brand-200">{dinero(p.precioVenta)}</span>

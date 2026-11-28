@@ -57,7 +57,7 @@ export function SeccionRespaldos(): React.JSX.Element {
       <section aria-label="Respaldos del equipo" className="space-y-3">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h2 className="text-base font-semibold text-white">Respaldos en este equipo</h2>
+            <h2 className="text-base font-semibold text-ink">Respaldos en este equipo</h2>
             <p className="text-sm text-slate-400">
               {ultimoAuto === null ? "Todavía no hay un respaldo automático: se crea uno al día siguiente de abrir la aplicación." : `Último respaldo automático: ${fechaHora(ultimoAuto.creado)}.`} Se hace uno cada día y otro antes de cada actualización.
             </p>
@@ -111,14 +111,14 @@ function SeccionNube({ e, onEstado, onMensaje, copiar, copiando }: PropsComunes 
 
   return (
     <section aria-label="Copia en la nube" className="space-y-3 rounded-xl border border-slate-700 p-4">
-      <h2 className="text-base font-semibold text-white">Copia cifrada fuera del equipo</h2>
+      <h2 className="text-base font-semibold text-ink">Copia cifrada fuera del equipo</h2>
       <p className="text-sm text-slate-400">
         Elija una carpeta que sincronice OneDrive, Google Drive o Dropbox (o un disco externo). Las copias salen <strong>cifradas con su frase</strong>: el servicio de nube no puede leerlas.
       </p>
 
       {nube.configurada ? (
         <div className="space-y-2 text-sm text-slate-200">
-          <p>Carpeta: <span className="text-white">{nube.carpeta}</span></p>
+          <p>Carpeta: <span className="text-ink">{nube.carpeta}</span></p>
           <p>{nube.ultima === null ? "Todavía no hay copias en la carpeta." : `Última copia: ${fechaHora(nube.ultima.creado)} (${tamano(nube.ultima.bytes)}). Copias guardadas: ${nube.copias.length}.`}</p>
           {nube.requiereReconfigurar ? <Aviso tipo="error">La frase guardada ya no se puede leer: vuelva a escribirla abajo para seguir copiando.</Aviso> : null}
           <div className="flex gap-3">
@@ -129,7 +129,7 @@ function SeccionNube({ e, onEstado, onMensaje, copiar, copiando }: PropsComunes 
       ) : null}
 
       <form aria-label="Configurar copia en la nube" noValidate className="space-y-3" onSubmit={(ev) => { ev.preventDefault(); onMensaje(null); guardar.mutate(); }}>
-        <h3 className="text-sm font-semibold text-white">{nube.configurada ? "Cambiar carpeta o frase" : "Configurar"}</h3>
+        <h3 className="text-sm font-semibold text-ink">{nube.configurada ? "Cambiar carpeta o frase" : "Configurar"}</h3>
         <Campo etiqueta="Carpeta de la nube" valor={carpeta} onCambio={setCarpeta} placeholder="C:\Users\…\OneDrive\Respaldos VENDEYA" />
         <Campo etiqueta="Frase de cifrado" tipo="password" valor={frase} onCambio={setFrase} placeholder="Al menos 12 caracteres" />
         <Aviso tipo="info">Anote la frase en un lugar seguro y aparte. <strong>Sin la frase no se puede recuperar ninguna copia de la nube</strong>; nadie, ni el soporte, puede recuperarla.</Aviso>
@@ -162,7 +162,7 @@ function SeccionRestaurar({ e, onEstado, onMensaje }: PropsComunes): React.JSX.E
 
   return (
     <section aria-label="Restaurar un respaldo" className="space-y-3 rounded-xl border border-red-500/40 p-4">
-      <h2 className="text-base font-semibold text-white">Restaurar desde un respaldo</h2>
+      <h2 className="text-base font-semibold text-ink">Restaurar desde un respaldo</h2>
       <Aviso tipo="info">Restaurar <strong>reemplaza todos los datos actuales</strong> por los del respaldo: las ventas hechas después de esa fecha no estarán. La base actual se conserva aparte por si necesita volver atrás.</Aviso>
       <form aria-label="Preparar restauración" noValidate className="space-y-3" onSubmit={(ev) => { ev.preventDefault(); onMensaje(null); preparar.mutate(); }}>
         <Seleccion etiqueta="Origen del respaldo" valor={origen} onCambio={(v) => { setOrigen(v as "local" | "nube"); setArchivo(""); }} opciones={[{ valor: "local", titulo: "De este equipo" }, { valor: "nube", titulo: "De la copia en la nube" }]} />

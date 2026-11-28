@@ -74,7 +74,7 @@ export function AjustesPage(): React.JSX.Element {
   }, [pedida, consumir]);
   return (
     <section aria-label="Ajustes" className="space-y-2">
-      <h1 className="text-xl font-semibold text-white">Ajustes</h1>
+      <h1 className="text-xl font-semibold text-ink">Ajustes</h1>
       <Pestanas etiqueta="Secciones de ajustes" opciones={secciones} activa={seccion} onCambio={setSeccion} />
       {seccion === "empresa" ? <SeccionEmpresa /> : null}
       {seccion === "sucursales" ? <SeccionSucursales /> : null}
@@ -350,7 +350,7 @@ function SeccionCertificado(): React.JSX.Element {
         )}
       </div>
       <form noValidate aria-label="Cargar certificado" className="space-y-3" onSubmit={(e) => { e.preventDefault(); setMensaje(null); cargar.mutate(); }}>
-        <h2 className="text-sm font-semibold text-white">{c.cargado ? "Renovar certificado" : "Cargar certificado"}</h2>
+        <h2 className="text-sm font-semibold text-ink">{c.cargado ? "Renovar certificado" : "Cargar certificado"}</h2>
         <label className="block text-sm text-slate-300">
           Archivo del certificado
           <input aria-label="Archivo del certificado" type="file" accept=".p12,.pfx" onChange={(e) => { setArchivo(e.target.files?.[0] ?? null); setMensaje(null); }} className="mt-1 block w-full text-sm text-slate-300" />
@@ -390,7 +390,7 @@ function SeccionRed(): React.JSX.Element {
       <p className="text-sm text-slate-400">Esta caja se identifica como <strong className="text-slate-200">{api.http.cajaId}</strong> y atiende en <strong className="text-slate-200">{api.http.baseUrl}</strong>. Las otras cajas del local se conectan a esa dirección.</p>
       {mensaje !== null ? <Aviso tipo={mensaje.tipo}>{mensaje.texto}</Aviso> : null}
       <div>
-        <h2 className="mb-2 text-sm font-semibold text-white">Cajas conectadas ahora</h2>
+        <h2 className="mb-2 text-sm font-semibold text-ink">Cajas conectadas ahora</h2>
         {!activa ? (
           <p className="text-sm text-slate-500">Active la sincronización para ver las cajas conectadas.</p>
         ) : cajas.data === undefined ? (
@@ -436,7 +436,7 @@ function SeccionActualizaciones(): React.JSX.Element {
   return (
     <div className="max-w-xl space-y-4">
       <p className="text-sm text-slate-300">
-        Versión instalada: <strong className="text-white">{version.data ?? (a.disponible ? "…" : "solo disponible en la aplicación instalada")}</strong>
+        Versión instalada: <strong className="text-ink">{version.data ?? (a.disponible ? "…" : "solo disponible en la aplicación instalada")}</strong>
       </p>
       <p aria-label="Estado de las actualizaciones" className="rounded-xl border border-slate-700 bg-slate-800 p-4 text-sm text-slate-200">
         {a.disponible ? textoDeEstado(a.estado) : "Las actualizaciones automáticas funcionan en la aplicación instalada."}

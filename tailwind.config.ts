@@ -1,5 +1,11 @@
 import type { Config } from "tailwindcss";
 
+const TONOS = ["50", "100", "200", "300", "400", "500", "600", "700", "800", "900", "950"] as const;
+
+/** Paleta cuyos tonos salen de variables CSS en formato «R G B» (admite opacidades como bg-slate-800/60) */
+const paleta = (nombre: string): Record<string, string> =>
+  Object.fromEntries(TONOS.map((t) => [t, `rgb(var(--c-${nombre}-${t}) / <alpha-value>)`]));
+
 const config: Config = {
   content: [
     "./src/renderer/**/*.{ts,tsx,html}",
@@ -8,20 +14,16 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        // Paletas con variables CSS (src/renderer/styles/tema.css): el tema claro/oscuro cambia los valores sin tocar las clases.
+        // `ink` es el color de texto principal (blanco en oscuro, casi negro en claro); sobre botones de color se sigue usando text-white.
+        ink: "rgb(var(--c-ink) / <alpha-value>)",
+        slate: paleta("slate"),
+        emerald: paleta("emerald"),
+        red: paleta("red"),
+        amber: paleta("amber"),
+        sky: paleta("sky"),
         // Paleta VENDEYA POS
-        brand: {
-          50:  "#eff6ff",
-          100: "#dbeafe",
-          200: "#bfdbfe",
-          300: "#93c5fd",
-          400: "#60a5fa",
-          500: "#3b82f6",
-          600: "#2563eb",
-          700: "#1d4ed8",
-          800: "#1e40af",
-          900: "#1e3a8a",
-          950: "#172554",
-        },
+        brand: paleta("brand"),
         success: {
           50:  "#f0fdf4",
           500: "#22c55e",
@@ -40,19 +42,7 @@ const config: Config = {
           700: "#b91c1c",
         },
         // Fondo oscuro para modo POS nocturno
-        surface: {
-          50:  "#f8fafc",
-          100: "#f1f5f9",
-          200: "#e2e8f0",
-          300: "#cbd5e1",
-          400: "#94a3b8",
-          500: "#64748b",
-          600: "#475569",
-          700: "#334155",
-          800: "#1e293b",
-          900: "#0f172a",
-          950: "#020617",
-        },
+        surface: paleta("slate"),
       },
       fontFamily: {
         sans: ["Inter", "ui-sans-serif", "system-ui", "sans-serif"],

@@ -50,7 +50,7 @@ export function CajaPage(): React.JSX.Element {
   return (
     <section aria-label="Caja" className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold text-white">Caja</h1>
+        <h1 className="text-xl font-semibold text-ink">Caja</h1>
         <div className="flex gap-2">
           <Boton onClick={() => setModal("movimiento")}>Ingreso / egreso</Boton>
           <Boton onClick={() => void imprimir()}>Imprimir arqueo</Boton>
@@ -99,7 +99,7 @@ function Fila({ t, v }: { t: string; v: string }): React.JSX.Element {
   return (
     <div className="flex justify-between text-slate-300">
       <dt>{t}</dt>
-      <dd className="font-medium text-white">{v}</dd>
+      <dd className="font-medium text-ink">{v}</dd>
     </div>
   );
 }
@@ -122,7 +122,7 @@ function VentasDelTurno({ turnoId, puedeAnular, onAviso }: { turnoId: string; pu
 
   return (
     <div className="space-y-2">
-      <h2 className="font-medium text-white">Ventas del turno</h2>
+      <h2 className="font-medium text-ink">Ventas del turno</h2>
       {isError ? <Aviso tipo="error">{mensajeDeError(error)}</Aviso> : null}
       <Tabla etiqueta="Ventas del turno" filas={data?.items} clave={(v) => v.id} vacio="Todavía no hay ventas en este turno"
         columnas={[

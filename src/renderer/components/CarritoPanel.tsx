@@ -19,7 +19,7 @@ interface Props {
 }
 
 export function CarritoPanel({ lineas, calculo, clienteNombre, tactil, onMas, onMenos, onQuitar, onEditar, onCliente }: Props): React.JSX.Element {
-  const boton = `rounded-lg bg-slate-700 text-white active:bg-slate-600 ${tactil ? "h-12 w-12 text-xl" : "h-8 w-8"}`;
+  const boton = `rounded-lg bg-slate-700 text-ink active:bg-slate-600 ${tactil ? "h-12 w-12 text-xl" : "h-8 w-8"}`;
   const general = calculo.ivaPorTarifa.find((t) => t.porcentaje === 15);
   const tarifaCero = calculo.ivaPorTarifa.find((t) => t.porcentaje === 0);
   const otrasTarifas = calculo.ivaPorTarifa.filter((t) => t.porcentaje !== 0 && t.porcentaje !== 15);
@@ -44,20 +44,20 @@ export function CarritoPanel({ lineas, calculo, clienteNombre, tactil, onMas, on
             <li key={l.clave} className="rounded-xl border border-slate-700 bg-slate-800 p-3">
               <div className="flex items-start justify-between gap-3">
                 <button type="button" aria-label={`Editar ${l.nombre}`} onClick={() => onEditar(l)} className="min-w-0 flex-1 text-left">
-                  <span className="block truncate text-sm font-medium text-white">{l.nombre}</span>
+                  <span className="block truncate text-sm font-medium text-ink">{l.nombre}</span>
                   <span className="text-xs text-slate-400">
                     {dinero(l.precioUnitario)} × {cantidadTexto(l.cantidad)} {l.unidad}
                     {l.descuento > 0 ? ` · desc. ${l.tipoDescuento === "PORCENTAJE" ? `${l.descuento}%` : dinero(l.descuento)}` : ""}
                     {l.porcentajeIva > 0 ? ` · IVA ${l.porcentajeIva}%` : ""}
                   </span>
                 </button>
-                <span className="text-sm font-semibold text-white">{r === null || r === undefined ? "—" : dinero(r.subtotal)}</span>
+                <span className="text-sm font-semibold text-ink">{r === null || r === undefined ? "—" : dinero(r.subtotal)}</span>
               </div>
               <div className="mt-2 flex items-center gap-2">
                 <button type="button" aria-label={`Disminuir ${l.nombre}`} onClick={() => onMenos(l)} className={boton}>
                   −
                 </button>
-                <span className="min-w-10 text-center text-sm text-white" aria-label={`Cantidad de ${l.nombre}`}>
+                <span className="min-w-10 text-center text-sm text-ink" aria-label={`Cantidad de ${l.nombre}`}>
                   {cantidadTexto(l.cantidad)}
                 </span>
                 <button type="button" aria-label={`Aumentar ${l.nombre}`} onClick={() => onMas(l)} className={boton}>
@@ -79,7 +79,7 @@ export function CarritoPanel({ lineas, calculo, clienteNombre, tactil, onMas, on
         <Fila etiqueta={<>Descuento <span className="text-xs text-slate-400">aplicado</span></>} valor={dinero(calculo.totales.descuento)} />
         <Fila etiqueta="IVA 15%" valor={dinero(general?.iva ?? 0)} />
         {otrasTarifas.map((t) => <Fila key={t.porcentaje} etiqueta={`IVA ${t.porcentaje}%`} valor={dinero(t.iva)} />)}
-        <div className="flex items-baseline justify-between border-t border-slate-700 pt-2 text-white">
+        <div className="flex items-baseline justify-between border-t border-slate-700 pt-2 text-ink">
           <dt className="text-base font-semibold">Total</dt>
           <dd data-testid="total" className={`font-bold ${tactil ? "text-4xl" : "text-3xl"}`}>
             {dinero(calculo.totales.total)}

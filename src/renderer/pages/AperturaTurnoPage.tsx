@@ -63,13 +63,13 @@ export function AperturaTurnoPage({ onSalir }: { onSalir: () => void }): React.J
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-900 p-6">
       <form onSubmit={(e) => void abrir(e)} className="w-full max-w-md space-y-4 rounded-2xl border border-slate-700 bg-slate-800 p-6" aria-label="Apertura de turno">
-        <h1 className="text-xl font-bold text-white">Abrir turno de caja</h1>
+        <h1 className="text-xl font-bold text-ink">Abrir turno de caja</h1>
         <p className="text-sm text-slate-300">
           Cajero: {usuario?.nombre} {usuario?.apellido}
         </p>
         <label className="block text-sm text-slate-300">
           Punto de emisión
-          <select aria-label="Punto de emisión" value={seleccion} onChange={(e) => setSeleccion(e.target.value)} className="mt-1 h-12 w-full rounded-lg border border-slate-600 bg-slate-900 px-3 text-white">
+          <select aria-label="Punto de emisión" value={seleccion} onChange={(e) => setSeleccion(e.target.value)} className="mt-1 h-12 w-full rounded-lg border border-slate-600 bg-slate-900 px-3 text-ink">
             {(puntos.data ?? []).map((p) => (
               <option key={p.id} value={p.id}>
                 {p.sucursal.nombre} · {p.sucursal.codigo}-{p.codigo} {p.descripcion}
@@ -79,11 +79,11 @@ export function AperturaTurnoPage({ onSalir }: { onSalir: () => void }): React.J
         </label>
         <label className="block text-sm text-slate-300">
           Efectivo con el que abre la caja
-          <input aria-label="Monto de apertura" inputMode="decimal" value={monto} onChange={(e) => setMonto(e.target.value)} className="mt-1 h-12 w-full rounded-lg border border-slate-600 bg-slate-900 px-3 text-right text-white" />
+          <input aria-label="Monto de apertura" inputMode="decimal" value={monto} onChange={(e) => setMonto(e.target.value)} className="mt-1 h-12 w-full rounded-lg border border-slate-600 bg-slate-900 px-3 text-right text-ink" />
         </label>
         {error !== null ? <Aviso tipo="error">{error}</Aviso> : null}
         <div className="flex justify-between gap-3">
-          <button type="button" onClick={onSalir} className="rounded-lg px-4 py-3 text-slate-300 hover:text-white">
+          <button type="button" onClick={onSalir} className="rounded-lg px-4 py-3 text-slate-300 hover:text-ink">
             Salir
           </button>
           <button type="submit" disabled={enviando || (puntos.data ?? []).length === 0} className="rounded-lg bg-brand-600 px-6 py-3 font-semibold text-white disabled:opacity-40">

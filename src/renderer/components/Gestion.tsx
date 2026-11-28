@@ -77,7 +77,7 @@ export function Pestanas<T extends string>({ etiqueta, opciones, activa, onCambi
   return (
     <div role="tablist" aria-label={etiqueta} className="mb-4 flex gap-1 border-b border-slate-700">
       {opciones.map((o) => (
-        <button key={o.id} role="tab" type="button" aria-selected={o.id === activa} onClick={() => onCambio(o.id)} className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${o.id === activa ? "border-brand-400 text-white" : "border-transparent text-slate-400 hover:text-slate-200"}`}>
+        <button key={o.id} role="tab" type="button" aria-selected={o.id === activa} onClick={() => onCambio(o.id)} className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${o.id === activa ? "border-brand-400 text-ink" : "border-transparent text-slate-400 hover:text-slate-200"}`}>
           {o.titulo}
         </button>
       ))}
@@ -108,7 +108,7 @@ export function Campo({ etiqueta, valor, onCambio, tipo = "text", placeholder, d
         data-autofocus={autofoco ? true : undefined}
         step={tipo === "number" ? "any" : undefined}
         onChange={(e) => onCambio(e.target.value)}
-        className="mt-1 h-10 w-full rounded-lg border border-slate-600 bg-slate-900 px-3 text-white outline-none focus:border-brand-400 disabled:opacity-50"
+        className="mt-1 h-10 w-full rounded-lg border border-slate-600 bg-slate-900 px-3 text-ink outline-none focus:border-brand-400 disabled:opacity-50"
       />
     </label>
   );
@@ -118,7 +118,7 @@ export function Seleccion({ etiqueta, valor, onCambio, opciones }: { etiqueta: s
   return (
     <label className="block text-sm text-slate-300">
       {etiqueta}
-      <select aria-label={etiqueta} value={valor} onChange={(e) => onCambio(e.target.value)} className="mt-1 h-10 w-full rounded-lg border border-slate-600 bg-slate-900 px-2 text-white">
+      <select aria-label={etiqueta} value={valor} onChange={(e) => onCambio(e.target.value)} className="mt-1 h-10 w-full rounded-lg border border-slate-600 bg-slate-900 px-2 text-ink">
         {opciones.map((o) => (
           <option key={o.valor} value={o.valor}>
             {o.titulo}
@@ -139,7 +139,7 @@ export function Casilla({ etiqueta, marcada, onCambio }: { etiqueta: string; mar
 }
 
 export function Boton({ children, onClick, tipo = "button", variante = "normal", deshabilitado = false }: { children: React.ReactNode; onClick?: () => void; tipo?: "button" | "submit"; variante?: "normal" | "primario" | "peligro"; deshabilitado?: boolean }): React.JSX.Element {
-  const estilos = { normal: "bg-slate-700 text-white hover:bg-slate-600", primario: "bg-brand-600 text-white hover:bg-brand-500", peligro: "bg-red-700 text-white hover:bg-red-600" } as const;
+  const estilos = { normal: "bg-slate-700 text-ink hover:bg-slate-600", primario: "bg-brand-600 text-white hover:bg-brand-500", peligro: "bg-red-700 text-white hover:bg-red-600" } as const;
   return (
     <button type={tipo} onClick={onClick} disabled={deshabilitado} className={`rounded-lg px-4 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-40 ${estilos[variante]}`}>
       {children}

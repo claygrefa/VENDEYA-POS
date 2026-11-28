@@ -188,7 +188,7 @@ export function SetupWizard(): React.JSX.Element {
     return (
       <main className="flex min-h-screen items-center justify-center bg-slate-900 p-6">
         <section aria-label="Configuración terminada" className="w-full max-w-lg space-y-4 rounded-2xl border border-slate-700 bg-slate-800 p-6 shadow-xl">
-          <h1 className="text-xl font-bold text-white">¡Todo listo!</h1>
+          <h1 className="text-xl font-bold text-ink">¡Todo listo!</h1>
           <p className="text-sm text-slate-300">
             {empresa.razonSocial} quedó configurada con la sucursal «{empresa.sucursalNombre}» y el punto de emisión 001-001. Entrará como <strong>{terminado.usuario.username}</strong>.
           </p>
@@ -209,7 +209,7 @@ export function SetupWizard(): React.JSX.Element {
           <div className="flex items-center gap-3">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-brand-600 text-lg font-bold text-white">VP</div>
             <div>
-              <h1 className="text-xl font-bold text-white">Bienvenido a VENDEYA POS</h1>
+              <h1 className="text-xl font-bold text-ink">Bienvenido a VENDEYA POS</h1>
               <p className="text-xs uppercase tracking-widest text-brand-300">Configuración inicial</p>
             </div>
           </div>
@@ -305,7 +305,7 @@ export function SetupWizard(): React.JSX.Element {
           <form noValidate aria-label="Giro y administrador" className="space-y-3" onSubmit={(e) => { e.preventDefault(); void finalizar(); }}>
             <Seleccion etiqueta="Giro del negocio" valor={admin.giro} onCambio={(v) => cambiarAdmin("giro", v)} opciones={opciones(GIROS, ETIQUETA_GIRO)} />
             <p className="text-xs text-slate-400">El giro activa los módulos que su negocio necesita; podrá ajustarlos después.</p>
-            <h2 className="pt-2 text-sm font-semibold text-white">Usuario administrador</h2>
+            <h2 className="pt-2 text-sm font-semibold text-ink">Usuario administrador</h2>
             <div className="grid grid-cols-2 gap-3">
               <Campo etiqueta="Nombre" valor={admin.nombre} onCambio={(v) => cambiarAdmin("nombre", v)} />
               <Campo etiqueta="Apellido" valor={admin.apellido} onCambio={(v) => cambiarAdmin("apellido", v)} />

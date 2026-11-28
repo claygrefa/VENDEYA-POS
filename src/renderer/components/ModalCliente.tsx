@@ -24,12 +24,12 @@ export function ModalCliente({ actual, tactil, onElegir, onCancelar }: Props): R
         placeholder="Nombre, cédula o RUC (mínimo 2 letras)"
         value={texto}
         onChange={(e) => setTexto(e.target.value)}
-        className={`w-full rounded-lg border border-slate-600 bg-slate-900 px-3 text-white outline-none focus:border-brand-400 ${tactil ? "h-14 text-xl" : "h-10"}`}
+        className={`w-full rounded-lg border border-slate-600 bg-slate-900 px-3 text-ink outline-none focus:border-brand-400 ${tactil ? "h-14 text-xl" : "h-10"}`}
       />
       <ul className="mt-3 max-h-64 space-y-1 overflow-y-auto" aria-busy={isFetching}>
         {(data?.items ?? []).map((c) => (
           <li key={c.id}>
-            <button type="button" onClick={() => onElegir(c)} aria-label={`Elegir ${c.razonSocial}`} className="flex w-full justify-between rounded-lg bg-slate-700/60 px-3 py-2 text-left text-white hover:bg-slate-700">
+            <button type="button" onClick={() => onElegir(c)} aria-label={`Elegir ${c.razonSocial}`} className="flex w-full justify-between rounded-lg bg-slate-700/60 px-3 py-2 text-left text-ink hover:bg-slate-700">
               <span>{c.razonSocial}</span>
               <span className="text-sm text-slate-400">{c.identificacion}</span>
             </button>
@@ -42,7 +42,7 @@ export function ModalCliente({ actual, tactil, onElegir, onCancelar }: Props): R
         <button type="button" onClick={() => onElegir(null)} disabled={actual === null} className="rounded-lg border border-slate-600 px-4 py-2 text-slate-200 disabled:opacity-40">
           Consumidor Final
         </button>
-        <button type="button" onClick={onCancelar} className="rounded-lg px-4 py-2 text-slate-300 hover:text-white">
+        <button type="button" onClick={onCancelar} className="rounded-lg px-4 py-2 text-slate-300 hover:text-ink">
           Cerrar
         </button>
       </div>

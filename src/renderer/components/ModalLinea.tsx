@@ -68,7 +68,7 @@ export function ModalLinea({ titulo, unidad, permiteDecimales, productoId, balan
     onAceptar({ cantidad: c, descuento: d, tipoDescuento: tipo });
   };
 
-  const campo = "w-full rounded-lg border border-slate-600 bg-slate-900 px-3 text-white outline-none focus:border-brand-400 " + (tactil ? "h-14 text-xl" : "h-10");
+  const campo = "w-full rounded-lg border border-slate-600 bg-slate-900 px-3 text-ink outline-none focus:border-brand-400 " + (tactil ? "h-14 text-xl" : "h-10");
   return (
     <Modal titulo={titulo} ayuda="Enter acepta · ESC cancela" ancho="sm">
       <form onSubmit={aceptar} className="space-y-3">
@@ -88,7 +88,7 @@ export function ModalLinea({ titulo, unidad, permiteDecimales, productoId, balan
             <span className="block text-sm text-slate-300">Descuento de la línea</span>
             <div className="mt-1 flex gap-2">
               <input aria-label="Descuento" inputMode="decimal" value={descuento} onFocus={() => setCampoTactil("descuento")} onChange={(e) => setDescuento(e.target.value)} className={campo} />
-              <select aria-label="Tipo de descuento" value={tipo} onChange={(e) => setTipo(e.target.value as "PORCENTAJE" | "VALOR")} className="rounded-lg border border-slate-600 bg-slate-900 px-2 text-white">
+              <select aria-label="Tipo de descuento" value={tipo} onChange={(e) => setTipo(e.target.value as "PORCENTAJE" | "VALOR")} className="rounded-lg border border-slate-600 bg-slate-900 px-2 text-ink">
                 <option value="VALOR">$</option>
                 <option value="PORCENTAJE">%</option>
               </select>
@@ -98,7 +98,7 @@ export function ModalLinea({ titulo, unidad, permiteDecimales, productoId, balan
         {tactil ? <TecladoNumerico valor={campoTactil === "cantidad" ? cantidad : descuento} decimales={permiteDecimales || campoTactil === "descuento"} onCambio={campoTactil === "cantidad" ? setCantidad : setDescuento} /> : null}
         {error !== null ? <Aviso tipo="error">{error}</Aviso> : null}
         <div className="flex justify-end gap-2 pt-1">
-          <button type="button" onClick={onCancelar} className="rounded-lg px-4 py-2 text-slate-300 hover:text-white">
+          <button type="button" onClick={onCancelar} className="rounded-lg px-4 py-2 text-slate-300 hover:text-ink">
             Cancelar
           </button>
           <button type="submit" className="rounded-lg bg-brand-600 px-5 py-2 font-medium text-white">

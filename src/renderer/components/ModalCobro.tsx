@@ -73,7 +73,7 @@ export function ModalCobro({ total, clienteNombre, esConsumidorFinal, tactil, er
       <form onSubmit={confirmar} className="space-y-3">
         <div className="flex items-baseline justify-between rounded-xl bg-slate-900 px-4 py-3">
           <span className="text-sm text-slate-400">Total a pagar</span>
-          <span data-testid="total-cobro" className="text-3xl font-bold text-white">
+          <span data-testid="total-cobro" className="text-3xl font-bold text-ink">
             {dinero(aPagar)}
           </span>
         </div>
@@ -84,7 +84,7 @@ export function ModalCobro({ total, clienteNombre, esConsumidorFinal, tactil, er
         <ul className="space-y-2">
           {filas.map((f, i) => (
             <li key={i} className="flex items-center gap-2">
-              <select aria-label={`Forma de pago ${i + 1}`} value={f.forma} onChange={(e) => cambiarFila(i, { forma: e.target.value as FormaPago })} className="h-11 rounded-lg border border-slate-600 bg-slate-900 px-2 text-white">
+              <select aria-label={`Forma de pago ${i + 1}`} value={f.forma} onChange={(e) => cambiarFila(i, { forma: e.target.value as FormaPago })} className="h-11 rounded-lg border border-slate-600 bg-slate-900 px-2 text-ink">
                 {FORMAS_PAGO.map((fp) => (
                   <option key={fp.valor} value={fp.valor}>
                     {fp.etiqueta}
@@ -98,9 +98,9 @@ export function ModalCobro({ total, clienteNombre, esConsumidorFinal, tactil, er
                 value={f.monto}
                 onFocus={() => setActiva(i)}
                 onChange={(e) => cambiarFila(i, { monto: e.target.value })}
-                className={`w-full rounded-lg border border-slate-600 bg-slate-900 px-3 text-right text-white outline-none focus:border-brand-400 ${tactil ? "h-14 text-xl" : "h-11"}`}
+                className={`w-full rounded-lg border border-slate-600 bg-slate-900 px-3 text-right text-ink outline-none focus:border-brand-400 ${tactil ? "h-14 text-xl" : "h-11"}`}
               />
-              <button type="button" aria-label={`Completar pago ${i + 1}`} title="Poner lo que falta" onClick={() => completar(i, faltante(i))} className="h-11 rounded-lg bg-slate-700 px-3 text-sm text-white">
+              <button type="button" aria-label={`Completar pago ${i + 1}`} title="Poner lo que falta" onClick={() => completar(i, faltante(i))} className="h-11 rounded-lg bg-slate-700 px-3 text-sm text-ink">
                 Exacto
               </button>
               {filas.length > 1 ? (
@@ -120,7 +120,7 @@ export function ModalCobro({ total, clienteNombre, esConsumidorFinal, tactil, er
         <div className="grid grid-cols-2 gap-3 text-sm">
           <label className="text-slate-300">
             Propina
-            <input aria-label="Propina" inputMode="decimal" value={propina} onChange={(e) => setPropina(e.target.value)} placeholder="0.00" className="mt-1 h-10 w-full rounded-lg border border-slate-600 bg-slate-900 px-3 text-right text-white" />
+            <input aria-label="Propina" inputMode="decimal" value={propina} onChange={(e) => setPropina(e.target.value)} placeholder="0.00" className="mt-1 h-10 w-full rounded-lg border border-slate-600 bg-slate-900 px-3 text-right text-ink" />
           </label>
           <label className="flex items-end gap-2 pb-2 text-slate-300">
             <input type="checkbox" checked={facturar} onChange={(e) => setFacturar(e.target.checked)} className="h-5 w-5" />
@@ -151,7 +151,7 @@ export function ModalCobro({ total, clienteNombre, esConsumidorFinal, tactil, er
         {error !== null ? <Aviso tipo="error">{error}</Aviso> : null}
 
         <div className="flex justify-end gap-2 pt-1">
-          <button type="button" onClick={onCancelar} className="rounded-lg px-4 py-2 text-slate-300 hover:text-white">
+          <button type="button" onClick={onCancelar} className="rounded-lg px-4 py-2 text-slate-300 hover:text-ink">
             Cancelar
           </button>
           <button type="submit" disabled={!puede} className={`rounded-lg bg-emerald-600 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40 ${tactil ? "px-8 py-4 text-lg" : "px-6 py-2"}`}>

@@ -92,7 +92,7 @@ export function Shell({ baseUrl, onSalir }: { baseUrl: string; onSalir: () => vo
   });
 
   return (
-    <div className="flex h-screen flex-col bg-slate-900 text-white">
+    <div className="flex h-screen flex-col bg-slate-900 text-ink">
       <BannerLicencia />
       <BannerActualizacion actualizacion={actualizacion} ocupado={ventaEnCurso} />
       <BarraEstado sync={sync} onSalir={onSalir} />
@@ -103,14 +103,14 @@ export function Shell({ baseUrl, onSalir }: { baseUrl: string; onSalir: () => vo
               V
             </span>
             <span className="min-w-0 leading-tight">
-              <span className="block truncate text-base font-bold tracking-tight text-white">VendeYa <span className="text-brand-300">POS</span></span>
+              <span className="block truncate text-base font-bold tracking-tight text-ink">VendeYa <span className="text-brand-300">POS</span></span>
               {version.data ? <span className="block text-xs tabular-nums text-slate-400">v{version.data}</span> : null}
             </span>
           </div>
           {menu.map((m, i) => {
             const Icono = ICONOS[m.id];
             return (
-              <button key={m.id} type="button" onClick={() => ir(m.id)} aria-current={m.id === activa ? "page" : undefined} title={`Ctrl+${i + 1}`} className={`flex items-center gap-2.5 rounded-lg border-l-4 px-3 py-3 text-left text-sm font-medium transition-colors duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-400 ${m.id === activa ? "border-brand-400 bg-brand-500/15 text-white" : "border-transparent text-slate-300 hover:bg-slate-700/70 hover:text-white"}`}>
+              <button key={m.id} type="button" onClick={() => ir(m.id)} aria-current={m.id === activa ? "page" : undefined} title={`Ctrl+${i + 1}`} className={`flex items-center gap-2.5 rounded-lg border-l-4 px-3 py-3 text-left text-sm font-medium transition-colors duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-400 ${m.id === activa ? "border-brand-400 bg-brand-500/15 text-ink" : "border-transparent text-slate-300 hover:bg-slate-700/70 hover:text-ink"}`}>
                 <Icono className={`h-[1.125rem] w-[1.125rem] shrink-0 ${m.id === activa ? "text-brand-300" : ""}`} aria-hidden="true" />
                 {m.titulo}
               </button>

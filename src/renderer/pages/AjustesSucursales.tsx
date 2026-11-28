@@ -43,7 +43,7 @@ export function SeccionSucursales(): React.JSX.Element {
           <li key={s.id} aria-label={`Sucursal ${s.codigo}`} className="space-y-3 rounded-xl border border-slate-700 bg-slate-800/60 p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <h2 className="text-base font-semibold text-white">
+                <h2 className="text-base font-semibold text-ink">
                   {s.codigo} · {s.nombre} {s.estado === "INACTIVO" ? <span className="ml-2 rounded bg-slate-700 px-2 py-0.5 text-xs font-normal text-slate-300">Inactiva</span> : null}
                 </h2>
                 <p className="text-sm text-slate-400">{s.direccion} · Tel. {s.telefono}</p>

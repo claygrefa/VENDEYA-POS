@@ -56,7 +56,7 @@ export function ReportesPage(): React.JSX.Element {
 
   return (
     <section aria-label="Reportes" className="space-y-4">
-      <h1 className="text-xl font-semibold text-white">Reportes</h1>
+      <h1 className="text-xl font-semibold text-ink">Reportes</h1>
       <form onSubmit={(e) => { e.preventDefault(); setAviso(null); generar.mutate(); }} className="flex flex-wrap items-end gap-3">
         <Seleccion etiqueta="Reporte" valor={tipo} onCambio={(v) => { setTipo(v); generar.reset(); }} opciones={TIPOS} />
         {tipo === "ventas" ? <Seleccion etiqueta="Agrupar" valor={agrupar} onCambio={setAgrupar} opciones={AGRUPACIONES} /> : null}
@@ -75,7 +75,7 @@ export function ReportesPage(): React.JSX.Element {
 
       {reporte !== undefined ? (
         <div className="space-y-3">
-          <h2 className="font-medium text-white">{reporte.titulo}{reporte.desde !== null ? ` · ${reporte.desde} al ${reporte.hasta ?? "hoy"}` : ""}</h2>
+          <h2 className="font-medium text-ink">{reporte.titulo}{reporte.desde !== null ? ` · ${reporte.desde} al ${reporte.hasta ?? "hoy"}` : ""}</h2>
           <Tabla etiqueta={reporte.titulo} filas={reporte.filas.slice((pagina - 1) * FILAS_POR_PAGINA, pagina * FILAS_POR_PAGINA)} clave={(f) => JSON.stringify(f)} vacio="No hay datos en el periodo"
             columnas={reporte.columnas.map((c) => ({ titulo: c.titulo, derecha: c.tipo !== "texto", celda: (f: Record<string, string | number>) => (c.tipo === "dinero" ? dinero(Number(f[c.clave])) : c.tipo === "numero" ? cantidadTexto(Number(f[c.clave])) : String(f[c.clave] ?? "")) }))} />
           {reporte.filas.length > FILAS_POR_PAGINA ? (
@@ -88,12 +88,12 @@ export function ReportesPage(): React.JSX.Element {
           ) : null}
           <dl aria-label="Totales del reporte" className="flex flex-wrap gap-x-8 gap-y-1 text-sm text-slate-300">
             {reporte.columnas.filter((c) => reporte.totales[c.clave] !== undefined && c.tipo !== "texto").map((c) => (
-              <div key={c.clave}><dt className="inline">{c.titulo}: </dt><dd className="inline font-semibold text-white">{c.tipo === "dinero" ? dinero(reporte.totales[c.clave] ?? 0) : cantidadTexto(reporte.totales[c.clave] ?? 0)}</dd></div>
+              <div key={c.clave}><dt className="inline">{c.titulo}: </dt><dd className="inline font-semibold text-ink">{c.tipo === "dinero" ? dinero(reporte.totales[c.clave] ?? 0) : cantidadTexto(reporte.totales[c.clave] ?? 0)}</dd></div>
             ))}
             {reporte.tipo === "cartera" ? (
               <>
-                <div><dt className="inline">Por cobrar: </dt><dd className="inline font-semibold text-white">{dinero(reporte.totales["porCobrar"] ?? 0)}</dd></div>
-                <div><dt className="inline">Por pagar: </dt><dd className="inline font-semibold text-white">{dinero(reporte.totales["porPagar"] ?? 0)}</dd></div>
+                <div><dt className="inline">Por cobrar: </dt><dd className="inline font-semibold text-ink">{dinero(reporte.totales["porCobrar"] ?? 0)}</dd></div>
+                <div><dt className="inline">Por pagar: </dt><dd className="inline font-semibold text-ink">{dinero(reporte.totales["porPagar"] ?? 0)}</dd></div>
               </>
             ) : null}
           </dl>

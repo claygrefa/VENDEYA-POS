@@ -51,11 +51,11 @@ export function SriMonitorPage(): React.JSX.Element {
   const porEstado = cola.data?.porEstado ?? {};
   return (
     <section aria-label="Comprobantes SRI" className="space-y-4">
-      <h1 className="text-xl font-semibold text-white">Comprobantes electrónicos</h1>
+      <h1 className="text-xl font-semibold text-ink">Comprobantes electrónicos</h1>
       <ul aria-label="Resumen por estado" className="flex flex-wrap gap-3 text-sm">
         {["PENDIENTE", "EN_PROCESO", "AUTORIZADO", "RECHAZADO", "DEVUELTO"].map((e) => (
           <li key={e} className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2">
-            <span className={COLOR_ESTADO[e]}>{e.replace("_", " ")}</span>: <strong className="text-white">{porEstado[e] ?? 0}</strong>
+            <span className={COLOR_ESTADO[e]}>{e.replace("_", " ")}</span>: <strong className="text-ink">{porEstado[e] ?? 0}</strong>
           </li>
         ))}
       </ul>
@@ -98,11 +98,11 @@ function Detalle({ c, puedeReintentar, onReintentar, onCerrar }: { c: Comprobant
       <dl className="space-y-1 text-sm text-slate-300">
         <div className="flex justify-between"><dt>Estado</dt><dd className={COLOR_ESTADO[c.estado] ?? ""}>{c.estado.replace("_", " ")}</dd></div>
         <div className="flex justify-between"><dt>Ambiente</dt><dd>{c.ambiente === "2" ? "Producción" : "Pruebas"}</dd></div>
-        <div><dt>Clave de acceso</dt><dd className="break-all font-mono text-xs text-white">{c.claveAcceso}</dd></div>
+        <div><dt>Clave de acceso</dt><dd className="break-all font-mono text-xs text-ink">{c.claveAcceso}</dd></div>
         {c.proximoIntento !== null ? <div className="flex justify-between"><dt>Próximo intento</dt><dd>{c.proximoIntento.slice(0, 16).replace("T", " ")}</dd></div> : null}
       </dl>
       {c.colaSRI?.ultimoError != null ? <div className="mt-3"><Aviso tipo="info">{c.colaSRI.ultimoError}</Aviso></div> : null}
-      <h3 className="mb-2 mt-4 font-medium text-white">Mensajes del SRI</h3>
+      <h3 className="mb-2 mt-4 font-medium text-ink">Mensajes del SRI</h3>
       {mensajes.length === 0 ? <p className="text-sm text-slate-500">El SRI no ha enviado mensajes.</p> : (
         <ul className="space-y-2" aria-label="Mensajes del SRI">
           {mensajes.map((m, i) => (
@@ -145,7 +145,7 @@ function AnexoAts(): React.JSX.Element | null {
   if (!tienePermiso(usuario, "reportes:exportar")) return null;
   return (
     <form aria-label="Anexo transaccional" onSubmit={(e) => { e.preventDefault(); descargar.mutate(); }} className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-700 bg-slate-800/60 p-4">
-      <h2 className="w-full font-medium text-white">Anexo Transaccional Simplificado (ATS)</h2>
+      <h2 className="w-full font-medium text-ink">Anexo Transaccional Simplificado (ATS)</h2>
       <Campo etiqueta="Año" tipo="number" valor={anio} onCambio={setAnio} />
       <Campo etiqueta="Mes" tipo="number" valor={mes} onCambio={setMes} />
       <Boton tipo="submit" deshabilitado={descargar.isPending}>Descargar ATS</Boton>

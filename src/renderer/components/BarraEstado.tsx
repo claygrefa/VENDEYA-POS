@@ -54,7 +54,7 @@ export function BarraEstado({ sync, onSalir }: Props): React.JSX.Element {
   return (
     <header className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-b border-slate-700 bg-slate-800 px-4 py-2 text-sm text-slate-300">
       <div className="flex items-center gap-3">
-        <span className="font-semibold text-white">
+        <span className="font-semibold text-ink">
           {usuario?.nombre} {usuario?.apellido}
         </span>
         {punto !== null ? (

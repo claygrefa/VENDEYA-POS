@@ -24,7 +24,7 @@ export function AyudaPage(): React.JSX.Element {
   return (
     <section aria-label="Centro de ayuda" className="max-w-3xl space-y-4">
       <header>
-        <h1 className="text-xl font-semibold text-white">Centro de ayuda</h1>
+        <h1 className="text-xl font-semibold text-ink">Centro de ayuda</h1>
         <p className="text-sm text-slate-400">Guías rápidas para su trabajo diario. No necesitan internet.</p>
       </header>
 
@@ -44,7 +44,7 @@ export function AyudaPage(): React.JSX.Element {
                 {delGrupo.map((a) => (
                   <li key={a.id}>
                     <button type="button" onClick={() => setAbierto(a.id)} className="w-full rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 text-left hover:border-brand-400">
-                      <span className="block font-medium text-white">{a.titulo}</span>
+                      <span className="block font-medium text-ink">{a.titulo}</span>
                       <span className="block text-sm text-slate-400">{a.resumen}</span>
                     </button>
                   </li>
@@ -64,7 +64,7 @@ function Detalle({ articulo, onVolver }: { articulo: ArticuloAyuda; onVolver: ()
       <Boton onClick={onVolver}>← Volver a la ayuda</Boton>
       <header>
         <p className="text-xs uppercase tracking-wide text-slate-400">{TITULO_GRUPO[articulo.grupo]}</p>
-        <h1 className="text-xl font-semibold text-white">{articulo.titulo}</h1>
+        <h1 className="text-xl font-semibold text-ink">{articulo.titulo}</h1>
         <p className="mt-1 text-slate-300">{articulo.resumen}</p>
       </header>
       <ol aria-label="Pasos" className="list-decimal space-y-2 pl-6 text-slate-200">

@@ -31,7 +31,7 @@ export function Modal({ titulo, ayuda, ancho = "md", children }: Props): React.J
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-4">
       <div ref={ref} role="dialog" aria-modal="true" aria-label={titulo} className={`w-full ${ANCHOS[ancho]} rounded-2xl border border-slate-700 bg-slate-800 p-5 shadow-2xl`}>
         <div className="mb-4 flex items-baseline justify-between gap-4">
-          <h2 className="text-lg font-semibold text-white">{titulo}</h2>
+          <h2 className="text-lg font-semibold text-ink">{titulo}</h2>
           {ayuda !== undefined ? <span className="text-xs text-slate-400">{ayuda}</span> : null}
         </div>
         {children}

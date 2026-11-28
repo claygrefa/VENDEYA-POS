@@ -6,6 +6,10 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import "./styles/globals.css";
+import { iniciarPreferencias } from "./store/preferencias.store";
+
+// Tema y tamaño de texto guardados en este equipo: se aplican antes de dibujar para que no haya parpadeo
+iniciarPreferencias();
 
 const rootElement = document.getElementById("root");
 

@@ -20,7 +20,7 @@ export function ComprasPage(): React.JSX.Element {
   const opciones = [{ id: "compras" as const, titulo: "Compras" }, ...(tienePermiso(usuario, "proveedores:leer") ? [{ id: "proveedores" as const, titulo: "Proveedores" }, { id: "pagar" as const, titulo: "Cuentas por pagar" }] : [])];
   return (
     <section aria-label="Compras" className="space-y-4">
-      <h1 className="text-xl font-semibold text-white">Compras y proveedores</h1>
+      <h1 className="text-xl font-semibold text-ink">Compras y proveedores</h1>
       <Pestanas etiqueta="Secciones de compras" activa={pestana} onCambio={setPestana} opciones={opciones} />
       {pestana === "compras" ? <Compras /> : pestana === "proveedores" ? <Proveedores /> : <PorPagar />}
     </section>
@@ -36,7 +36,7 @@ function Compras(): React.JSX.Element {
   return (
     <div className="space-y-3">
       <div className="flex gap-3">
-        <input aria-label="Buscar compra" placeholder="Proveedor o número de documento" value={busqueda} onChange={(e) => { setBusqueda(e.target.value); setPagina(1); }} className="h-10 flex-1 rounded-lg border border-slate-600 bg-slate-900 px-3 text-white" />
+        <input aria-label="Buscar compra" placeholder="Proveedor o número de documento" value={busqueda} onChange={(e) => { setBusqueda(e.target.value); setPagina(1); }} className="h-10 flex-1 rounded-lg border border-slate-600 bg-slate-900 px-3 text-ink" />
         <Boton variante="primario" onClick={() => setNueva(true)}>Registrar compra</Boton>
       </div>
       {isError ? <Aviso tipo="error">{mensajeDeError(error)}</Aviso> : null}
@@ -126,14 +126,14 @@ function FormularioCompra({ onCerrar }: { onCerrar: () => void }): React.JSX.Ele
           <ul className="mt-3 space-y-2" aria-label="Productos de la compra">
             {lineas.map((l, i) => (
               <li key={l.producto.id} className="grid grid-cols-[1fr_6rem_7rem_auto] items-end gap-2">
-                <span className="text-sm text-white">{l.producto.nombre}</span>
+                <span className="text-sm text-ink">{l.producto.nombre}</span>
                 <Campo etiqueta={`Cantidad de ${l.producto.nombre}`} tipo="number" valor={l.cantidad} onCambio={(v) => ponerLinea(i, { cantidad: v })} />
                 <Campo etiqueta={`Costo de ${l.producto.nombre}`} tipo="number" valor={l.costo} onCambio={(v) => ponerLinea(i, { costo: v })} />
                 <Boton variante="peligro" onClick={() => setLineas((ls) => ls.filter((_, k) => k !== i))}>{`Quitar ${l.producto.nombre}`}</Boton>
               </li>
             ))}
           </ul>
-          <p className="mt-3 text-right text-sm text-slate-300">Subtotal sin IVA: <strong className="text-white">{dinero(total)}</strong></p>
+          <p className="mt-3 text-right text-sm text-slate-300">Subtotal sin IVA: <strong className="text-ink">{dinero(total)}</strong></p>
         </div>
         {error !== null ? <Aviso tipo="error">{error}</Aviso> : null}
         <div className="flex justify-end gap-2">
@@ -155,7 +155,7 @@ function Proveedores(): React.JSX.Element {
   return (
     <div className="space-y-3">
       <div className="flex gap-3">
-        <input aria-label="Buscar proveedor" placeholder="Razón social o RUC" value={busqueda} onChange={(e) => { setBusqueda(e.target.value); setPagina(1); }} className="h-10 flex-1 rounded-lg border border-slate-600 bg-slate-900 px-3 text-white" />
+        <input aria-label="Buscar proveedor" placeholder="Razón social o RUC" value={busqueda} onChange={(e) => { setBusqueda(e.target.value); setPagina(1); }} className="h-10 flex-1 rounded-lg border border-slate-600 bg-slate-900 px-3 text-ink" />
         {tienePermiso(usuario, "proveedores:crear") ? <Boton variante="primario" onClick={() => setEdicion({ proveedor: null })}>Nuevo proveedor</Boton> : null}
       </div>
       {isError ? <Aviso tipo="error">{mensajeDeError(error)}</Aviso> : null}

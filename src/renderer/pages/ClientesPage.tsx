@@ -17,7 +17,7 @@ export function ClientesPage(): React.JSX.Element {
   const [pestana, setPestana] = useState<Pestana>("clientes");
   return (
     <section aria-label="Clientes" className="space-y-4">
-      <h1 className="text-xl font-semibold text-white">Clientes</h1>
+      <h1 className="text-xl font-semibold text-ink">Clientes</h1>
       <Pestanas etiqueta="Secciones de clientes" activa={pestana} onCambio={setPestana} opciones={[{ id: "clientes", titulo: "Clientes" }, { id: "cobrar", titulo: "Cuentas por cobrar" }]} />
       {pestana === "clientes" ? <Lista /> : <PorCobrar />}
     </section>
@@ -34,7 +34,7 @@ function Lista(): React.JSX.Element {
   return (
     <div className="space-y-3">
       <div className="flex gap-3">
-        <input aria-label="Buscar cliente" placeholder="Nombre, cédula o RUC" value={busqueda} onChange={(e) => { setBusqueda(e.target.value); setPagina(1); }} className="h-10 flex-1 rounded-lg border border-slate-600 bg-slate-900 px-3 text-white" />
+        <input aria-label="Buscar cliente" placeholder="Nombre, cédula o RUC" value={busqueda} onChange={(e) => { setBusqueda(e.target.value); setPagina(1); }} className="h-10 flex-1 rounded-lg border border-slate-600 bg-slate-900 px-3 text-ink" />
         {tienePermiso(usuario, "clientes:crear") ? <Boton variante="primario" onClick={() => setEdicion({ cliente: null })}>Nuevo cliente</Boton> : null}
       </div>
       {isError ? <Aviso tipo="error">{mensajeDeError(error)}</Aviso> : null}

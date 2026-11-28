@@ -37,7 +37,7 @@ export function SeccionUsuarios(): React.JSX.Element {
     <div className="max-w-5xl space-y-4">
       <p className="text-sm text-slate-400">Las personas que usan el sistema. No se borran: se desactivan, y su historial (ventas, turnos) se conserva.</p>
       <div className="flex flex-wrap gap-3">
-        <input aria-label="Buscar usuario" placeholder="Usuario, nombre o cédula" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} className="h-10 min-w-56 flex-1 rounded-lg border border-slate-600 bg-slate-900 px-3 text-white" />
+        <input aria-label="Buscar usuario" placeholder="Usuario, nombre o cédula" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} className="h-10 min-w-56 flex-1 rounded-lg border border-slate-600 bg-slate-900 px-3 text-ink" />
         <div className="w-44">
           <Seleccion etiqueta="Estado" valor={estado} onCambio={setEstado} opciones={[{ valor: "", titulo: "Todos" }, { valor: "ACTIVO", titulo: "Activos" }, { valor: "INACTIVO", titulo: "Inactivos" }]} />
         </div>

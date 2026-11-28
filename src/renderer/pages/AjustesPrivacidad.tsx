@@ -47,7 +47,7 @@ export function SeccionPrivacidad(): React.JSX.Element {
   return (
     <div className="max-w-3xl space-y-5">
       <section aria-label="Reporte de errores" className="space-y-3 rounded-xl border border-slate-700 bg-slate-800 p-4">
-        <h2 className="text-base font-semibold text-white">Reporte de errores</h2>
+        <h2 className="text-base font-semibold text-ink">Reporte de errores</h2>
         <p className="text-sm text-slate-300">
           Si lo activa, cuando el programa falla se guarda un reporte técnico para ayudar a corregirlo. Está <strong>desactivado</strong> hasta que usted lo decida.
         </p>
@@ -77,7 +77,7 @@ export function SeccionPrivacidad(): React.JSX.Element {
 
       {e.consentimiento ? (
         <section aria-label="Reportes pendientes" className="space-y-3">
-          <h2 className="text-base font-semibold text-white">Reportes pendientes: {e.pendientes}</h2>
+          <h2 className="text-base font-semibold text-ink">Reportes pendientes: {e.pendientes}</h2>
           {!e.destinoConfigurado ? <Aviso tipo="info">Este equipo no tiene un servidor de destino configurado: los reportes se conservan aquí para que pueda revisarlos y no se envían a ninguna parte.</Aviso> : null}
           {e.ultimoEnvio !== null ? <p className="text-xs text-slate-400">Último envío: {fechaHora(e.ultimoEnvio)}</p> : null}
           <div className="flex flex-wrap gap-3">

@@ -17,7 +17,7 @@ export function InventarioPage(): React.JSX.Element {
   const [pestana, setPestana] = useState<Pestana>("productos");
   return (
     <section aria-label="Inventario" className="space-y-4">
-      <h1 className="text-xl font-semibold text-white">Inventario</h1>
+      <h1 className="text-xl font-semibold text-ink">Inventario</h1>
       <Pestanas etiqueta="Secciones del inventario" activa={pestana} onCambio={setPestana} opciones={[{ id: "productos", titulo: "Productos" }, { id: "alertas", titulo: "Alertas" }]} />
       {pestana === "productos" ? <Productos /> : <Alertas />}
     </section>
@@ -36,7 +36,7 @@ function Productos(): React.JSX.Element {
   return (
     <div className="space-y-3">
       <div className="flex gap-3">
-        <input aria-label="Buscar producto" placeholder="Nombre, código o código de barras" value={busqueda} onChange={(e) => { setBusqueda(e.target.value); setPagina(1); }} className="h-10 flex-1 rounded-lg border border-slate-600 bg-slate-900 px-3 text-white" />
+        <input aria-label="Buscar producto" placeholder="Nombre, código o código de barras" value={busqueda} onChange={(e) => { setBusqueda(e.target.value); setPagina(1); }} className="h-10 flex-1 rounded-lg border border-slate-600 bg-slate-900 px-3 text-ink" />
         {puedeCrear ? <Boton variante="primario" onClick={() => setModal({ tipo: "producto", producto: null })}>Nuevo producto</Boton> : null}
       </div>
       {isError ? <Aviso tipo="error">{mensajeDeError(error)}</Aviso> : null}
@@ -192,7 +192,7 @@ function VistaKardex({ producto, onCerrar }: { producto: ProductoGestion; onCerr
     <Modal titulo={`Kardex de ${producto.nombre}`} ancho="lg" ayuda="ESC cierra">
       {data !== undefined ? (
         <p className="mb-3 text-sm text-slate-300">
-          Existencia: <strong className="text-white">{cantidadTexto(data.producto.stockActual)}</strong> · Costo promedio: <strong className="text-white">{dinero(data.producto.costoPromedio)}</strong>
+          Existencia: <strong className="text-ink">{cantidadTexto(data.producto.stockActual)}</strong> · Costo promedio: <strong className="text-ink">{dinero(data.producto.costoPromedio)}</strong>
         </p>
       ) : null}
       {isError ? <Aviso tipo="error">{mensajeDeError(error)}</Aviso> : null}
@@ -223,12 +223,12 @@ function Alertas(): React.JSX.Element {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="mb-2 font-medium text-white">Stock bajo el mínimo</h2>
+        <h2 className="mb-2 font-medium text-ink">Stock bajo el mínimo</h2>
         <Tabla etiqueta="Productos bajo el mínimo" filas={stock.data?.items} clave={(a) => a.productoId} vacio="Todo el inventario está sobre su mínimo"
           columnas={[{ titulo: "Código", celda: (a) => a.codigo }, { titulo: "Producto", celda: (a) => a.nombre }, { titulo: "Existencia", derecha: true, celda: (a) => cantidadTexto(a.stockActual) }, { titulo: "Mínimo", derecha: true, celda: (a) => cantidadTexto(a.stockMinimo) }, { titulo: "Faltan", derecha: true, celda: (a) => cantidadTexto(a.faltante) }]} />
       </div>
       <div>
-        <h2 className="mb-2 font-medium text-white">Lotes vencidos y por vencer (30 días)</h2>
+        <h2 className="mb-2 font-medium text-ink">Lotes vencidos y por vencer (30 días)</h2>
         {venc.isError ? <Aviso tipo="info">{mensajeDeError(venc.error)}</Aviso> : (
           <Tabla etiqueta="Lotes por vencer" filas={[...(venc.data?.vencidos ?? []), ...(venc.data?.porVencer ?? [])]} clave={(l) => l.loteId} vacio="No hay lotes vencidos ni por vencer"
             columnas={[{ titulo: "Producto", celda: (l) => `${l.codigo} · ${l.nombre}` }, { titulo: "Lote", celda: (l) => l.numeroLote }, { titulo: "Existencia", derecha: true, celda: (l) => cantidadTexto(l.cantidadActual) }, { titulo: "Vence", celda: (l) => String(l.fechaVencimiento).slice(0, 10) }, { titulo: "Estado", celda: (l) => (l.diasRestantes < 0 ? <span className="text-red-300">Vencido hace {-l.diasRestantes} día(s)</span> : <span className="text-amber-300">Vence en {l.diasRestantes} día(s)</span>) }]} />

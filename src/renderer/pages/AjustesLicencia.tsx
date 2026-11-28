@@ -77,7 +77,7 @@ export function SeccionLicencia(): React.JSX.Element {
   return (
     <div className="max-w-2xl space-y-5">
       <section aria-label="Estado de la licencia" className="space-y-2 rounded-xl border border-slate-700 bg-slate-800 p-4 text-sm text-slate-200">
-        <h2 className="text-base font-semibold text-white">{TITULO[e.tipo]}</h2>
+        <h2 className="text-base font-semibold text-ink">{TITULO[e.tipo]}</h2>
         <Aviso tipo={TIPO_AVISO[e.tipo]}>{e.mensaje}</Aviso>
         {e.claveEnmascarada !== null ? (
           <dl className="grid grid-cols-[10rem_1fr] gap-x-3 gap-y-1">
@@ -92,7 +92,7 @@ export function SeccionLicencia(): React.JSX.Element {
       </section>
 
       <form aria-label="Activar licencia" noValidate className="space-y-3" onSubmit={(ev) => { ev.preventDefault(); setMensaje(null); activar.mutate(clave); }}>
-        <h2 className="text-sm font-semibold text-white">{tieneLicencia || e.tipo === "VENCIDA" ? "Usar otra clave" : "Activar licencia"}</h2>
+        <h2 className="text-sm font-semibold text-ink">{tieneLicencia || e.tipo === "VENCIDA" ? "Usar otra clave" : "Activar licencia"}</h2>
         <Campo etiqueta="Clave de activación" valor={clave} onCambio={(v) => { setClave(v.toUpperCase()); setMensaje(null); }} placeholder="XXXX-XXXX-XXXX-XXXX" />
         <p className="text-xs text-slate-400">Necesita conexión a internet. La clave se asocia a este equipo y al RUC de su empresa.</p>
         <Boton tipo="submit" variante="primario" deshabilitado={activar.isPending || clave.trim() === ""}>
@@ -111,7 +111,7 @@ export function SeccionLicencia(): React.JSX.Element {
           </div>
 
           <section aria-label="Equipos de la licencia" className="space-y-2">
-            <h2 className="text-sm font-semibold text-white">Equipos</h2>
+            <h2 className="text-sm font-semibold text-ink">Equipos</h2>
             {dispositivos.isError ? (
               <p className="text-sm text-slate-400">No se pudo consultar la lista de equipos ahora ({mensajeDeError(dispositivos.error)}).</p>
             ) : dispositivos.data === undefined ? (
@@ -143,7 +143,7 @@ export function SeccionLicencia(): React.JSX.Element {
           </section>
 
           <section aria-label="Desactivar este equipo" className="space-y-2 rounded-xl border border-slate-700 p-4">
-            <h2 className="text-sm font-semibold text-white">Desactivar este equipo</h2>
+            <h2 className="text-sm font-semibold text-ink">Desactivar este equipo</h2>
             <p className="text-xs text-slate-400">Libera la plaza de este equipo para usarla en otro (por ejemplo, al cambiar de computadora). Necesita conexión a internet y este equipo dejará de poder vender.</p>
             <Casilla etiqueta="Entiendo que este equipo dejará de poder vender" marcada={confirmarDesactivar} onCambio={setConfirmarDesactivar} />
             <Boton variante="peligro" deshabilitado={!confirmarDesactivar || desactivar.isPending} onClick={() => desactivar.mutate()}>

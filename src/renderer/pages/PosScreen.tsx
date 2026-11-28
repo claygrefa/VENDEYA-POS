@@ -385,13 +385,13 @@ export function PosScreen(): React.JSX.Element {
   };
 
   if (estadoAlmacen !== "listo") {
-    return <div className="p-6 text-white" role="status">{estadoAlmacen === "leyendo"
+    return <div className="p-6 text-ink" role="status">{estadoAlmacen === "leyendo"
       ? "Revisando cobros pendientes…" : "No se pudo leer el registro de cobros de esta caja. Vuelve a abrir la aplicación."}</div>;
   }
 
   if (pendiente !== null && modal === null) {
     return (
-      <div className="flex flex-col items-start gap-4 p-6 text-white">
+      <div className="flex flex-col items-start gap-4 p-6 text-ink">
         <h1 className="text-xl font-semibold">Cobro pendiente de confirmación</h1>
         {errorCobro !== null && <Aviso tipo="error">{errorCobro}</Aviso>}
         <button type="button" className="btn-primary" disabled={enviando} onClick={() => void enviarCobro(pendiente)}>
@@ -410,7 +410,7 @@ export function PosScreen(): React.JSX.Element {
                 El servidor verificará que el cobro no se haya registrado. Si no se registró, se cancela y no se creará ninguna venta con esta clave; el carrito se conserva. Si ya se registró, se le avisará y deberá usar «Recuperar cobro».
               </p>
               <div className="flex justify-end gap-2">
-                <button type="button" className="rounded-lg bg-slate-700 px-4 py-2 text-sm text-white" onClick={() => setConfirmandoDescarte(false)}>Cancelar</button>
+                <button type="button" className="rounded-lg bg-slate-700 px-4 py-2 text-sm text-ink" onClick={() => setConfirmandoDescarte(false)}>Cancelar</button>
                 <button type="button" className="rounded-lg bg-red-700 px-4 py-2 text-sm text-white" disabled={enviando} onClick={() => void descartarPendiente()}>Sí, descartar</button>
               </div>
             </div>
@@ -421,7 +421,7 @@ export function PosScreen(): React.JSX.Element {
   }
 
   return (
-    <div className="flex h-full flex-col bg-slate-900 text-white" data-tactil={tactil ? "si" : "no"}>
+    <div className="flex h-full flex-col bg-slate-900 text-ink" data-tactil={tactil ? "si" : "no"}>
       {aviso !== null ? (
         <div className="px-4 pt-2">
           <Aviso tipo={aviso.tipo}>{aviso.texto}</Aviso>
@@ -450,13 +450,13 @@ export function PosScreen(): React.JSX.Element {
                 onCliente={() => setModal({ tipo: "cliente" })}
               />
               <div className="mt-3 grid shrink-0 grid-cols-3 gap-2 text-sm">
-                <button type="button" onClick={() => setModal({ tipo: "cliente" })} className={`rounded-xl bg-slate-700 px-2 text-white hover:bg-slate-600 ${tactil ? "min-h-14" : "min-h-10"}`}>
+                <button type="button" onClick={() => setModal({ tipo: "cliente" })} className={`rounded-xl bg-slate-700 px-2 text-ink hover:bg-slate-600 ${tactil ? "min-h-14" : "min-h-10"}`}>
                   Cliente (F4)
                 </button>
-                <button type="button" onClick={abrirEnEspera} className={`inline-flex items-center justify-center gap-1 rounded-xl border border-slate-600 px-2 text-white hover:bg-slate-700 ${tactil ? "min-h-14" : "min-h-10"}`}>
+                <button type="button" onClick={abrirEnEspera} className={`inline-flex items-center justify-center gap-1 rounded-xl border border-slate-600 px-2 text-ink hover:bg-slate-700 ${tactil ? "min-h-14" : "min-h-10"}`}>
                   <Pause className="h-4 w-4 shrink-0" aria-hidden="true" /> En espera (F6)
                 </button>
-                <button type="button" onClick={() => carrito.getState().vaciar()} disabled={lineas.length === 0} className={`rounded-xl bg-slate-700 px-2 text-white hover:bg-slate-600 disabled:opacity-40 ${tactil ? "min-h-14" : "min-h-10"}`}>
+                <button type="button" onClick={() => carrito.getState().vaciar()} disabled={lineas.length === 0} className={`rounded-xl bg-slate-700 px-2 text-ink hover:bg-slate-600 disabled:opacity-40 ${tactil ? "min-h-14" : "min-h-10"}`}>
                   Vaciar
                 </button>
                 <button type="button" onClick={abrirCobro} disabled={lineas.length === 0} className={`col-span-3 rounded-xl bg-emerald-700 font-semibold text-white hover:bg-emerald-600 disabled:opacity-40 ${tactil ? "min-h-14 text-lg" : "min-h-11 text-base"}`}>
@@ -533,7 +533,7 @@ function Confirmacion({ venta, onNueva, onReimprimir, onGuardar }: { venta: Vent
     <section aria-label="Venta registrada" className="flex flex-1 flex-col justify-between">
       <div className="space-y-3">
         <Aviso tipo="exito">Venta {venta.numero} registrada</Aviso>
-        <p className="text-4xl font-bold text-white" data-testid="total-confirmado">
+        <p className="text-4xl font-bold text-ink" data-testid="total-confirmado">
           {dinero(venta.total + venta.propina)}
         </p>
         {cambio > 0 ? (
@@ -552,11 +552,11 @@ function Confirmacion({ venta, onNueva, onReimprimir, onGuardar }: { venta: Vent
       </div>
       <div className="mt-4 grid grid-cols-2 gap-2">
         {venta.comprobante !== null ? (
-          <button type="button" onClick={onGuardar} className="col-span-2 h-12 rounded-xl border border-slate-500 text-white hover:bg-slate-700">
+          <button type="button" onClick={onGuardar} className="col-span-2 h-12 rounded-xl border border-slate-500 text-ink hover:bg-slate-700">
             Guardar factura (PDF)
           </button>
         ) : null}
-        <button type="button" onClick={onReimprimir} className="h-12 rounded-xl bg-slate-700 text-white">
+        <button type="button" onClick={onReimprimir} className="h-12 rounded-xl bg-slate-700 text-ink">
           Reimprimir ticket
         </button>
         <button type="button" data-autofocus autoFocus onClick={onNueva} className="h-12 rounded-xl bg-brand-600 font-semibold text-white">

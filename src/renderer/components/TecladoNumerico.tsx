@@ -29,7 +29,7 @@ export function TecladoNumerico({ valor, onCambio, decimales = true }: Props): R
           tabIndex={-1}
           aria-label={t === "⌫" ? "Borrar" : t === "." ? "Punto decimal" : t}
           onClick={() => pulsar(t)}
-          className="h-14 rounded-xl bg-slate-700 text-xl font-semibold text-white active:bg-slate-600"
+          className="h-14 rounded-xl bg-slate-700 text-xl font-semibold text-ink active:bg-slate-600"
         >
           {t}
         </button>
